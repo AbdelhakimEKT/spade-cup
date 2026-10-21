@@ -8,6 +8,10 @@ export interface Tournament {
   readonly slug: string;
   readonly name: string;
   readonly status: TournamentStatus;
+  readonly organizer: string;
+  readonly referees: readonly string[];
+  /** Règlement affiché sous le titre. */
+  readonly rules: string;
   readonly clans: readonly ClanRef[];
   /** `null` tant que les inscriptions ne sont pas closes (pas encore de tirage). */
   readonly bracket: Bracket | null;

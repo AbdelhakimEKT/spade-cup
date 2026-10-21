@@ -11,11 +11,18 @@ async function render(slug: string) {
 }
 
 describe('TournamentPage', () => {
-  it('affiche le tournoi, ses règles, la mention « démo » et l’arbre', async () => {
+  it('en-tête : nom, tour en cours, règles et mention « démo »', async () => {
     const el = await render('demo');
     expect(el.querySelector('h1')?.textContent).toBe('Tournoi de démonstration');
-    expect(el.textContent).toContain('HDV18 uniquement · 5 contre 5');
+    expect(el.querySelector('.badge')?.textContent?.trim()).toBe('Quarts de finale');
+    expect(el.querySelector('.meta')?.textContent).toContain('5 contre 5');
+    expect(el.querySelector('.meta')?.textContent).toContain('HDV 18');
     expect(el.textContent).toContain('les clans et les scores sont fictifs');
+  });
+
+  it('met le match en cours à la une, puis affiche l’arbre', async () => {
+    const el = await render('demo');
+    expect(el.querySelector('sc-featured-match')?.textContent).toContain('Les Pikachus');
     expect(el.querySelector('sc-bracket-view')).not.toBeNull();
   });
 

@@ -121,16 +121,50 @@ export function recordResult(
   return { ...bracket, matches: advance(bracket.matches, updated) };
 }
 
+/** Signale qu'une guerre amicale a commencé : le match passe « en cours ». */
+export function startMatch(bracket: Bracket, id: string): Bracket {
+  const match = bracket.matches.find((m) => m.id === id);
+  if (!match) throw new Error(`Match inconnu : ${id}.`);
+  if (!match.home || !match.away) throw new Error(`Le match ${id} n'a pas encore ses deux clans.`);
+  if (match.status !== 'pending') throw new Error(`Le match ${id} n'est pas en attente.`);
+  return {
+    ...bracket,
+    matches: bracket.matches.map((m) => (m.id === id ? { ...m, status: 'live' as const } : m)),
+  };
+}
+
 /** Le clan vainqueur d'un match, ou `null` s'il n'est pas encore connu. */
 export function winnerOf(match: BracketMatch): ClanRef | null {
   if (!match.winner) return null;
   return match.winner === 'home' ? match.home : match.away;
 }
 
+/**
+ * Le tour en cours : celui du premier match en cours ou prêt à être joué.
+ * Une fois tout joué, c'est le dernier tour (la finale).
+ */
+export function currentRound(bracket: Bracket): number {
+  const ready = bracket.matches.find(
+    (m) => (m.status === 'pending' || m.status === 'live') && m.home && m.away,
+  );
+  return ready?.round ?? bracket.roundCount;
+}
+
+/** Le match à mettre à la une : le premier qui se joue en ce moment. */
+export function liveMatch(bracket: Bracket): BracketMatch | null {
+  return bracket.matches.find((m) => m.status === 'live') ?? null;
+}
+
 /** Le champion, une fois la finale jouée. */
 export function championOf(bracket: Bracket): ClanRef | null {
   const final = bracket.matches.find((m) => m.round === bracket.roundCount);
   return final ? winnerOf(final) : null;
+}
+
+/** Version courte pour les en-têtes de colonnes : « Huitièmes », « Quarts », « Demis ». */
+export function roundShortLabel(round: number, roundCount: number): string {
+  const labels = ['Finale', 'Demis', 'Quarts', 'Huitièmes', 'Seizièmes'];
+  return labels[roundCount - round] ?? `Tour ${round}`;
 }
 
 /** « Finale », « Demi-finales », « Quarts de finale »… selon la profondeur. */

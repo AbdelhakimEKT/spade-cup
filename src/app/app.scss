@@ -4,6 +4,13 @@
   min-height: 100dvh;
 }
 
+// Le contenu passe devant les éclairs décoratifs (z-index 0).
+.page,
+sc-site-footer {
+  position: relative;
+  z-index: 1;
+}
+
 .page {
   flex: 1;
   width: 100%;

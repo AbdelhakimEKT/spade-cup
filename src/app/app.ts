@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { BrandBolts } from './layout/brand-bolts/brand-bolts';
 import { SiteFooter } from './layout/site-footer/site-footer';
 import { SiteHeader } from './layout/site-header/site-header';
 
@@ -10,7 +11,7 @@ import { SiteHeader } from './layout/site-header/site-header';
  */
 @Component({
   selector: 'sc-root',
-  imports: [RouterOutlet, SiteHeader, SiteFooter],
+  imports: [RouterOutlet, BrandBolts, SiteHeader, SiteFooter],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

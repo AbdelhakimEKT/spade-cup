@@ -1,8 +1,8 @@
 <div class="toolbar">
-  <div class="switch" role="group" aria-label="Affichage de l'arbre">
+  <div class="tabs" role="group" aria-label="Affichage de l'arbre">
     <button
       type="button"
-      class="switch__btn"
+      class="tab"
       [attr.aria-pressed]="mode() === 'full'"
       (click)="mode.set('full')"
     >
@@ -10,7 +10,7 @@
     </button>
     <button
       type="button"
-      class="switch__btn"
+      class="tab"
       [attr.aria-pressed]="mode() === 'round'"
       (click)="mode.set('round')"
     >
@@ -18,54 +18,98 @@
     </button>
   </div>
   <p class="toolbar__current">
-    Tour en cours : <strong>{{ rounds()[currentRound() - 1].label }}</strong>
+    Tour en cours : <strong>{{ currentRoundLabel() }}</strong>
   </p>
 </div>
 
-@if (mode() === 'full') {
-  <!-- Région défilable : focusable pour qu'on puisse la faire défiler au clavier. -->
-  <div class="scroller" tabindex="0" role="region" aria-label="Arbre complet">
-    <div class="bracket" [style.--round-count]="rounds().length">
-      @for (round of rounds(); track round.number; let first = $first, last = $last) {
-        <section
-          class="round"
-          [class.round--first]="first"
-          [class.round--last]="last"
-          [attr.aria-label]="round.label"
-        >
-          <h3 class="round__title">{{ round.label }}</h3>
-          <div class="round__body">
-            @for (pair of round.pairs; track $index) {
-              <div class="pair" [class.pair--single]="pair.length === 1">
-                @for (match of pair; track match.id) {
-                  <div class="slot">
-                    <sc-match-card [match]="match" />
+<section class="panel" aria-label="Arbre du tournoi">
+  <!-- Grand pique en filigrane derrière la finale -->
+  <svg class="panel__spade" viewBox="-12 -13 24 26" aria-hidden="true">
+    <path
+      d="M0,-12 C-10,-2 -12,4 -6,7 C-3,9 -1,7 0,5 C1,7 3,9 6,7 C12,4 10,-2 0,-12 Z M-1,6 L-3,12 L3,12 L1,6 Z"
+    />
+  </svg>
+
+  @if (mode() === 'full') {
+    <!-- Défilable au clavier : la région peut recevoir le focus. -->
+    <div
+      class="scroller"
+      tabindex="0"
+      role="region"
+      aria-label="Arbre complet, défilable horizontalement"
+    >
+      <div
+        class="bracket"
+        [class.bracket--solo]="sideColumnCount() === 0"
+        [style.--side-cols]="sideColumnCount()"
+      >
+        @for (col of columns(); track col.key) {
+          @if (col.kind === 'side') {
+            <div
+              class="col"
+              [class.col--left]="col.side === 'left'"
+              [class.col--right]="col.side === 'right'"
+              [class.col--first]="col.round === 1"
+            >
+              <h3 class="col__title">{{ col.title }}</h3>
+              <div class="col__body">
+                @for (pair of col.pairs; track $index) {
+                  <div class="pair" [class.pair--single]="pair.length === 1">
+                    @for (slot of pair; track slot.match.id) {
+                      <div
+                        class="slot"
+                        [class.slot--out-hot]="slot.outHot"
+                        [class.slot--in-hot]="slot.inHot"
+                      >
+                        <sc-match-card [match]="slot.match" />
+                      </div>
+                    }
                   </div>
                 }
               </div>
-            }
-          </div>
-        </section>
-      }
+            </div>
+          } @else {
+            <div class="col col--center">
+              <h3 class="col__title"><span class="visually-hidden">Finale</span></h3>
+              <div class="col__body">
+                <div
+                  class="final"
+                  [class.final--hot-left]="col.final.home !== null"
+                  [class.final--hot-right]="col.final.away !== null"
+                  [class.final--solo]="sideColumnCount() === 0"
+                >
+                  <div class="final__head" aria-hidden="true">
+                    <svg class="trophy" viewBox="0 0 64 64">
+                      <defs>
+                        <linearGradient id="sc-gold" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0" stop-color="#ffe08a" />
+                          <stop offset=".55" stop-color="#f2b632" />
+                          <stop offset="1" stop-color="#b9781a" />
+                        </linearGradient>
+                      </defs>
+                      <path fill="url(#sc-gold)" d="M18 6h28v14c0 9-6 16-14 16S18 29 18 20z" />
+                      <path
+                        fill="none"
+                        stroke="url(#sc-gold)"
+                        stroke-width="4"
+                        d="M18 11H9c0 9 4 14 10 15M46 11h9c0 9-4 14-10 15"
+                      />
+                      <rect x="28" y="35" width="8" height="10" fill="url(#sc-gold)" />
+                      <rect x="20" y="45" width="24" height="5" rx="1" fill="url(#sc-gold)" />
+                      <rect x="16" y="50" width="32" height="7" rx="2" fill="url(#sc-gold)" />
+                      <path fill="#fff" opacity=".35" d="M23 9h5v13c0 5 2 8 4 10-5-1-9-5-9-11z" />
+                    </svg>
+                    <p class="final__label">Finale</p>
+                  </div>
+                  <sc-match-card [match]="col.final" [final]="true" />
+                </div>
+              </div>
+            </div>
+          }
+        }
+      </div>
     </div>
-  </div>
-} @else {
-  <div class="round-picker" role="group" aria-label="Choisir un tour">
-    @for (round of rounds(); track round.number) {
-      <button
-        type="button"
-        class="round-picker__btn"
-        [attr.aria-pressed]="round.number === selectedRound()"
-        (click)="selectedRound.set(round.number)"
-      >
-        {{ round.label }}
-      </button>
-    }
-  </div>
-
-  <ol class="round-list" [attr.aria-label]="selected().label">
-    @for (match of selected().matches; track match.id) {
-      <li><sc-match-card [match]="match" /></li>
-    }
-  </ol>
-}
+  } @else {
+    <sc-round-view class="rounds" [bracket]="bracket()" />
+  }
+</section>

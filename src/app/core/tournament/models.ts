@@ -17,6 +17,8 @@ export interface ClanRef {
   /** Tag Clash of Clans, avec le « # ». */
   readonly tag: string;
   readonly name: string;
+  /** Blason officiel du clan (fourni par l'API du jeu), s'il est connu. */
+  readonly badgeUrl?: string;
 }
 
 /** Ce qu'un camp a fait pendant la guerre amicale. */
@@ -31,8 +33,10 @@ export interface SideScore {
 export type Side = 'home' | 'away';
 
 export type MatchStatus =
-  /** En attente d'adversaire(s) ou de résultat. */
+  /** En attente d'adversaire(s), ou pas encore commencé. */
   | 'pending'
+  /** La guerre amicale est en train de se jouer. */
+  | 'live'
   /** Un seul clan : il est qualifié d'office (exempt). */
   | 'bye'
   /** Résultat connu. */

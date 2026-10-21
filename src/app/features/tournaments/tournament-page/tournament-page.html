@@ -1,17 +1,78 @@
 @if (tournament(); as t) {
+  @if (t.isDemo) {
+    <p class="demo-note">Démonstration : les clans et les scores sont fictifs.</p>
+  }
+
   <header class="head">
-    @if (t.isDemo) {
-      <p class="demo-note">Démonstration : les clans et les scores sont fictifs.</p>
-    }
-    <div class="head__title">
-      <h1>{{ t.name }}</h1>
-      <span class="chip">{{ statusLabel[t.status] }}</span>
+    <img
+      class="head__logo"
+      ngSrc="brand/logo-rond-160.webp"
+      width="120"
+      height="120"
+      alt=""
+      priority
+    />
+    <div class="head__info">
+      <div class="head__title">
+        <h1>{{ t.name }}</h1>
+        <span class="badge">{{ badge() }}</span>
+      </div>
+      <ul class="meta">
+        <li>
+          Organisé par <b>{{ t.organizer }}</b>
+        </li>
+        @if (t.referees.length) {
+          <li>
+            Arbitres : <b>{{ t.referees.join(', ') }}</b>
+          </li>
+        }
+        <li>
+          <b>{{ rules.teamSize }} contre {{ rules.teamSize }}</b>
+        </li>
+        <li>
+          <b>{{ t.clans.length }} clans</b>
+        </li>
+        <li>
+          Réservé aux <b>HDV {{ rules.townHallLevel }}</b>
+        </li>
+        <li>Tirage au sort</li>
+      </ul>
+      <p class="rules-text">{{ t.rules }}</p>
     </div>
-    <p class="head__meta">
-      HDV{{ rules.townHallLevel }} uniquement · {{ rules.teamSize }} contre {{ rules.teamSize }} ·
-      {{ t.clans.length }} clans · tirage au sort
-    </p>
+    <button type="button" class="copy" (click)="copyLink()">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+        <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+      </svg>
+      @switch (copyState()) {
+        @case ('copied') {
+          Lien copié
+        }
+        @case ('failed') {
+          Copie impossible
+        }
+        @default {
+          Copier le lien
+        }
+      }
+    </button>
   </header>
+
+  <!-- Annonce le résultat de la copie aux lecteurs d'écran. -->
+  <p class="visually-hidden" aria-live="polite">
+    {{ copyState() === 'copied' ? 'Lien du tournoi copié' : '' }}
+  </p>
+
+  @if (featured(); as f) {
+    <sc-featured-match [match]="f.match" [roundLabel]="f.label" />
+  }
 
   @if (t.bracket; as bracket) {
     <sc-bracket-view [bracket]="bracket" />

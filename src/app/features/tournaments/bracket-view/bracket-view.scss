@@ -1,13 +1,9 @@
 :host {
-  // Marge entre une colonne et la suivante : les traits de liaison y sont dessinés.
-  --link-gap: 16px;
-  --link-color: var(--color-line);
-
   display: grid;
-  gap: var(--space-4);
+  gap: 14px;
 }
 
-// ---------------------------------------------------------------- barre d'outils
+// ============================================================ barre d'outils
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -16,88 +12,115 @@
   gap: var(--space-3);
 }
 
-.toolbar__current {
-  color: var(--color-muted);
-  font-size: 0.9rem;
-
-  strong {
-    color: var(--color-text);
-  }
-}
-
-.switch,
-.round-picker {
+.tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  padding: var(--space-1);
+  gap: var(--space-2);
+}
+
+.tab {
+  padding: 11px 20px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: var(--color-panel);
-}
-
-.round-picker {
-  width: fit-content;
-  max-width: 100%;
-}
-
-.switch__btn,
-.round-picker__btn {
-  padding: var(--space-2) var(--space-4);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
   color: var(--color-muted);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font: 600 1rem var(--font-body);
   cursor: pointer;
-
-  &[aria-pressed='true'] {
-    background: var(--color-accent-strong);
-    color: var(--color-on-accent);
-  }
 
   &:hover:not([aria-pressed='true']) {
     color: var(--color-text);
   }
+
+  &[aria-pressed='true'] {
+    border-color: transparent;
+    background: linear-gradient(90deg, #8b2cff, #3a7bff 70%, #19d3ff);
+    box-shadow: 0 0 18px rgb(139 44 255 / 0.4);
+    color: #fff;
+  }
 }
 
-// ---------------------------------------------------------------- arbre complet
-.scroller {
-  overflow-x: auto;
-  padding-bottom: var(--space-2);
+.toolbar__current {
+  color: var(--color-muted);
+  font-size: 0.9375rem;
+
+  strong {
+    color: var(--color-text);
+    font-weight: 500;
+  }
+}
+
+// ============================================================ panneau
+.panel {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-panel-2);
+  border-radius: 18px;
+  background: var(--bracket-panel-bg);
 }
 
+.panel__spade {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  fill: var(--spade-watermark);
+  pointer-events: none;
+  transform: translate(-50%, -56%);
+}
+
+.scroller {
+  position: relative;
+  overflow-x: auto;
+}
+
+// ============================================================ arbre complet
+// Grille : [colonnes de gauche] [finale] [colonnes de droite]
 .bracket {
+  --link: 14px; // demi-espace entre deux colonnes : les traits y passent
+
   display: grid;
-  grid-template-columns: repeat(var(--round-count), minmax(240px, 1fr));
-  min-width: calc(var(--round-count) * 240px);
-  padding-block: var(--space-4);
+  grid-template-columns:
+    repeat(var(--side-cols), minmax(150px, 1fr))
+    minmax(180px, 1.1fr)
+    repeat(var(--side-cols), minmax(150px, 1fr));
+  min-width: calc(var(--side-cols) * 2 * 158px + 200px);
+  padding: 22px 10px 30px;
 }
 
-.round {
+// Deux clans seulement : la finale, seule au centre.
+.bracket--solo {
+  grid-template-columns: minmax(220px, 340px);
+  justify-content: center;
+  min-width: 0;
+}
+
+.col {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
-.round__title {
-  padding: 0 var(--link-gap) var(--space-3);
+.col--left {
+  --hot: var(--link-left);
+}
+
+.col--right {
+  --hot: var(--link-right);
+}
+
+.col__title {
+  height: 16px;
+  margin-bottom: 14px;
   color: var(--color-muted);
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
+  font: 600 0.8125rem var(--font-body);
+  letter-spacing: 0.09em;
   text-align: center;
   text-transform: uppercase;
 }
 
-// Toutes les colonnes ont la même hauteur, et chaque paire occupe la même part
-// de hauteur : le centre d'un match du tour N tombe pile au milieu des deux
-// matchs du tour N-1 qui l'alimentent.
-.round__body,
+// Toutes les colonnes ont la même hauteur (la grille les étire) et chaque paire
+// en occupe une part égale : le centre d'un match du tour N tombe donc pile au
+// milieu des deux matchs du tour N-1 qui l'alimentent.
+.col__body,
 .pair {
   display: flex;
   flex: 1;
@@ -113,43 +136,180 @@
   display: flex;
   flex: 1;
   align-items: center;
-  padding: var(--space-2) var(--link-gap);
+  padding: 9px var(--link);
+
+  > sc-match-card {
+    position: relative;
+    z-index: 1; // au-dessus des traits
+  }
 }
 
-// Traits de liaison
-.round:not(.round--last) .slot::after,
-.round:not(.round--first) .slot::before {
+// ------------------------------------------------------------ traits de liaison
+// Chaque match dessine lui-même ses traits avec deux pseudo-éléments :
+//   ::after  = trait SORTANT vers le tour suivant ;
+//   ::before = trait ENTRANT depuis le tour précédent.
+.slot::before,
+.slot::after {
   content: '';
   position: absolute;
+  border: 0 solid var(--link-idle);
+  pointer-events: none;
+}
+
+// Trait sortant. Dans une paire, il forme un « L » : horizontal jusqu'au bord
+// de la colonne, puis vertical jusqu'au milieu de la paire, où il rejoint le
+// trait de l'autre match.
+.slot::after {
+  width: var(--link);
+}
+
+.pair:not(.pair--single) .slot:first-child::after {
   top: 50%;
-  width: var(--link-gap);
-  border-top: 2px solid var(--link-color);
+  bottom: 0;
+  border-top-width: 2px;
 }
 
-.round:not(.round--last) .slot::after {
-  right: 0; // du match vers le bord droit de la colonne
+.pair:not(.pair--single) .slot:last-child::after {
+  top: 0;
+  bottom: 50%;
+  border-bottom-width: 2px;
 }
 
-.round:not(.round--first) .slot::before {
-  left: 0; // du bord gauche de la colonne vers le match
+.pair--single .slot::after {
+  top: 50%;
+  border-top-width: 2px;
 }
 
-// Trait vertical qui relie les deux matchs d'une paire.
-.round:not(.round--last) .pair:not(.pair--single)::after {
-  content: '';
-  position: absolute;
-  top: 25%;
+// Moitié gauche : les traits partent vers la droite. Moitié droite : en miroir.
+.col--left .slot::after {
   right: 0;
-  bottom: 25%;
-  border-right: 2px solid var(--link-color);
 }
 
-// ---------------------------------------------------------------- tour par tour
-.round-list {
+.col--left .pair:not(.pair--single) .slot::after {
+  border-right-width: 2px;
+}
+
+.col--right .slot::after {
+  left: 0;
+}
+
+.col--right .pair:not(.pair--single) .slot::after {
+  border-left-width: 2px;
+}
+
+// Trait entrant (pas au premier tour, il n'y a rien avant).
+.col:not(.col--first) .slot::before {
+  top: 50%;
+  width: var(--link);
+  border-top-width: 2px;
+}
+
+.col--left:not(.col--first) .slot::before {
+  left: 0;
+}
+
+.col--right:not(.col--first) .slot::before {
+  right: 0;
+}
+
+// Traits allumés : le chemin déjà parcouru par les vainqueurs.
+.slot--out-hot::after,
+.slot--in-hot::before {
+  border-color: var(--hot);
+  filter: drop-shadow(0 0 3px var(--hot));
+}
+
+// ------------------------------------------------------------ finale au centre
+.col--center .col__body {
+  position: relative;
+  min-height: 200px;
+}
+
+.final {
+  position: absolute;
+  inset: 0;
+
+  > sc-match-card {
+    position: absolute;
+    top: 50%; // à la hauteur exacte des deux demi-finales
+    right: var(--link);
+    left: var(--link);
+    z-index: 1;
+    transform: translateY(-50%);
+  }
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: var(--link);
+    border-top: 2px solid var(--link-idle);
+  }
+
+  &::before {
+    left: 0;
+  }
+
+  &::after {
+    right: 0;
+  }
+}
+
+.final--hot-left::before {
+  border-color: var(--link-left);
+  filter: drop-shadow(0 0 3px var(--link-left));
+}
+
+.final--hot-right::after {
+  border-color: var(--link-right);
+  filter: drop-shadow(0 0 3px var(--link-right));
+}
+
+.final__head {
+  position: absolute;
+  right: 0;
+  bottom: calc(50% + 52px); // au-dessus de la carte de la finale
+  left: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  justify-items: center;
+  gap: 6px;
+}
+
+.trophy {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 0 14px rgb(255 196 60 / 0.45));
+}
+
+.final__label {
+  color: var(--color-text);
+  font: 700 0.875rem var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+// Arbre réduit à la finale : plus besoin de positionnement absolu ni de traits.
+.final--solo {
+  position: static;
+  display: grid;
   gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+
+  > sc-match-card,
+  .final__head {
+    position: static;
+    transform: none;
+  }
+
+  &::before,
+  &::after {
+    display: none;
+  }
+}
+
+// ============================================================ tour par tour
+// Seulement la marge intérieure : la mise en page (grille) appartient à RoundView.
+.rounds {
+  position: relative;
+  padding: 22px;
 }

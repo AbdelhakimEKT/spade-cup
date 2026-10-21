@@ -2,10 +2,14 @@ import {
   bracketSize,
   championOf,
   createBracket,
+  currentRound,
+  liveMatch,
   recordResult,
   roundLabel,
+  roundShortLabel,
   seedOrder,
   shuffle,
+  startMatch,
 } from './bracket';
 import { Bracket, ClanRef } from './models';
 
@@ -132,5 +136,54 @@ describe('roundLabel', () => {
       'Demi-finales',
       'Finale',
     ]);
+  });
+});
+
+describe('startMatch', () => {
+  it('passe un match prêt en « en cours », sans toucher aux autres', () => {
+    const b = startMatch(createBracket(clans(4), noShuffle), 'R1-M1');
+    expect(match(b, 'R1-M1').status).toBe('live');
+    expect(match(b, 'R1-M2').status).toBe('pending');
+  });
+
+  it('un match en cours peut recevoir son résultat', () => {
+    let b = startMatch(createBracket(clans(4), noShuffle), 'R1-M1');
+    b = recordResult(b, 'R1-M1', 'home');
+    expect(match(b, 'R1-M1').status).toBe('done');
+  });
+
+  it('refuse de démarrer un match incomplet ou déjà commencé', () => {
+    const b = createBracket(clans(4), noShuffle);
+    expect(() => startMatch(b, 'R2-M1')).toThrow('pas encore ses deux clans');
+    expect(() => startMatch(startMatch(b, 'R1-M1'), 'R1-M1')).toThrow('pas en attente');
+  });
+});
+
+describe('roundShortLabel', () => {
+  it('donne les libellés courts des colonnes', () => {
+    expect([1, 2, 3, 4].map((r) => roundShortLabel(r, 4))).toEqual([
+      'Huitièmes',
+      'Quarts',
+      'Demis',
+      'Finale',
+    ]);
+  });
+});
+
+describe('currentRound et liveMatch', () => {
+  it('le tour en cours avance avec les résultats', () => {
+    let b = createBracket(clans(4), noShuffle);
+    expect(currentRound(b)).toBe(1);
+    b = recordResult(b, 'R1-M1', 'home');
+    b = recordResult(b, 'R1-M2', 'home');
+    expect(currentRound(b)).toBe(2);
+    b = recordResult(b, 'R2-M1', 'home');
+    expect(currentRound(b)).toBe(2); // tout est joué : on reste sur la finale
+  });
+
+  it('trouve le match en cours, ou rien', () => {
+    const b = createBracket(clans(4), noShuffle);
+    expect(liveMatch(b)).toBeNull();
+    expect(liveMatch(startMatch(b, 'R1-M2'))?.id).toBe('R1-M2');
   });
 });

@@ -26,6 +26,19 @@
   --color-cyan: #0a8fb3;
   --color-win: #12a854;
   --color-header-bg: rgb(247 245 252 / 0.85);
+
+  // Arbre
+  --bracket-panel-bg: rgb(255 255 255 / 0.9);
+  --card-bg: linear-gradient(180deg, #ffffff, #f8f6fd);
+  --card-border: #e2dcf2;
+  --card-divider: #ece8f6;
+  --link-idle: #d9d3ec;
+  --link-left: #6a1fd6;
+  --link-right: #12a854;
+  --color-gold: #b9781a;
+  --title-gradient: linear-gradient(90deg, #17152b 0%, #6a1fd6 60%, #0a8fb3 100%);
+  --spade-watermark: rgb(23 21 43 / 0.05);
+  --bolt-opacity: 0.35;
 }
 
 :root {
@@ -43,6 +56,19 @@
   --color-cyan: #19d3ff;
   --color-win: #35e07a;
   --color-header-bg: rgb(6 6 12 / 0.82);
+
+  // ---- Arbre (valeurs reprises de la maquette spade-cup-bracket.html)
+  --bracket-panel-bg: rgb(10 10 22 / 0.88);
+  --card-bg: linear-gradient(180deg, #14142c, #0f0f22);
+  --card-border: #2c2c58;
+  --card-divider: #23234a;
+  --link-idle: #2f2f5c;
+  --link-left: #8b2cff; // moitié gauche de l'arbre : violet
+  --link-right: #35e07a; // moitié droite : vert
+  --color-gold: #e9b949; // la finale
+  --title-gradient: linear-gradient(90deg, #ffffff 0%, #e4d6ff 55%, #c9fff0 100%);
+  --spade-watermark: rgb(255 255 255 / 0.07);
+  --bolt-opacity: 0.75;
 
   // ---- Communs aux deux thèmes
   --gradient-brand: linear-gradient(90deg, #8b2cff, #19d3ff, #35e07a);
@@ -64,7 +90,7 @@
   --space-7: 48px;
   --space-8: 72px;
 
-  --page-max-width: 1120px;
+  --page-max-width: 1280px; // 7 colonnes pour un arbre de 16 clans en miroir
   --page-gutter: clamp(16px, 4vw, 32px);
 }
 

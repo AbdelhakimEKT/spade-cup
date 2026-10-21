@@ -1,7 +1,8 @@
-import { DecimalPipe } from '@angular/common';
-import { Component, computed, input } from '@angular/core';
+import { formatNumber } from '@angular/common';
+import { Component, LOCALE_ID, computed, inject, input } from '@angular/core';
 import { winnerOf } from '../../../core/tournament/bracket';
 import { BracketMatch, ClanRef, Side, SideScore } from '../../../core/tournament/models';
+import { ClanAvatar } from '../ui/clan-avatar/clan-avatar';
 
 interface Row {
   readonly side: Side;
@@ -11,34 +12,52 @@ interface Row {
   readonly isLoser: boolean;
 }
 
-/** Un match de l'arbre : les deux clans, le score, le vainqueur. */
+/** Un match de l'arbre : les deux clans, les étoiles, le vainqueur. */
 @Component({
   selector: 'sc-match-card',
-  imports: [DecimalPipe],
-  // Petit composant : le HTML est écrit ici plutôt que dans un fichier à part.
+  imports: [ClanAvatar],
   template: `
     <article
-      class="card"
-      [class.card--done]="match().status === 'done'"
+      class="match"
+      [class.match--live]="match().status === 'live'"
+      [class.match--final]="final()"
       [attr.aria-label]="ariaLabel()"
     >
       @for (row of rows(); track row.side) {
-        <div class="row" [class.row--winner]="row.isWinner" [class.row--loser]="row.isLoser">
+        <div
+          class="team"
+          [class.team--win]="row.isWinner"
+          [class.team--lose]="row.isLoser"
+          [class.team--tbd]="!row.clan"
+        >
           @if (row.clan) {
-            <span class="row__name">{{ row.clan.name }}</span>
+            <sc-clan-avatar [clan]="row.clan" />
+            <span class="team__name" [title]="row.clan.name + ' · ' + row.clan.tag">{{
+              row.clan.name
+            }}</span>
+            @if (row.score) {
+              <span class="team__score" aria-hidden="true">
+                {{ row.score.stars }}
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21l1.4-7L2 9.3l7-.8z" />
+                </svg>
+              </span>
+            }
           } @else {
-            <span class="row__name row__name--empty">{{ emptyLabel() }}</span>
-          }
-          @if (row.score) {
-            <span class="row__score" aria-hidden="true">
-              <span class="row__stars">{{ row.score.stars }}★</span>
-              <span class="row__pct">{{ row.score.destruction | number: '1.0-1' }} %</span>
-            </span>
+            <span class="team__name">{{ emptyLabel() }}</span>
           }
         </div>
       }
       @if (statusText()) {
-        <p class="card__status" aria-hidden="true">{{ statusText() }}</p>
+        <div class="status" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          {{ statusText() }}
+        </div>
+      } @else if (tieBreak()) {
+        <div class="status status--info" aria-hidden="true">{{ tieBreak() }}</div>
       }
     </article>
   `,
@@ -46,6 +65,8 @@ interface Row {
 })
 export class MatchCard {
   readonly match = input.required<BracketMatch>();
+  /** La finale a droit à sa bordure dorée. */
+  readonly final = input(false);
 
   protected readonly rows = computed<Row[]>(() => {
     const m = this.match();
@@ -59,6 +80,22 @@ export class MatchCard {
     return [row('home'), row('away')];
   });
 
+  private readonly locale = inject(LOCALE_ID);
+
+  /**
+   * À égalité d'étoiles, on explique ce qui a départagé les clans, dans le
+   * bandeau sous la carte (sur la ligne du clan, il prenait la place du nom).
+   */
+  protected readonly tieBreak = computed(() => {
+    const { score, status } = this.match();
+    if (status !== 'done' || !score || score.home.stars !== score.away.stars) return '';
+    if (score.home.destruction !== score.away.destruction) {
+      const pct = (value: number) => formatNumber(value, this.locale, '1.0-1');
+      return `au % : ${pct(score.home.destruction)} – ${pct(score.away.destruction)}`;
+    }
+    return 'départagé au temps';
+  });
+
   /** Place vide : exempt au premier tour, sinon vainqueur pas encore connu. */
   protected readonly emptyLabel = computed(() =>
     this.match().round === 1 ? 'Exempt' : 'À déterminer',
@@ -66,8 +103,9 @@ export class MatchCard {
 
   protected readonly statusText = computed(() => {
     const m = this.match();
-    if (m.status === 'bye') return 'Qualifié d’office';
-    if (m.status === 'pending' && m.home && m.away) return 'À jouer';
+    if (m.status === 'live') return 'en cours';
+    if (m.status === 'bye') return 'qualifié d’office';
+    if (m.status === 'pending' && m.home && m.away) return 'en attente';
     return '';
   });
 
@@ -76,12 +114,11 @@ export class MatchCard {
     const m = this.match();
     const name = (clan: ClanRef | null) => clan?.name ?? this.emptyLabel();
     let text = `${name(m.home)} contre ${name(m.away)}`;
-    if (m.score) {
-      text += `, ${m.score.home.stars} étoiles à ${m.score.away.stars}`;
-    }
+    if (m.score) text += `, ${m.score.home.stars} étoiles à ${m.score.away.stars}`;
     const winner = winnerOf(m);
     if (m.status === 'done' && winner) text += `. Vainqueur : ${winner.name}`;
     if (m.status === 'bye' && winner) text += `. ${winner.name} est qualifié d’office`;
+    if (m.status === 'live') text += '. Match en cours';
     return text;
   });
 }
