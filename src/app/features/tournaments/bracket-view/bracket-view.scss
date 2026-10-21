@@ -1,0 +1,155 @@
+:host {
+  // Marge entre une colonne et la suivante : les traits de liaison y sont dessinés.
+  --link-gap: 16px;
+  --link-color: var(--color-line);
+
+  display: grid;
+  gap: var(--space-4);
+}
+
+// ---------------------------------------------------------------- barre d'outils
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.toolbar__current {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+
+  strong {
+    color: var(--color-text);
+  }
+}
+
+.switch,
+.round-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+}
+
+.round-picker {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.switch__btn,
+.round-picker__btn {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+
+  &[aria-pressed='true'] {
+    background: var(--color-accent-strong);
+    color: var(--color-on-accent);
+  }
+
+  &:hover:not([aria-pressed='true']) {
+    color: var(--color-text);
+  }
+}
+
+// ---------------------------------------------------------------- arbre complet
+.scroller {
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel-2);
+}
+
+.bracket {
+  display: grid;
+  grid-template-columns: repeat(var(--round-count), minmax(240px, 1fr));
+  min-width: calc(var(--round-count) * 240px);
+  padding-block: var(--space-4);
+}
+
+.round {
+  display: flex;
+  flex-direction: column;
+}
+
+.round__title {
+  padding: 0 var(--link-gap) var(--space-3);
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+// Toutes les colonnes ont la même hauteur, et chaque paire occupe la même part
+// de hauteur : le centre d'un match du tour N tombe pile au milieu des deux
+// matchs du tour N-1 qui l'alimentent.
+.round__body,
+.pair {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.pair {
+  position: relative;
+}
+
+.slot {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  padding: var(--space-2) var(--link-gap);
+}
+
+// Traits de liaison
+.round:not(.round--last) .slot::after,
+.round:not(.round--first) .slot::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: var(--link-gap);
+  border-top: 2px solid var(--link-color);
+}
+
+.round:not(.round--last) .slot::after {
+  right: 0; // du match vers le bord droit de la colonne
+}
+
+.round:not(.round--first) .slot::before {
+  left: 0; // du bord gauche de la colonne vers le match
+}
+
+// Trait vertical qui relie les deux matchs d'une paire.
+.round:not(.round--last) .pair:not(.pair--single)::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  right: 0;
+  bottom: 25%;
+  border-right: 2px solid var(--link-color);
+}
+
+// ---------------------------------------------------------------- tour par tour
+.round-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

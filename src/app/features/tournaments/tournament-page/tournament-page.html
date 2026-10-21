@@ -1,5 +1,28 @@
-<h1>Tournoi</h1>
-<p>
-  Arbre des matchs, clans inscrits et statistiques du tournoi <code>{{ slug() }}</code
-  >, bientôt ici.
-</p>
+@if (tournament(); as t) {
+  <header class="head">
+    @if (t.isDemo) {
+      <p class="demo-note">Démonstration : les clans et les scores sont fictifs.</p>
+    }
+    <div class="head__title">
+      <h1>{{ t.name }}</h1>
+      <span class="chip">{{ statusLabel[t.status] }}</span>
+    </div>
+    <p class="head__meta">
+      HDV{{ rules.townHallLevel }} uniquement · {{ rules.teamSize }} contre {{ rules.teamSize }} ·
+      {{ t.clans.length }} clans · tirage au sort
+    </p>
+  </header>
+
+  @if (t.bracket; as bracket) {
+    <sc-bracket-view [bracket]="bracket" />
+  } @else {
+    <p class="pending">
+      Les inscriptions se font sur le Discord. L'arbre sera tiré au sort à leur clôture.
+    </p>
+  }
+} @else {
+  <h1>Tournoi introuvable</h1>
+  <p class="pending">
+    Aucun tournoi ne correspond à cette adresse. <a routerLink="/tournois">Voir les tournois</a>
+  </p>
+}

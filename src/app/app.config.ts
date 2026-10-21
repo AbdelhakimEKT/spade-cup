@@ -1,4 +1,6 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { registerLocaleData } from '@angular/common';
+import localeFr from '@angular/common/locales/fr';
+import { ApplicationConfig, LOCALE_ID, provideBrowserGlobalErrorListeners } from '@angular/core';
 import {
   TitleStrategy,
   provideRouter,
@@ -7,6 +9,9 @@ import {
 } from '@angular/router';
 import { routes } from './app.routes';
 import { PageTitle } from './core/page-title';
+
+// Formats français pour les nombres et les dates (« 97,4 » et non « 97.4 »).
+registerLocaleData(localeFr);
 
 /**
  * Configuration globale, lue une seule fois au démarrage (voir main.ts).
@@ -25,5 +30,6 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' }),
     ),
     { provide: TitleStrategy, useClass: PageTitle },
+    { provide: LOCALE_ID, useValue: 'fr' },
   ],
 };

@@ -1,3 +1,35 @@
-@use 'placeholder';
+:host {
+  display: grid;
+  gap: var(--space-5);
+}
 
-@include placeholder.placeholder-page;
+.head {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.head__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+
+  h1 {
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    text-transform: uppercase;
+  }
+}
+
+.head__meta,
+.pending {
+  color: var(--color-muted);
+}
+
+.demo-note {
+  width: fit-content;
+  padding: var(--space-1) var(--space-3);
+  border-left: 3px solid var(--color-cyan);
+  background: var(--color-panel);
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}

@@ -1,0 +1,84 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.card {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-line); // dessine le trait entre les deux lignes
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-panel);
+  font-size: 0.9rem;
+}
+
+.row__name {
+  // Sans `min-width: 0`, un élément flex refuse de rétrécir sous la largeur de
+  // son texte : un nom long poussait alors le score hors de la carte.
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__name--empty {
+  color: var(--color-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.row__score {
+  flex-shrink: 0; // le score reste toujours lisible en entier
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.row__stars {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.row__pct {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.row--winner {
+  box-shadow: inset 3px 0 0 var(--color-win);
+
+  .row__name,
+  .row__stars {
+    color: var(--color-win);
+  }
+}
+
+.row--loser .row__name {
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.card__status {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-panel-2);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

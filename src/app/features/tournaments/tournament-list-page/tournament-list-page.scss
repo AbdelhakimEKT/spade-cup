@@ -1,3 +1,47 @@
-@use 'placeholder';
+:host {
+  display: grid;
+  gap: var(--space-5);
+}
 
-@include placeholder.placeholder-page;
+h1 {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  text-transform: uppercase;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+  color: var(--color-text);
+  text-decoration: none;
+
+  &:hover {
+    border-color: var(--color-accent-strong);
+  }
+}
+
+.item__name {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.item__meta,
+.empty {
+  color: var(--color-muted);
+}

@@ -1,0 +1,71 @@
+<div class="toolbar">
+  <div class="switch" role="group" aria-label="Affichage de l'arbre">
+    <button
+      type="button"
+      class="switch__btn"
+      [attr.aria-pressed]="mode() === 'full'"
+      (click)="mode.set('full')"
+    >
+      Arbre complet
+    </button>
+    <button
+      type="button"
+      class="switch__btn"
+      [attr.aria-pressed]="mode() === 'round'"
+      (click)="mode.set('round')"
+    >
+      Tour par tour
+    </button>
+  </div>
+  <p class="toolbar__current">
+    Tour en cours : <strong>{{ rounds()[currentRound() - 1].label }}</strong>
+  </p>
+</div>
+
+@if (mode() === 'full') {
+  <!-- Région défilable : focusable pour qu'on puisse la faire défiler au clavier. -->
+  <div class="scroller" tabindex="0" role="region" aria-label="Arbre complet">
+    <div class="bracket" [style.--round-count]="rounds().length">
+      @for (round of rounds(); track round.number; let first = $first, last = $last) {
+        <section
+          class="round"
+          [class.round--first]="first"
+          [class.round--last]="last"
+          [attr.aria-label]="round.label"
+        >
+          <h3 class="round__title">{{ round.label }}</h3>
+          <div class="round__body">
+            @for (pair of round.pairs; track $index) {
+              <div class="pair" [class.pair--single]="pair.length === 1">
+                @for (match of pair; track match.id) {
+                  <div class="slot">
+                    <sc-match-card [match]="match" />
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  </div>
+} @else {
+  <div class="round-picker" role="group" aria-label="Choisir un tour">
+    @for (round of rounds(); track round.number) {
+      <button
+        type="button"
+        class="round-picker__btn"
+        [attr.aria-pressed]="round.number === selectedRound()"
+        (click)="selectedRound.set(round.number)"
+      >
+        {{ round.label }}
+      </button>
+    }
+  </div>
+
+  <ol class="round-list" [attr.aria-label]="selected().label">
+    @for (match of selected().matches; track match.id) {
+      <li><sc-match-card [match]="match" /></li>
+    }
+  </ol>
+}

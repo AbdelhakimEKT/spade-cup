@@ -1,2 +1,17 @@
 <h1>Tournois</h1>
-<p>Les tournois en cours, à venir et terminés apparaîtront ici.</p>
+
+<ul class="list">
+  @for (t of tournaments; track t.slug) {
+    <li>
+      <a class="item" [routerLink]="['/tournois', t.slug]">
+        <span class="item__name">{{ t.name }}</span>
+        <span class="item__meta">{{ t.clans.length }} clans</span>
+        <span class="chip" [class.chip--muted]="t.status === 'finished'">{{
+          statusLabel[t.status]
+        }}</span>
+      </a>
+    </li>
+  } @empty {
+    <li class="empty">Aucun tournoi pour le moment.</li>
+  }
+</ul>

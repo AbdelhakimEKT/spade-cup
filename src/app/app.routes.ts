@@ -1,4 +1,10 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { ResolveFn, Routes } from '@angular/router';
+import { Tournaments } from './features/tournaments/data/tournaments';
+
+/** Titre d'onglet = nom réel du tournoi (« Coupe d'hiver · Spade Cup FR »). */
+const tournamentTitle: ResolveFn<string> = (route) =>
+  inject(Tournaments).bySlug(route.paramMap.get('slug') ?? '')?.name ?? 'Tournoi introuvable';
 
 /**
  * Plan du site.
@@ -29,7 +35,7 @@ export const routes: Routes = [
       },
       {
         path: ':slug',
-        title: 'Tournoi',
+        title: tournamentTitle,
         loadComponent: () =>
           import('./features/tournaments/tournament-page/tournament-page').then(
             (m) => m.TournamentPage,

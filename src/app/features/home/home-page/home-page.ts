@@ -21,7 +21,7 @@ export class HomePage {
   protected readonly steps: readonly Step[] = [
     {
       title: 'Inscription',
-      text: 'Les chefs inscrivent leur clan et leurs joueurs depuis le Discord, avec leurs tags.',
+      text: 'Les chefs inscrivent leur clan sur le Discord, simplement avec son tag.',
     },
     {
       title: 'Tirage',
