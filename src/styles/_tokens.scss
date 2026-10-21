@@ -1,0 +1,81 @@
+// =============================================================
+// Jetons de design (« design tokens ») de Spade Cup FR
+// =============================================================
+// Toutes les couleurs, polices et espacements du site passent par ces
+// variables CSS. Un composant n'écrit jamais `#8b2cff` en dur : il écrit
+// `var(--color-accent)`. Changer de thème revient alors à redéfinir ces
+// variables, sans toucher à un seul composant.
+//
+// Palette tirée des maquettes `spade-cup-bracket*.html` et du logo.
+
+// Thème clair, déclaré une seule fois sous forme de mixin pour pouvoir
+// l'appliquer dans deux situations (choix explicite, ou système en clair).
+@mixin light-theme {
+  color-scheme: light;
+  --color-bg: #f7f5fc;
+  --color-panel: #ffffff;
+  --color-panel-2: #f3effb;
+  --color-line: #e4dff2;
+  --color-text: #17152b;
+  --color-muted: #5d5a78;
+  --color-dim: #a19eb9;
+  // Les couleurs vives de la marque sont trop claires pour du texte sur fond
+  // blanc : on garde des variantes plus sombres pour le texte (contraste AA).
+  --color-accent: #6a1fd6;
+  --color-accent-strong: #8b2cff;
+  --color-cyan: #0a8fb3;
+  --color-win: #12a854;
+  --color-header-bg: rgb(247 245 252 / 0.85);
+}
+
+:root {
+  // ---- Thème sombre : c'est l'identité de la marque, donc le thème par défaut
+  color-scheme: dark;
+  --color-bg: #06060c;
+  --color-panel: #0d0d1a;
+  --color-panel-2: #12122a;
+  --color-line: #25254a;
+  --color-text: #eceaf7;
+  --color-muted: #9a98b8;
+  --color-dim: #5f5d80; // décoratif uniquement : contraste trop faible pour du texte
+  --color-accent: #b067ff; // violet éclairci : lisible en texte sur fond noir
+  --color-accent-strong: #8b2cff; // violet du logo : fonds de boutons, bordures
+  --color-cyan: #19d3ff;
+  --color-win: #35e07a;
+  --color-header-bg: rgb(6 6 12 / 0.82);
+
+  // ---- Communs aux deux thèmes
+  --gradient-brand: linear-gradient(90deg, #8b2cff, #19d3ff, #35e07a);
+  --color-on-accent: #ffffff;
+
+  --font-display: 'Rajdhani', 'Arial Narrow', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+
+  --page-max-width: 1120px;
+  --page-gutter: clamp(16px, 4vw, 32px);
+}
+
+// Choix explicite de l'utilisateur (posé par le service Theme).
+:root[data-theme='light'] {
+  @include light-theme;
+}
+
+// Aucun choix explicite : on suit le réglage du système.
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    @include light-theme;
+  }
+}

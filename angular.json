@@ -30,8 +30,15 @@
               }
             ],
             "styles": [
+              "node_modules/@fontsource-variable/inter/index.css",
+              "node_modules/@fontsource/rajdhani/500.css",
+              "node_modules/@fontsource/rajdhani/600.css",
+              "node_modules/@fontsource/rajdhani/700.css",
               "src/styles.scss"
-            ]
+            ],
+            "stylePreprocessorOptions": {
+              "includePaths": ["src/styles"]
+            }
           },
           "configurations": {
             "production": {

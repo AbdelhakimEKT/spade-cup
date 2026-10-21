@@ -1,0 +1,32 @@
+<header class="header">
+  <div class="header__inner">
+    <a class="brand" routerLink="/" aria-label="Spade Cup FR, retour à l'accueil">
+      <img ngSrc="brand/logo-rond-80.webp" width="40" height="40" alt="" priority />
+      <span class="brand__name">Spade Cup <span class="brand__fr">FR</span></span>
+    </a>
+
+    <nav class="nav" aria-label="Navigation principale">
+      <a
+        routerLink="/tournois"
+        routerLinkActive="nav__link--active"
+        ariaCurrentWhenActive="page"
+        class="nav__link"
+        >Tournois</a
+      >
+
+      @if (discordInvite) {
+        <a class="nav__link" [href]="discordInvite" target="_blank" rel="noopener">Discord</a>
+      }
+
+      <button
+        type="button"
+        class="theme-toggle"
+        (click)="theme.toggle()"
+        [attr.aria-label]="themeToggleLabel()"
+        [title]="themeToggleLabel()"
+      >
+        <span aria-hidden="true">{{ theme.current() === 'dark' ? '☀' : '☾' }}</span>
+      </button>
+    </nav>
+  </div>
+</header>

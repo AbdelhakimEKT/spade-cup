@@ -1,0 +1,37 @@
+<section class="hero" aria-labelledby="hero-title">
+  <img
+    class="hero__logo"
+    ngSrc="brand/banniere-800.webp"
+    width="800"
+    height="481"
+    alt="Logo Spade Cup FR"
+    priority
+  />
+
+  <h1 id="hero-title" class="hero__title">
+    Les tournois de guerres amicales des clans francophones
+  </h1>
+
+  <div class="hero__actions">
+    <a class="button button--primary" routerLink="/tournois">Voir les tournois</a>
+    @if (discordInvite) {
+      <a class="button" [href]="discordInvite" target="_blank" rel="noopener"
+        >Rejoindre le Discord</a
+      >
+    }
+  </div>
+</section>
+
+<section class="how" aria-labelledby="how-title">
+  <h2 id="how-title" class="how__title">Comment ça marche</h2>
+
+  <ol class="steps">
+    @for (step of steps; track step.title; let i = $index) {
+      <li class="step">
+        <span class="step__number" aria-hidden="true">{{ i + 1 }}</span>
+        <h3 class="step__title">{{ step.title }}</h3>
+        <p class="step__text">{{ step.text }}</p>
+      </li>
+    }
+  </ol>
+</section>

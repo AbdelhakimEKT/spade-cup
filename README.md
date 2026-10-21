@@ -1,59 +1,38 @@
-# SpadeCup
+# Spade Cup FR
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.3.
+Site des tournois de guerres amicales Clash of Clans entre clans francophones :
+inscription des clans, arbre des matchs généré à la clôture, résultats et
+statistiques des joueurs.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+- **Angular 22** : composants autonomes (standalone), signaux, sans zone.js
+- **SCSS** avec des jetons de design en variables CSS (thèmes sombre et clair)
+- **Vitest** pour les tests unitaires
+- Polices Rajdhani et Inter hébergées avec le site (Fontsource)
 
-```bash
-ng serve
+## Commandes
+
+| Commande | Rôle |
+|---|---|
+| `npm start` | serveur de développement sur http://localhost:4200 |
+| `npm test` | tests unitaires (Vitest) |
+| `npm run build` | version de production dans `dist/` |
+| `npx ng generate component features/x/y` | créer un composant |
+
+## Organisation
+
+```
+src/
+├─ styles/              jetons de design (_tokens), base globale (_base)
+├─ app/
+│  ├─ app.ts / app.html  coquille : en-tête, contenu, pied de page
+│  ├─ app.routes.ts      plan du site, pages chargées à la demande
+│  ├─ app.config.ts      configuration globale (routeur, titres)
+│  ├─ core/              services uniques : thème, titre des pages, réglages
+│  ├─ layout/            en-tête et pied de page
+│  └─ features/          un dossier par domaine : accueil, tournois, clans, joueurs
+public/                  fichiers servis tels quels : logos, favicon
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Les règles de code suivies sont dans `CLAUDE.md` (bonnes pratiques officielles d'Angular 22).

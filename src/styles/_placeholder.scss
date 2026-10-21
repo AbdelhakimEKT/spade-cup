@@ -1,0 +1,21 @@
+// Gabarit commun aux pages pas encore construites.
+@mixin placeholder-page {
+  :host {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  h1 {
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    text-transform: uppercase;
+  }
+
+  p {
+    max-width: 60ch;
+    color: var(--color-muted);
+  }
+
+  code {
+    color: var(--color-cyan);
+  }
+}

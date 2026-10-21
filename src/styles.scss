@@ -1,1 +1,4 @@
-/* You can add global styles to this file, and also import other style files */
+// Point d'entrée des styles globaux. Les styles propres à un composant
+// vivent dans son propre fichier .scss, isolé des autres.
+@use 'styles/tokens';
+@use 'styles/base';

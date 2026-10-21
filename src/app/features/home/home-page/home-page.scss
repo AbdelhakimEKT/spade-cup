@@ -1,0 +1,111 @@
+.hero {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-5);
+  padding-block: var(--space-6) var(--space-7);
+  text-align: center;
+}
+
+.hero__logo {
+  width: min(520px, 100%);
+  height: auto;
+}
+
+.hero__title {
+  max-width: 22ch;
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  text-transform: uppercase;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+
+  &:hover {
+    border-color: var(--color-accent-strong);
+  }
+}
+
+.button--primary {
+  border-color: transparent;
+  background: var(--color-accent-strong);
+  color: var(--color-on-accent);
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+}
+
+.how {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.how__title {
+  font-size: 1.75rem;
+  text-transform: uppercase;
+
+  &::after {
+    content: '';
+    display: block;
+    width: 64px;
+    height: 3px;
+    margin-top: var(--space-2);
+    border-radius: 2px;
+    background: var(--gradient-brand);
+  }
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+}
+
+.step__number {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-accent);
+}
+
+.step__title {
+  font-size: 1.3rem;
+  text-transform: uppercase;
+}
+
+.step__text {
+  color: var(--color-muted);
+}
