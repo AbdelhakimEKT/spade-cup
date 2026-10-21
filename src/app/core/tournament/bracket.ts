@@ -1,0 +1,167 @@
+import { Bracket, BracketMatch, ClanRef, Side, SideScore } from './models';
+
+/**
+ * Arbre à élimination directe.
+ *
+ * Toutes les fonctions sont « pures » : elles ne modifient jamais l'arbre
+ * reçu, elles en renvoient un nouveau. C'est ce qui permet de les tester
+ * simplement, et c'est la règle d'or avec les signaux d'Angular (on remplace
+ * une valeur, on ne la trafique pas en place).
+ */
+
+/** Plus petite puissance de 2 supérieure ou égale à n (5 clans → 8 places). */
+export function bracketSize(clanCount: number): number {
+  let size = 2;
+  while (size < clanCount) size *= 2;
+  return size;
+}
+
+/**
+ * Ordre officiel des têtes de série dans un arbre (celui du tennis) :
+ * pour 8 places → 1, 8, 4, 5, 2, 7, 3, 6.
+ * Le n°1 ne peut croiser le n°2 qu'en finale, et quand il manque des clans,
+ * les places vides (les « exempts ») tombent face aux premiers numéros :
+ * jamais deux places vides l'une contre l'autre.
+ */
+export function seedOrder(size: number): number[] {
+  let order = [1, 2];
+  while (order.length < size) {
+    const next = order.length * 2 + 1;
+    order = order.flatMap((seed) => [seed, next - seed]);
+  }
+  return order;
+}
+
+/** Mélange de Fisher-Yates. `random` est injectable pour des tests reproductibles. */
+export function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+export function matchId(round: number, index: number): string {
+  return `R${round}-M${index}`;
+}
+
+/**
+ * Tire l'arbre au sort à la clôture des inscriptions.
+ * Les clans exemptés passent directement au deuxième tour.
+ */
+export function createBracket(
+  clans: readonly ClanRef[],
+  random: () => number = Math.random,
+): Bracket {
+  if (clans.length < 2) {
+    throw new Error('Il faut au moins 2 clans pour créer un arbre.');
+  }
+  const tags = new Set(clans.map((c) => c.tag));
+  if (tags.size !== clans.length) {
+    throw new Error('Un même clan est inscrit deux fois.');
+  }
+
+  const size = bracketSize(clans.length);
+  const roundCount = Math.log2(size);
+  // Après le mélange, le clan à l'indice i devient la tête de série n° i+1.
+  const drawn = shuffle(clans, random);
+  const bySeed = (seed: number): ClanRef | null => drawn[seed - 1] ?? null;
+  const order = seedOrder(size);
+
+  let matches: BracketMatch[] = [];
+  for (let round = 1; round <= roundCount; round++) {
+    const count = size / 2 ** round;
+    for (let index = 1; index <= count; index++) {
+      const home = round === 1 ? bySeed(order[(index - 1) * 2]) : null;
+      const away = round === 1 ? bySeed(order[(index - 1) * 2 + 1]) : null;
+      matches.push({
+        id: matchId(round, index),
+        round,
+        index,
+        home,
+        away,
+        status: 'pending',
+        winner: null,
+        score: null,
+      });
+    }
+  }
+
+  // Exempts du premier tour : le clan présent est qualifié d'office.
+  for (const m of matches.filter((x) => x.round === 1)) {
+    if (m.home && !m.away) matches = advance(matches, { ...m, status: 'bye', winner: 'home' });
+    if (!m.home && m.away) matches = advance(matches, { ...m, status: 'bye', winner: 'away' });
+  }
+
+  return { size, roundCount, matches };
+}
+
+/**
+ * Enregistre le résultat d'un match et qualifie le vainqueur pour le tour
+ * suivant. Une correction reste possible tant que le match suivant n'est
+ * pas joué : après, ce serait réécrire l'histoire du tournoi.
+ */
+export function recordResult(
+  bracket: Bracket,
+  id: string,
+  winner: Side,
+  score: { home: SideScore; away: SideScore } | null = null,
+): Bracket {
+  const match = bracket.matches.find((m) => m.id === id);
+  if (!match) throw new Error(`Match inconnu : ${id}.`);
+  if (!match.home || !match.away) throw new Error(`Le match ${id} n'a pas encore ses deux clans.`);
+
+  const next = nextMatchOf(bracket.matches, match);
+  if (match.status === 'done' && next?.status === 'done') {
+    throw new Error(`Le match suivant (${next.id}) est déjà joué : résultat de ${id} figé.`);
+  }
+
+  const updated: BracketMatch = { ...match, status: 'done', winner, score };
+  return { ...bracket, matches: advance(bracket.matches, updated) };
+}
+
+/** Le clan vainqueur d'un match, ou `null` s'il n'est pas encore connu. */
+export function winnerOf(match: BracketMatch): ClanRef | null {
+  if (!match.winner) return null;
+  return match.winner === 'home' ? match.home : match.away;
+}
+
+/** Le champion, une fois la finale jouée. */
+export function championOf(bracket: Bracket): ClanRef | null {
+  const final = bracket.matches.find((m) => m.round === bracket.roundCount);
+  return final ? winnerOf(final) : null;
+}
+
+/** « Finale », « Demi-finales », « Quarts de finale »… selon la profondeur. */
+export function roundLabel(round: number, roundCount: number): string {
+  const fromEnd = roundCount - round;
+  const labels = [
+    'Finale',
+    'Demi-finales',
+    'Quarts de finale',
+    'Huitièmes de finale',
+    'Seizièmes de finale',
+  ];
+  return labels[fromEnd] ?? `Tour ${round}`;
+}
+
+// ---------------------------------------------------------------------------
+
+function nextMatchOf(matches: readonly BracketMatch[], match: BracketMatch): BracketMatch | null {
+  return matches.find((m) => m.id === matchId(match.round + 1, Math.ceil(match.index / 2))) ?? null;
+}
+
+/**
+ * Remplace `updated` dans la liste et place son vainqueur dans le match
+ * suivant : les matchs impairs alimentent la place « home », les pairs « away ».
+ */
+function advance(matches: readonly BracketMatch[], updated: BracketMatch): BracketMatch[] {
+  const next = nextMatchOf(matches, updated);
+  const slot: Side = updated.index % 2 === 1 ? 'home' : 'away';
+  return matches.map((m) => {
+    if (m.id === updated.id) return updated;
+    if (next && m.id === next.id) return { ...m, [slot]: winnerOf(updated) };
+    return m;
+  });
+}
