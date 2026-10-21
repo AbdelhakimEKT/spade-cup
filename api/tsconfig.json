@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["@cloudflare/vitest-plugin/types"]
+  },
+  "include": [
+    "src",
+    "test",
+    "scripts",
+    "worker-configuration.d.ts",
+    "../src/app/core/tournament/*.ts",
+    "../src/app/features/tournaments/data/demo-tournament.ts",
+    "../src/app/features/tournaments/data/tournament.ts"
+  ],
+  "exclude": ["../src/**/*.spec.ts"]
+}

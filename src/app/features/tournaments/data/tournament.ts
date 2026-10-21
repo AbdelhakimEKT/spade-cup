@@ -1,24 +1,14 @@
-import { Bracket, ClanRef } from '../../../core/tournament/models';
+import { TournamentStatus } from '../../../core/tournament/tournament';
 
-export type TournamentStatus = 'registration' | 'running' | 'finished';
+// Les types vivent dans le cœur partagé avec le serveur ; on les ré-exporte
+// pour que le reste du site continue de les importer d'ici.
+export type {
+  Tournament,
+  TournamentStatus,
+  TournamentSummary,
+} from '../../../core/tournament/tournament';
 
-/** Un tournoi tel que le site l'affiche. */
-export interface Tournament {
-  /** Identifiant lisible utilisé dans l'URL : /tournois/:slug. */
-  readonly slug: string;
-  readonly name: string;
-  readonly status: TournamentStatus;
-  readonly organizer: string;
-  readonly referees: readonly string[];
-  /** Règlement affiché sous le titre. */
-  readonly rules: string;
-  readonly clans: readonly ClanRef[];
-  /** `null` tant que les inscriptions ne sont pas closes (pas encore de tirage). */
-  readonly bracket: Bracket | null;
-  /** Vrai pour le tournoi d'exemple : le site l'affiche clairement. */
-  readonly isDemo: boolean;
-}
-
+/** Libellés affichés : c'est de l'interface, donc ça reste côté site. */
 export const STATUS_LABEL: Record<TournamentStatus, string> = {
   registration: 'Inscriptions ouvertes',
   running: 'En cours',

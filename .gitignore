@@ -42,3 +42,9 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Serveur (api/)
+/api/node_modules
+/api/.wrangler
+/api/scripts/*.sql
+/api/.dev.vars

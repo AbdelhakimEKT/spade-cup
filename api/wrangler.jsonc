@@ -1,0 +1,17 @@
+// Serveur de Spade Cup FR (Cloudflare Worker).
+// Séparé de Clan Hall : son propre Worker, sa propre base D1.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spade-cup-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-21",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "spade-cup-db",
+      "database_id": "99936995-82ee-4ee9-8b00-4985013480fc",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
