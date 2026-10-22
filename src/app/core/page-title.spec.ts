@@ -3,7 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { TitleStrategy, provideRouter, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from '../app.routes';
-import { PageTitle } from './page-title';
+import { PageTitle, fullTitle } from './page-title';
 
 describe('PageTitle', () => {
   beforeEach(() => {
@@ -16,11 +16,13 @@ describe('PageTitle', () => {
     });
   });
 
+  // Pages choisies parce qu'elles n'appellent pas le serveur. Le titre d'un
+  // tournoi, qui dépend de la réponse du serveur, est testé avec sa page.
   it('ajoute le nom du site au titre de chaque page', async () => {
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/tournois');
+    await harness.navigateByUrl('/');
 
-    expect(TestBed.inject(Title).getTitle()).toBe('Tournois · Spade Cup FR');
+    expect(TestBed.inject(Title).getTitle()).toBe('Accueil · Spade Cup FR');
   });
 
   it('affiche « Page introuvable » pour une adresse inconnue', async () => {
@@ -30,10 +32,7 @@ describe('PageTitle', () => {
     expect(TestBed.inject(Title).getTitle()).toBe('Page introuvable · Spade Cup FR');
   });
 
-  it('le titre d’un tournoi est son vrai nom', async () => {
-    const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/tournois/demo');
-
-    expect(TestBed.inject(Title).getTitle()).toBe('Tournoi de démonstration · Spade Cup FR');
+  it('sans titre de page, juste le nom du site', () => {
+    expect(fullTitle()).toBe('Spade Cup FR');
   });
 });

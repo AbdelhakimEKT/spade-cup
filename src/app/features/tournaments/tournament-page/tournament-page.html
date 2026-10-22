@@ -81,9 +81,11 @@
       Les inscriptions se font sur le Discord. L'arbre sera tiré au sort à leur clôture.
     </p>
   }
-} @else {
+} @else if (notFound()) {
   <h1>Tournoi introuvable</h1>
   <p class="pending">
     Aucun tournoi ne correspond à cette adresse. <a routerLink="/tournois">Voir les tournois</a>
   </p>
+} @else {
+  <sc-request-state [resource]="request" />
 }

@@ -1,48 +1,65 @@
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { championOf } from '../../../core/tournament/bracket';
+import { ApplicationRef, signal } from '@angular/core';
+import { SITE_CONFIG } from '../../../core/site-config';
+import { DEMO_TOURNAMENT } from './demo-tournament';
 import { Tournaments } from './tournaments';
 
+/**
+ * `provideHttpClientTesting()` remplace le vrai réseau par un faux serveur
+ * piloté par le test : aucune requête ne sort, et c'est le test qui décide de
+ * la réponse (`flush`) au moment où il le veut.
+ */
 describe('Tournaments', () => {
+  let http: HttpTestingController;
   let service: Tournaments;
 
   beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClientTesting()] });
+    http = TestBed.inject(HttpTestingController);
     service = TestBed.inject(Tournaments);
   });
 
-  it('trouve un tournoi par son slug, et renvoie null sinon', () => {
-    expect(service.bySlug('demo')?.name).toBe('Tournoi de démonstration');
-    expect(service.bySlug('inconnu')).toBeNull();
+  // Échoue si une requête est partie sans que le test l'ait attendue.
+  afterEach(() => http.verify());
+
+  /** Une ressource se crée dans un « contexte d'injection », comme dans un composant. */
+  const create = <T>(fn: () => T) => TestBed.runInInjectionContext(fn);
+
+  it('liste : GET /tournaments', async () => {
+    const list = create(() => service.list());
+    TestBed.tick(); // laisse la ressource lancer sa requête
+
+    http.expectOne(`${SITE_CONFIG.apiUrl}/tournaments`).flush([
+      {
+        slug: 'demo',
+        name: 'Tournoi de démonstration',
+        status: 'running',
+        clanCount: 16,
+        isDemo: true,
+      },
+    ]);
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    expect(list.value()?.[0].clanCount).toBe(16);
   });
 
-  describe('le tournoi de démonstration', () => {
-    const bracket = () => service.bySlug('demo')!.bracket!;
-    const match = (id: string) => bracket().matches.find((m) => m.id === id)!;
+  it('tournoi : GET /tournaments/:slug, relancé quand le slug change', async () => {
+    const slug = signal('demo');
+    const tournament = create(() => service.bySlug(slug));
+    TestBed.tick();
+    http.expectOne(`${SITE_CONFIG.apiUrl}/tournaments/demo`).flush(DEMO_TOURNAMENT);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(tournament.value()?.name).toBe('Tournoi de démonstration');
 
-    it('16 clans, donc il commence en huitièmes, avec les affiches de la maquette', () => {
-      expect(bracket().roundCount).toBe(4);
-      expect([match('R1-M1').home?.name, match('R1-M1').away?.name]).toEqual([
-        'Les Pikachus',
-        'Titans FR',
-      ]);
-      expect(match('R1-M8').away?.name).toBe('Nova');
-    });
+    slug.set('coupe-d-hiver');
+    TestBed.tick();
+    http.expectOne(`${SITE_CONFIG.apiUrl}/tournaments/coupe-d-hiver`);
+  });
 
-    it('huitièmes joués, un quart en cours, pas encore de champion', () => {
-      expect(
-        bracket()
-          .matches.filter((m) => m.round === 1)
-          .every((m) => m.status === 'done'),
-      ).toBe(true);
-      expect(match('R2-M1').status).toBe('live');
-      expect(championOf(bracket())).toBeNull();
-    });
-
-    it('applique la règle du pourcentage quand les étoiles sont à égalité', () => {
-      expect(match('R1-M3').winner).toBe('home'); // Vega, 89,6 % contre 87,1 %
-    });
-
-    it('le vainqueur du quart déjà joué est qualifié en demi-finale', () => {
-      expect(match('R3-M2').home?.name).toBe('Zéphyr');
-    });
+  it('encode le slug : une adresse bizarre ne peut pas viser une autre route', () => {
+    create(() => service.bySlug(() => '../health'));
+    TestBed.tick();
+    http.expectOne(`${SITE_CONFIG.apiUrl}/tournaments/..%2Fhealth`);
   });
 });

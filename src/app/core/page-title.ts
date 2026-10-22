@@ -12,7 +12,14 @@ export class PageTitle extends TitleStrategy {
   private readonly title = inject(Title);
 
   override updateTitle(snapshot: RouterStateSnapshot): void {
-    const pageTitle = this.buildTitle(snapshot);
-    this.title.setTitle(pageTitle ? `${pageTitle} · ${SITE_CONFIG.name}` : SITE_CONFIG.name);
+    this.title.setTitle(fullTitle(this.buildTitle(snapshot)));
   }
+}
+
+/**
+ * Format commun à tous les titres. Exporté pour les pages qui ne connaissent
+ * leur vrai titre qu'après un chargement (le nom d'un tournoi, par exemple).
+ */
+export function fullTitle(pageTitle?: string): string {
+  return pageTitle ? `${pageTitle} · ${SITE_CONFIG.name}` : SITE_CONFIG.name;
 }

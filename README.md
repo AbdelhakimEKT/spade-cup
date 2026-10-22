@@ -31,6 +31,7 @@ src/
 │  ├─ app.routes.ts      plan du site, pages chargées à la demande
 │  ├─ app.config.ts      configuration globale (routeur, titres)
 │  ├─ core/              services uniques : thème, titre des pages, réglages
+│  ├─ shared/            petits composants réutilisables (chargement / erreur)
 │  ├─ layout/            en-tête et pied de page
 │  └─ features/          un dossier par domaine : accueil, tournois, clans, joueurs
 public/                  fichiers servis tels quels : logos, favicon
@@ -50,6 +51,10 @@ API publique en lecture : https://spade-cup-api.popi-coc.workers.dev
 
 Le serveur importe directement la logique du tournoi de `src/app/core/tournament/` :
 une seule version des règles, partagée avec le site.
+
+Le site lit ces données avec `httpResource` (service `Tournaments`). L'adresse du
+serveur est dans `src/app/core/site-config.ts` (`apiUrl`) : la remplacer par
+`http://localhost:8787` pour développer contre un serveur local.
 
 Il a son propre `package.json` (les tests Cloudflare exigent une autre version de
 Vitest que le site). Installer avec **npm 11** : npm 10.9 plante sur les
