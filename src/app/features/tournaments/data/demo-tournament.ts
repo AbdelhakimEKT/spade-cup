@@ -1,5 +1,5 @@
 import {
-  createBracket,
+  bracketFromSeeds,
   recordResult,
   seedOrder,
   startMatch,
@@ -62,8 +62,8 @@ const DEMO_SCORES: readonly (readonly [string, SideScore, SideScore])[] = [
 ];
 
 function buildDemoBracket(): Bracket {
-  // Le hasard est figé (rien n'est mélangé) : l'ordre ci-dessus fait foi.
-  let bracket = createBracket(clansInSeedOrder(), () => 0.999999);
+  // Pas de tirage au sort : l'ordre ci-dessus fait foi.
+  let bracket = bracketFromSeeds(clansInSeedOrder());
   for (const [id, home, away] of DEMO_SCORES) {
     const winner = decideWinner(home, away);
     if (winner) bracket = recordResult(bracket, id, winner, { home, away });

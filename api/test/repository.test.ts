@@ -3,13 +3,20 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createBracket } from '../../src/app/core/tournament/bracket';
 import type { Tournament } from '../../src/app/core/tournament/tournament';
 import { DEMO_TOURNAMENT } from '../../src/app/features/tournaments/data/demo-tournament';
+import { recordResult } from '../../src/app/core/tournament/bracket';
+import { DEMO_MATCH_PLAYERS } from '../../src/app/features/tournaments/data/demo-players';
 import {
+  addReferee,
+  getCurrentTournament,
   getTournament,
   listTournaments,
+  saveBracket,
   saveTournament,
+  tournamentStatements,
   toBracket,
   toRows,
 } from '../src/repository';
+import { getMatchDetail } from '../src/stats-repository';
 
 describe('repository', () => {
   beforeEach(async () => {
@@ -68,6 +75,80 @@ describe('repository', () => {
     });
 
     expect((await getTournament(env.DB, 'blasons'))?.clans).toEqual(clans);
+  });
+});
+
+describe('écritures du bot', () => {
+  const count = async (table: string) =>
+    (await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>())!.n;
+  const demoId = async () =>
+    (await env.DB.prepare("SELECT id FROM tournaments WHERE slug = 'demo'").first<{
+      id: number;
+    }>())!.id;
+
+  it('réinstaller un tournoi efface en cascade ses anciens matchs et joueurs', async () => {
+    await saveTournament(env.DB, DEMO_TOURNAMENT, DEMO_MATCH_PLAYERS);
+    expect(await count('match_players')).toBe(90);
+    await saveTournament(env.DB, DEMO_TOURNAMENT);
+    expect(await count('match_players')).toBe(0);
+    expect(await count('matches')).toBe(15);
+  });
+
+  it('enregistrer l’arbre met les matchs à jour SANS effacer les joueurs déjà lus', async () => {
+    await saveTournament(env.DB, DEMO_TOURNAMENT, DEMO_MATCH_PLAYERS);
+    const id = await demoId();
+    const tournament = (await getTournament(env.DB, 'demo'))!;
+
+    const after = recordResult(tournament.bracket!, 'R2-M1', 'home');
+    await saveBracket(env.DB, id, after);
+
+    expect(await count('match_players')).toBe(90);
+    expect((await getTournament(env.DB, 'demo'))!.bracket).toEqual(after);
+  });
+
+  it('un résultat lu dans le jeu remplace les lignes précédentes du match', async () => {
+    await saveTournament(env.DB, DEMO_TOURNAMENT, DEMO_MATCH_PLAYERS);
+    const id = await demoId();
+    const t = (await getTournament(env.DB, 'demo'))!;
+    const lines = DEMO_MATCH_PLAYERS.get('R2-M3')!.slice(0, 2);
+
+    await saveBracket(env.DB, id, t.bracket!, {
+      result: { matchId: 'R2-M3', source: 'referee', players: lines },
+    });
+    const detail = (await getMatchDetail(env.DB, 'demo', 'R2-M3'))!;
+    expect(detail.source).toBe('referee');
+    expect([...detail.players.home, ...detail.players.away]).toEqual(lines);
+  });
+
+  it('les arbitres sont ajoutés sans doublon', async () => {
+    await saveTournament(env.DB, DEMO_TOURNAMENT);
+    const id = await demoId();
+    await addReferee(env.DB, id, 'Athéna');
+    await addReferee(env.DB, id, 'Zeus');
+    await addReferee(env.DB, id, "L'arbitre");
+    expect((await getTournament(env.DB, 'demo'))!.referees).toEqual([
+      'Zeus',
+      'Hermès',
+      'Athéna',
+      "L'arbitre",
+    ]);
+  });
+
+  it('la démo n’est jamais le tournoi « actif » du bot', async () => {
+    await saveTournament(env.DB, DEMO_TOURNAMENT);
+    expect(await getCurrentTournament(env.DB)).toBeNull();
+  });
+
+  it('les requêtes de réinstallation désignent le tournoi par son slug', () => {
+    const statements = tournamentStatements(DEMO_TOURNAMENT, DEMO_MATCH_PLAYERS);
+    expect(statements[0]).toEqual({
+      sql: 'DELETE FROM tournaments WHERE slug = ?',
+      params: ['demo'],
+    });
+    // Chaque requête a autant de « ? » que de valeurs : aucune valeur décalée.
+    for (const s of statements) {
+      expect(s.sql.split('?').length - 1, s.sql).toBe(s.params.length);
+    }
   });
 });
 

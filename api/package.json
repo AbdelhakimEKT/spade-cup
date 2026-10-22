@@ -6,13 +6,15 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "types": "wrangler types",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
+    "types": "wrangler types --strict-vars=false",
     "seed:demo": "tsx scripts/seed-demo.ts > scripts/seed-demo.sql && wrangler d1 execute spade-cup-db --remote --file scripts/seed-demo.sql",
-    "migrate": "wrangler d1 migrations apply spade-cup-db --remote"
+    "migrate": "wrangler d1 migrations apply spade-cup-db --remote",
+    "register:commands": "tsx scripts/register-commands.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.6",
+    "@types/node": "^22.20.5",
     "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vitest": "^4.1.12",

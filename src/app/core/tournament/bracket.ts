@@ -54,6 +54,15 @@ export function createBracket(
   clans: readonly ClanRef[],
   random: () => number = Math.random,
 ): Bracket {
+  return bracketFromSeeds(shuffle(clans, random));
+}
+
+/**
+ * Construit l'arbre à partir de clans DÉJÀ classés : le premier est la tête
+ * de série n° 1, et ainsi de suite. Séparé du tirage pour que le serveur
+ * puisse enregistrer l'ordre tiré, et la démo choisir ses affiches.
+ */
+export function bracketFromSeeds(clans: readonly ClanRef[]): Bracket {
   if (clans.length < 2) {
     throw new Error('Il faut au moins 2 clans pour créer un arbre.');
   }
@@ -64,9 +73,8 @@ export function createBracket(
 
   const size = bracketSize(clans.length);
   const roundCount = Math.log2(size);
-  // Après le mélange, le clan à l'indice i devient la tête de série n° i+1.
-  const drawn = shuffle(clans, random);
-  const bySeed = (seed: number): ClanRef | null => drawn[seed - 1] ?? null;
+  // Le clan à l'indice i est la tête de série n° i+1.
+  const bySeed = (seed: number): ClanRef | null => clans[seed - 1] ?? null;
   const order = seedOrder(size);
 
   let matches: BracketMatch[] = [];
@@ -112,13 +120,22 @@ export function recordResult(
   if (!match) throw new Error(`Match inconnu : ${id}.`);
   if (!match.home || !match.away) throw new Error(`Le match ${id} n'a pas encore ses deux clans.`);
 
-  const next = nextMatchOf(bracket.matches, match);
-  if (match.status === 'done' && next?.status === 'done') {
+  if (!isResultEditable(bracket, match)) {
+    const next = nextMatchOf(bracket.matches, match)!;
     throw new Error(`Le match suivant (${next.id}) est déjà joué : résultat de ${id} figé.`);
   }
 
   const updated: BracketMatch = { ...match, status: 'done', winner, score };
   return { ...bracket, matches: advance(bracket.matches, updated) };
+}
+
+/**
+ * Peut-on (encore) saisir le résultat de ce match ? Il faut ses deux clans,
+ * et, s'il est déjà joué, que le match suivant ne le soit pas.
+ */
+export function isResultEditable(bracket: Bracket, match: BracketMatch): boolean {
+  if (!match.home || !match.away || match.status === 'bye') return false;
+  return match.status !== 'done' || nextMatchOf(bracket.matches, match)?.status !== 'done';
 }
 
 /** Signale qu'une guerre amicale a commencé : le match passe « en cours ». */

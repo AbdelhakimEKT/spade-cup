@@ -13,5 +13,15 @@
       "database_id": "99936995-82ee-4ee9-8b00-4985013480fc",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  // Réglages publics (rien de secret ici : ce fichier est sur GitHub).
+  // Le secret, lui, s'enregistre à part : npx wrangler secret put COC_API_TOKEN
+  "vars": {
+    // Clé PUBLIQUE de l'application Discord (portail développeur → General Information).
+    "DISCORD_PUBLIC_KEY": "",
+    // Adresse du site, pour les liens dans les messages du bot.
+    "SITE_URL": "https://spade-cup.pages.dev",
+    // Relais vers l'API du jeu, depuis une IP fixe (voir src/coc.ts).
+    "COC_API_BASE": "https://cocproxy.royaleapi.dev/v1"
+  }
 }

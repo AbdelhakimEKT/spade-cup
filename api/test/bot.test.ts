@@ -1,0 +1,526 @@
+import { env } from 'cloudflare:workers';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { championOf } from '../../src/app/core/tournament/bracket';
+import type { Tournament } from '../../src/app/core/tournament/tournament';
+import type { CocClient } from '../src/coc';
+import { autocomplete, needsDefer, runCommand, type BotContext } from '../src/discord/bot';
+import { getCurrentTournament, getTournament } from '../src/repository';
+import { getMatchDetail, listPlayers } from '../src/stats-repository';
+import {
+  ADMIN,
+  CLANS,
+  MEMBER,
+  OTHER_MEMBER,
+  botContext,
+  command,
+  fakeCoc,
+  fakeWar,
+  referee,
+  seededRandom,
+  typing,
+} from './helpers';
+
+const db = () => env.DB;
+const active = async (): Promise<Tournament> => (await getCurrentTournament(db()))!.tournament;
+
+/** Crée un tournoi et y inscrit `count` clans de test. */
+async function openWith(ctx: BotContext, count: number) {
+  await runCommand(referee('creer', { nom: "Coupe d'Hiver" }), ctx);
+  for (const clan of CLANS.slice(0, count)) {
+    await runCommand(command('inscription', { tag: clan.tag }), ctx);
+  }
+}
+
+/** Tournoi tiré au sort, avec 2 clans : la finale directement. */
+async function finalOnly(ctx: BotContext) {
+  await openWith(ctx, 2);
+  await runCommand(referee('tirage'), ctx);
+  return (await active()).bracket!.matches[0];
+}
+
+describe('/arbitre creer', () => {
+  it('crée le tournoi, ouvre les inscriptions, note l’arbitre', async () => {
+    const reply = await runCommand(
+      referee('creer', { nom: "Coupe d'Hiver 2026" }),
+      botContext(db()),
+    );
+
+    expect(reply.ephemeral).toBeFalsy();
+    expect(reply.content).toContain('https://site.test/tournois/coupe-d-hiver-2026');
+    const t = await active();
+    expect(t).toMatchObject({
+      slug: 'coupe-d-hiver-2026',
+      status: 'registration',
+      referees: ['Zeus'],
+      bracket: null,
+    });
+    expect(t.rules).toContain('HDV18');
+  });
+
+  it('règlement personnalisé', async () => {
+    await runCommand(
+      referee('creer', { nom: 'Cup', reglement: 'Pas de héros.' }),
+      botContext(db()),
+    );
+    expect((await active()).rules).toBe('Pas de héros.');
+  });
+
+  it('un seul tournoi à la fois', async () => {
+    const ctx = botContext(db());
+    await runCommand(referee('creer', { nom: 'Premier' }), ctx);
+    const reply = await runCommand(referee('creer', { nom: 'Second' }), ctx);
+    expect(reply).toMatchObject({ ephemeral: true });
+    expect(reply.content).toContain("« Premier » n'est pas terminé");
+  });
+
+  it('nom déjà pris par un ancien tournoi : l’adresse reçoit un suffixe', async () => {
+    const ctx = botContext(db());
+    await runCommand(referee('creer', { nom: 'Cup' }), ctx);
+    await db().prepare("UPDATE tournaments SET status = 'finished'").run();
+    await runCommand(referee('creer', { nom: 'Cup' }), ctx);
+    expect((await active()).slug).toBe('cup-2');
+  });
+
+  it('nom sans lettre ni chiffre : refusé', async () => {
+    const reply = await runCommand(referee('creer', { nom: '!!!' }), botContext(db()));
+    expect(reply.ephemeral).toBe(true);
+  });
+});
+
+describe('/inscription et /desinscription', () => {
+  let ctx: BotContext;
+  beforeEach(async () => {
+    ctx = botContext(db());
+    await runCommand(referee('creer', { nom: 'Cup' }), ctx);
+  });
+
+  it('inscrit le clan avec le nom lu dans le jeu', async () => {
+    const reply = await runCommand(command('inscription', { tag: '2ppp' }), ctx);
+    expect(reply.content).toContain(
+      '**Les Pikachus** (`#2PPP`) est inscrit à **Cup**. 1 clan inscrit.',
+    );
+    expect((await active()).clans).toEqual([CLANS[0]]);
+  });
+
+  it('le « O » tapé à la place du zéro est corrigé', async () => {
+    const coc = fakeCoc({}, [{ tag: '#20PP', name: 'Zéro' }]);
+    await runCommand(command('inscription', { tag: '#2OPP' }), botContext(db(), coc));
+    expect((await active()).clans[0].tag).toBe('#20PP');
+  });
+
+  it('tag invalide, clan inconnu, doublon : refusés sans rien écrire', async () => {
+    await runCommand(command('inscription', { tag: '#2PPP' }), ctx);
+    for (const tag of ['#ABC', '#2CCCCC', '#2PPP']) {
+      const reply = await runCommand(command('inscription', { tag }), ctx);
+      expect(reply.ephemeral, tag).toBe(true);
+    }
+    expect((await active()).clans).toHaveLength(1);
+  });
+
+  it('jeu injoignable : inscrit avec le tag, le nom est récupéré au tirage', async () => {
+    const offline: CocClient = {
+      ...fakeCoc(),
+      clan: async () => ({ ok: false, error: 'unavailable' }),
+    };
+    const reply = await runCommand(
+      command('inscription', { tag: '#2PPP' }),
+      botContext(db(), offline),
+    );
+    expect(reply.content).toContain('récupéré au tirage');
+    expect((await active()).clans[0].name).toBe('#2PPP');
+
+    await runCommand(command('inscription', { tag: '#2QQQ' }), ctx);
+    await runCommand(referee('tirage'), ctx);
+    expect((await active()).clans.map((c) => c.name).sort()).toEqual(['Les Pikachus', 'Titans FR']);
+  });
+
+  it('seul celui qui a inscrit le clan, ou un admin, peut le retirer', async () => {
+    await runCommand(command('inscription', { tag: '#2PPP' }, MEMBER), ctx);
+    await runCommand(command('inscription', { tag: '#2QQQ' }, MEMBER), ctx);
+
+    const refused = await runCommand(
+      command('desinscription', { tag: '#2PPP' }, OTHER_MEMBER),
+      ctx,
+    );
+    expect(refused.ephemeral).toBe(true);
+
+    await runCommand(command('desinscription', { tag: '#2PPP' }, MEMBER), ctx);
+    await runCommand(command('desinscription', { tag: '#2QQQ' }, ADMIN), ctx);
+    expect((await active()).clans).toEqual([]);
+  });
+
+  it('retirer un clan non inscrit : message clair', async () => {
+    const reply = await runCommand(command('desinscription', { tag: '#2PPP' }), ctx);
+    expect(reply).toMatchObject({
+      ephemeral: true,
+      content: expect.stringContaining("n'est pas inscrit"),
+    });
+  });
+
+  it('après le tirage, les inscriptions sont closes', async () => {
+    await runCommand(command('inscription', { tag: '#2PPP' }), ctx);
+    await runCommand(command('inscription', { tag: '#2QQQ' }), ctx);
+    await runCommand(referee('tirage'), ctx);
+    const reply = await runCommand(command('inscription', { tag: '#2RRR' }), ctx);
+    expect(reply.content).toContain('sont closes');
+  });
+
+  it('tournoi terminé, ou aucun tournoi : message clair', async () => {
+    await db().prepare("UPDATE tournaments SET status = 'finished'").run();
+    expect((await runCommand(command('inscription', { tag: '#2PPP' }), ctx)).content).toContain(
+      'sont closes',
+    );
+    await db().prepare('DELETE FROM tournaments').run();
+    expect((await runCommand(command('inscription', { tag: '#2PPP' }), ctx)).content).toContain(
+      "Aucun tournoi n'est ouvert",
+    );
+  });
+
+  it('en message privé (sans serveur) : refusé', async () => {
+    const { member: _, ...dm } = command('inscription', { tag: '#2PPP' });
+    expect((await runCommand(dm, ctx)).content).toContain('sur le serveur');
+  });
+});
+
+describe('/arbitre tirage', () => {
+  it('5 clans : arbre de 8 places, 3 exempts, tournoi en cours', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 5);
+    const reply = await runCommand(referee('tirage'), ctx);
+
+    const t = await active();
+    expect(t.status).toBe('running');
+    expect(t.bracket).toMatchObject({ size: 8, roundCount: 3 });
+    expect(t.bracket!.matches.filter((m) => m.status === 'bye')).toHaveLength(3);
+    expect(reply.content).toContain('quarts de finale');
+    expect(reply.content.match(/qualifié d'office/g)).toHaveLength(3);
+  });
+
+  it('les têtes de série enregistrées reconstruisent le même arbre', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 5);
+    await runCommand(referee('tirage'), ctx);
+    const t = await active();
+    // Relu depuis la base : identique (l'ordre des clans = l'ordre du tirage).
+    expect(await getTournament(db(), t.slug)).toEqual(t);
+  });
+
+  it('le hasard décide : deux tirages différents donnent deux arbres différents', async () => {
+    const draws = new Set<string>();
+    for (const seed of [1, 2, 3, 4]) {
+      const ctx = { ...botContext(db()), random: seededRandom(seed) };
+      await db().prepare('DELETE FROM tournaments').run();
+      await openWith(ctx, 5);
+      await runCommand(referee('tirage'), ctx);
+      draws.add((await active()).clans.map((c) => c.tag).join());
+    }
+    expect(draws.size).toBeGreaterThan(1);
+  });
+
+  it('moins de 2 clans, ou tirage déjà fait : refusé', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 1);
+    expect((await runCommand(referee('tirage'), ctx)).content).toContain('au moins 2 clans');
+
+    await runCommand(command('inscription', { tag: CLANS[1].tag }), ctx);
+    await runCommand(referee('tirage'), ctx);
+    expect((await runCommand(referee('tirage'), ctx)).content).toContain('déjà eu lieu');
+  });
+
+  it('sans tournoi : invite à en créer un', async () => {
+    const reply = await runCommand(referee('tirage'), botContext(db()));
+    expect(reply.content).toContain('/arbitre creer');
+  });
+});
+
+describe('tournoi terminé', () => {
+  it('la finale reste corrigeable, puis un nouveau tournoi peut être créé', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(referee('vainqueur', { match: final.id, clan: 'home' }), ctx);
+    expect((await runCommand(command('tournoi'), ctx)).content).toContain(
+      `est terminé : victoire de **${final.home!.name}**`,
+    );
+
+    await runCommand(referee('vainqueur', { match: final.id, clan: 'away' }), ctx);
+    expect(championOf((await active()).bracket!)?.tag).toBe(final.away!.tag);
+
+    await runCommand(referee('creer', { nom: 'Coupe de Printemps' }), ctx);
+    expect(await active()).toMatchObject({ slug: 'coupe-de-printemps', status: 'registration' });
+  });
+});
+
+describe('/arbitre lancer, resultat, score, vainqueur', () => {
+  it('lancer : le match passe « en cours », une seule fois', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+
+    const reply = await runCommand(referee('lancer', { match: final.id }), ctx);
+    expect(reply.content).toContain('est lancé (finale)');
+    expect((await active()).bracket!.matches[0].status).toBe('live');
+
+    expect((await runCommand(referee('lancer', { match: final.id }), ctx)).ephemeral).toBe(true);
+  });
+
+  it('resultat : lit la guerre dans le jeu, enregistre score et joueurs, sacre le champion', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const war = fakeWar(final.home!, final.away!); // 12★ contre 9★
+    const reply = await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(db(), fakeCoc({ [final.home!.tag]: { ok: true, value: war } })),
+    );
+
+    expect(reply.content).toContain(`👑 **${final.home!.name}** remporte **Coupe d'Hiver**`);
+    expect(reply.content).toContain('12★');
+    const t = await getTournament(db(), 'coupe-d-hiver');
+    expect(t!.status).toBe('finished');
+    expect(championOf(t!.bracket!)?.tag).toBe(final.home!.tag);
+
+    const detail = await getMatchDetail(db(), 'coupe-d-hiver', final.id);
+    expect(detail!.source).toBe('game');
+    expect(detail!.players.home).toHaveLength(5);
+    expect(detail!.players.away.map((p) => p.stars)).toEqual([2, 2, 2, 2, 1]);
+  });
+
+  it('resultat : si le côté « domicile » ne répond pas, essaie l’adversaire', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const coc = fakeCoc({
+      [final.home!.tag]: { ok: false, error: 'private' },
+      [final.away!.tag]: { ok: true, value: fakeWar(final.away!, final.home!) },
+    });
+    const reply = await runCommand(referee('resultat', { match: final.id }), botContext(db(), coc));
+    // Le camp « away » a gagné cette guerre (lue de son côté).
+    expect(reply.content).toContain(`👑 **${final.away!.name}**`);
+    expect(coc.calls).toEqual([`war ${final.home!.tag}`, `war ${final.away!.tag}`]);
+  });
+
+  it('resultat : guerre pas finie ou autre adversaire → explique, n’écrit rien', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const unfinished = fakeCoc({
+      [final.home!.tag]: { ok: true, value: fakeWar(final.home!, final.away!, { state: 'inWar' }) },
+    });
+    const reply = await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(db(), unfinished),
+    );
+    expect(reply.ephemeral).toBe(true);
+    expect(reply.content).toContain("La guerre n'est pas finie");
+    expect(reply.content).toContain('/arbitre score');
+    expect((await active()).bracket!.matches[0].status).toBe('pending');
+
+    const stranger = { tag: '#2YYY', name: 'Inconnus' };
+    const wrong = fakeCoc({
+      [final.home!.tag]: { ok: true, value: fakeWar(final.home!, stranger) },
+    });
+    const reply2 = await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(db(), wrong),
+    );
+    expect(reply2.content).toContain('pas');
+  });
+
+  it('resultat : HDV17 ou guerre en 6 contre 6 → enregistré, mais signalé aux arbitres', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const war = fakeWar(final.home!, final.away!, { townHall: 17, teamSize: 6 });
+    const reply = await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(db(), fakeCoc({ [final.home!.tag]: { ok: true, value: war } })),
+    );
+    expect(reply.content).toContain('⚠️ À vérifier');
+    expect(reply.content).toContain('est HDV 17');
+    expect(reply.content).toContain('6 contre 6');
+  });
+
+  it('score à la main : le pourcentage départage, les lignes de joueurs sont effacées', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(
+        db(),
+        fakeCoc({ [final.home!.tag]: { ok: true, value: fakeWar(final.home!, final.away!) } }),
+      ),
+    );
+    // Correction : la finale n'a pas de match suivant, elle reste modifiable.
+    const reply = await runCommand(
+      referee('score', {
+        match: final.id,
+        etoiles_1: 12,
+        pourcent_1: 88.5,
+        temps_1: '14:05',
+        etoiles_2: 12,
+        pourcent_2: 91.2,
+        temps_2: '15:00',
+      }),
+      ctx,
+    );
+    expect(reply.content).toContain(`👑 **${final.away!.name}**`);
+    const detail = await getMatchDetail(db(), 'coupe-d-hiver', final.id);
+    expect(detail).toMatchObject({ source: 'referee', players: { home: [], away: [] } });
+    expect(detail!.match.score!.home.totalDurationSec).toBe(845);
+  });
+
+  it('score à la main : temps illisible ou égalité parfaite → refusé', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const base = { match: final.id, etoiles_1: 10, pourcent_1: 80, etoiles_2: 10, pourcent_2: 80 };
+    const unreadable = await runCommand(
+      referee('score', { ...base, temps_1: 'vite', temps_2: '10:00' }),
+      ctx,
+    );
+    expect(unreadable.content).toContain('Temps illisible pour le clan 1');
+    const tie = await runCommand(
+      referee('score', { ...base, temps_1: '10:00', temps_2: '600' }),
+      ctx,
+    );
+    expect(tie.content).toContain('Égalité parfaite');
+    expect((await active()).bracket!.matches[0].status).toBe('pending');
+  });
+
+  it('vainqueur : décision des arbitres, score existant conservé', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const reply = await runCommand(referee('vainqueur', { match: final.id, clan: 'away' }), ctx);
+    expect(reply.content).toContain('🧑‍⚖️ Décision des arbitres');
+    const t = await getTournament(db(), 'coupe-d-hiver');
+    expect(championOf(t!.bracket!)?.tag).toBe(final.away!.tag);
+    expect(t!.bracket!.matches[0].score).toBeNull();
+  });
+
+  it('match inconnu ou clan invalide : refusé', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    expect((await runCommand(referee('lancer', { match: 'R9-M9' }), ctx)).content).toContain(
+      'introuvable',
+    );
+    expect(
+      (await runCommand(referee('vainqueur', { match: final.id, clan: 'moi' }), ctx)).ephemeral,
+    ).toBe(true);
+  });
+
+  it('un résultat devient définitif quand le match suivant est joué', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 4);
+    await runCommand(referee('tirage'), ctx);
+    const semi = (await active()).bracket!.matches.filter((m) => m.round === 1);
+    await runCommand(referee('vainqueur', { match: semi[0].id, clan: 'home' }), ctx);
+    await runCommand(referee('vainqueur', { match: semi[1].id, clan: 'home' }), ctx);
+    // Avant la finale : la demie peut encore être corrigée…
+    await runCommand(referee('vainqueur', { match: semi[0].id, clan: 'away' }), ctx);
+    expect((await active()).bracket!.matches[2].home?.tag).toBe(semi[0].away!.tag);
+    // …mais plus après.
+    await runCommand(referee('vainqueur', { match: 'R2-M1', clan: 'home' }), ctx);
+    const reply = await runCommand(referee('vainqueur', { match: semi[0].id, clan: 'home' }), ctx);
+    expect(reply.content).toContain('figé');
+  });
+
+  it('chaque arbitre qui agit apparaît sur le site, une seule fois', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const hermes = { id: 'u-h', name: 'Hermès', permissions: '32' };
+    await runCommand(referee('lancer', { match: final.id }, hermes), ctx);
+    await runCommand(referee('vainqueur', { match: final.id, clan: 'home' }, hermes), ctx);
+    expect((await getTournament(db(), 'coupe-d-hiver'))!.referees).toEqual(['Zeus', 'Hermès']);
+  });
+});
+
+describe('/tournoi', () => {
+  it('aucun, puis inscriptions, puis tour en cours', async () => {
+    const ctx = botContext(db());
+    expect((await runCommand(command('tournoi'), ctx)).content).toContain('Aucun tournoi en cours');
+
+    await openWith(ctx, 2);
+    const open = await runCommand(command('tournoi'), ctx);
+    expect(open.content).toContain('inscriptions ouvertes');
+    expect(open.content).toContain('Les Pikachus, Titans FR');
+
+    await runCommand(referee('tirage'), ctx);
+    const running = await runCommand(command('tournoi'), ctx);
+    expect(running.content).toContain('Finale');
+    expect(running.content).toContain('⏳');
+  });
+});
+
+describe('autocomplétion', () => {
+  it('propose les matchs avec leurs affiches, filtrés par la saisie', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 4);
+    await runCommand(referee('tirage'), ctx);
+
+    const all = await autocomplete(typing('resultat', { match: '' }, 'match'), ctx);
+    expect(all).toHaveLength(2); // la finale n'a pas encore ses deux clans
+    expect(all[0].name).toMatch(/^Demi-finales · .+ contre .+$/);
+
+    const name = (await active()).bracket!.matches[0].home!.name;
+    const filtered = await autocomplete(
+      typing('resultat', { match: name.slice(0, 4) }, 'match'),
+      ctx,
+    );
+    expect(filtered.map((c) => c.value)).toContain('R1-M1');
+  });
+
+  it('lancer : seulement les matchs en attente', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(referee('lancer', { match: final.id }), ctx);
+    expect(await autocomplete(typing('lancer', { match: '' }, 'match'), ctx)).toEqual([]);
+    expect(await autocomplete(typing('resultat', { match: '' }, 'match'), ctx)).toHaveLength(1);
+  });
+
+  it('vainqueur : propose les deux clans du match choisi', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const choices = await autocomplete(
+      typing('vainqueur', { match: final.id, clan: '' }, 'clan'),
+      ctx,
+    );
+    expect(choices).toEqual([
+      { name: final.home!.name, value: 'home' },
+      { name: final.away!.name, value: 'away' },
+    ]);
+  });
+
+  it('sans arbre : aucune suggestion', async () => {
+    expect(await autocomplete(typing('lancer', { match: '' }, 'match'), botContext(db()))).toEqual(
+      [],
+    );
+  });
+});
+
+describe('needsDefer', () => {
+  it('seules les commandes qui interrogent le jeu sont différées', () => {
+    expect(needsDefer(command('inscription', { tag: '#2PPP' }))).toBe(true);
+    expect(needsDefer(referee('resultat', { match: 'R1-M1' }))).toBe(true);
+    expect(needsDefer(referee('tirage'))).toBe(true);
+    expect(needsDefer(command('tournoi'))).toBe(false);
+    expect(needsDefer(referee('lancer', { match: 'R1-M1' }))).toBe(false);
+  });
+});
+
+describe('statistiques après un tournoi joué', () => {
+  it('les joueurs apparaissent au classement, la démo non', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(
+        db(),
+        fakeCoc({ [final.home!.tag]: { ok: true, value: fakeWar(final.home!, final.away!) } }),
+      ),
+    );
+    const players = await listPlayers(db());
+    expect(players).toHaveLength(10);
+    expect(players[0]).toMatchObject({
+      wars: 1,
+      attacks: 1,
+      stars: 3,
+      triples: 1,
+      destruction: 100,
+    });
+    expect(players[0].clan.tag).toBe(final.home!.tag);
+  });
+});

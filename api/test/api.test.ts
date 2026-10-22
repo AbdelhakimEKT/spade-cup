@@ -1,6 +1,7 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEMO_TOURNAMENT } from '../../src/app/features/tournaments/data/demo-tournament';
+import { DEMO_MATCH_PLAYERS } from '../../src/app/features/tournaments/data/demo-players';
 import { saveTournament } from '../src/repository';
 
 // Appelle le serveur exactement comme le ferait un navigateur.
@@ -9,7 +10,7 @@ const call = (path: string, init?: RequestInit) =>
 
 describe('API HTTP', () => {
   beforeEach(async () => {
-    await saveTournament(env.DB, DEMO_TOURNAMENT);
+    await saveTournament(env.DB, DEMO_TOURNAMENT, DEMO_MATCH_PLAYERS);
   });
 
   it('GET /health', async () => {
@@ -45,6 +46,39 @@ describe('API HTTP', () => {
     const res = await call('/tournaments/nexiste-pas');
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: 'Tournoi introuvable.' });
+  });
+
+  it('GET /tournaments/demo/matches/R1-M1 : le match et ses joueurs', async () => {
+    const res = await call('/tournaments/demo/matches/R1-M1');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { match: { id: string }; players: { home: unknown[] } };
+    expect(body.match.id).toBe('R1-M1');
+    expect(body.players.home).toHaveLength(5);
+    expect((await call('/tournaments/demo/matches/R9-M9')).status).toBe(404);
+    expect((await call('/tournaments/demo/matches/pas-un-match')).status).toBe(404);
+  });
+
+  it('GET /players : vide hors démo ; ?tournament=demo : le classement de la démo', async () => {
+    expect(await (await call('/players')).json()).toEqual([]);
+    const demo = (await (await call('/players?tournament=demo')).json()) as unknown[];
+    expect(demo).toHaveLength(80);
+    expect((await call('/players?tournament=Pas%20Valide')).status).toBe(400);
+  });
+
+  it('GET /players/:tag et /clans/:tag : tag sans « # » dans l’URL', async () => {
+    const tag = DEMO_MATCH_PLAYERS.get('R1-M1')![0].tag.slice(1);
+    const player = (await (await call(`/players/${tag}`)).json()) as { totals: { tag: string } };
+    expect(player.totals.tag).toBe(`#${tag}`);
+    expect((await call('/players/ZZZZ')).status).toBe(404);
+
+    const clan = (await (await call('/clans/DEMO1')).json()) as { clan: { name: string } };
+    expect(clan.clan.name).toBe('Les Pikachus');
+    expect((await call('/clans/2PPP')).status).toBe(404);
+    expect((await call('/clans/%23DEMO1')).status).toBe(404); // le « # » n'a rien à faire dans l'URL
+  });
+
+  it('GET /discord : 405 (seul Discord y écrit, en POST)', async () => {
+    expect((await call('/discord')).status).toBe(405);
   });
 
   it('adresse inconnue : 404', async () => {
