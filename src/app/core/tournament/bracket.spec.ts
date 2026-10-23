@@ -1,8 +1,10 @@
 import {
+  bracketFromSeeds,
   bracketSize,
   championOf,
   createBracket,
   currentRound,
+  isResultEditable,
   liveMatch,
   recordResult,
   roundLabel,
@@ -185,5 +187,51 @@ describe('currentRound et liveMatch', () => {
     const b = createBracket(clans(4), noShuffle);
     expect(liveMatch(b)).toBeNull();
     expect(liveMatch(startMatch(b, 'R1-M2'))?.id).toBe('R1-M2');
+  });
+});
+
+describe('bracketFromSeeds', () => {
+  it('le 1er clan est la tête de série n° 1 : il affronte la dernière', () => {
+    const b = bracketFromSeeds(clans(8));
+    expect([b.matches[0].home?.name, b.matches[0].away?.name]).toEqual(['Clan 1', 'Clan 8']);
+  });
+
+  it('createBracket = mélange puis bracketFromSeeds (même hasard, même arbre)', () => {
+    const fixedRandom = () => {
+      const values = [0.9, 0.1, 0.6, 0.3];
+      return () => values.shift() ?? 0;
+    };
+    expect(createBracket(clans(5), fixedRandom())).toEqual(
+      bracketFromSeeds(shuffle(clans(5), fixedRandom())),
+    );
+  });
+});
+
+describe('isResultEditable', () => {
+  it('match prêt, en cours, ou joué avec le suivant pas encore joué : oui', () => {
+    let b = bracketFromSeeds(clans(4));
+    expect(isResultEditable(b, b.matches[0])).toBe(true);
+    b = startMatch(b, 'R1-M1');
+    expect(isResultEditable(b, b.matches[0])).toBe(true);
+    b = recordResult(b, 'R1-M1', 'home');
+    expect(isResultEditable(b, b.matches[0])).toBe(true);
+  });
+
+  it('match incomplet, exempt, ou dont le suivant est joué : non', () => {
+    const five = bracketFromSeeds(clans(5));
+    expect(
+      isResultEditable(
+        five,
+        five.matches.find((m) => m.status === 'bye')!,
+      ),
+    ).toBe(false);
+    expect(isResultEditable(five, five.matches.at(-1)!)).toBe(false); // finale sans ses clans
+
+    let b = bracketFromSeeds(clans(4));
+    b = recordResult(b, 'R1-M1', 'home');
+    b = recordResult(b, 'R1-M2', 'home');
+    b = recordResult(b, 'R2-M1', 'away');
+    expect(isResultEditable(b, b.matches[0])).toBe(false);
+    expect(isResultEditable(b, b.matches[2])).toBe(true); // la finale reste corrigeable
   });
 });

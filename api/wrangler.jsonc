@@ -20,7 +20,7 @@
     // Clé PUBLIQUE de l'application Discord (portail développeur → General Information).
     "DISCORD_PUBLIC_KEY": "",
     // Adresse du site, pour les liens dans les messages du bot.
-    "SITE_URL": "https://spade-cup.pages.dev",
+    "SITE_URL": "https://spade-cup.popi-coc.workers.dev",
     // Relais vers l'API du jeu, depuis une IP fixe (voir src/coc.ts).
     "COC_API_BASE": "https://cocproxy.royaleapi.dev/v1"
   }

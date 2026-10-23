@@ -11,12 +11,20 @@ describe('SiteHeader', () => {
     });
   });
 
-  it('propose un lien vers les tournois', async () => {
+  it('propose les liens vers les tournois, les joueurs et les règles', async () => {
     const fixture = TestBed.createComponent(SiteHeader);
     await fixture.whenStable();
-    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href="/tournois"]');
+    const nav = (fixture.nativeElement as HTMLElement).querySelector('nav')!;
+    const links = [...nav.querySelectorAll('a')].map((a) => [
+      a.getAttribute('href'),
+      a.textContent?.trim(),
+    ]);
 
-    expect(link?.textContent?.trim()).toBe('Tournois');
+    expect(links).toEqual([
+      ['/tournois', 'Tournois'],
+      ['/joueurs', 'Joueurs'],
+      ['/a-propos', 'Règles'],
+    ]);
   });
 
   it('le bouton de thème annonce l’action, et change après un clic', async () => {

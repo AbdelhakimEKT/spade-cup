@@ -22,9 +22,13 @@ async function open(slug: string) {
   const el = fixture.nativeElement as HTMLElement;
   const url = `${SITE_CONFIG.apiUrl}/tournaments/${slug}`;
 
-  /** Le serveur répond : on attend que la page ait fini de se redessiner. */
-  const reply = async (body: object, status = 200, statusText = 'OK') => {
+  /**
+   * Le serveur répond au tournoi et, en même temps, au classement de ses
+   * joueurs (vide par défaut). On attend que la page ait fini de se redessiner.
+   */
+  const reply = async (body: object, status = 200, statusText = 'OK', players: object = []) => {
     http.expectOne(url).flush(body, { status, statusText });
+    http.expectOne(`${SITE_CONFIG.apiUrl}/players?tournament=${slug}`).flush(players);
     await fixture.whenStable();
   };
   return { el, http, url, reply, fixture };
@@ -80,5 +84,35 @@ describe('TournamentPage', () => {
     http.expectOne(url).flush(DEMO_TOURNAMENT);
     await fixture.whenStable();
     expect(el.querySelector('h1')?.textContent).toBe('Tournoi de démonstration');
+  });
+
+  it('meilleurs joueurs du tournoi : les 5 premiers, et un lien vers le classement complet', async () => {
+    const { el, reply } = await open('demo');
+    const players = Array.from({ length: 8 }, (_, i) => ({
+      tag: `#P${i}`,
+      name: `Joueur ${i}`,
+      clan: { tag: '#DEMO1', name: 'Les Pikachus' },
+      wars: 1,
+      attacks: 1,
+      stars: 3 - (i % 3),
+      triples: i % 3 === 0 ? 1 : 0,
+      destruction: 90,
+    }));
+    await reply(DEMO_TOURNAMENT, 200, 'OK', players);
+
+    expect(el.querySelectorAll('sc-ranking-table tbody tr')).toHaveLength(5);
+    expect(el.querySelector('a[href="/joueurs?tournoi=demo"]')?.textContent).toContain(
+      'Classement complet',
+    );
+  });
+
+  it('inscriptions en cours : la liste des clans inscrits, pas d’arbre', async () => {
+    const { el, reply } = await open('demo');
+    await reply({ ...DEMO_TOURNAMENT, status: 'registration', bracket: null });
+
+    expect(el.querySelector('sc-bracket-view')).toBeNull();
+    expect(el.querySelectorAll('.registered li')).toHaveLength(16);
+    expect(el.querySelector('.registered a')?.getAttribute('href')).toBe('/clans/DEMO1');
+    expect(el.querySelector('sc-ranking-table')).toBeNull(); // aucun joueur encore
   });
 });

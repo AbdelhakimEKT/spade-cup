@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 import { BracketMatch } from '../../../core/tournament/models';
-import { ClanAvatar } from '../ui/clan-avatar/clan-avatar';
+import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
 
 /**
  * Le match qui se joue en ce moment, mis à la une en haut de la page du tournoi.

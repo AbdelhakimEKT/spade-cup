@@ -21,19 +21,19 @@ export class HomePage {
   protected readonly steps: readonly Step[] = [
     {
       title: 'Inscription',
-      text: 'Les chefs inscrivent leur clan sur le Discord, simplement avec son tag.',
+      text: 'Sur le Discord, un chef tape /inscription avec le tag de son clan. C’est tout.',
     },
     {
       title: 'Tirage',
-      text: "À la clôture des inscriptions, l'arbre des matchs se génère tout seul.",
+      text: "À la clôture, l'arbre est tiré au sort par l'ordinateur, sans intervention humaine.",
     },
     {
       title: 'Guerres amicales',
-      text: 'Chaque match est une guerre amicale. Les résultats remontent automatiquement.',
+      text: 'Chaque match est une guerre amicale en 5 contre 5, HDV 18. Le résultat est lu dans le jeu.',
     },
     {
       title: 'Classement',
-      text: "L'arbre avance tour après tour, avec les statistiques de chaque joueur.",
+      text: "L'arbre avance tour après tour, et chaque joueur entre au classement.",
     },
   ];
 }

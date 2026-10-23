@@ -9,4 +9,5 @@ export const SITE_CONFIG = {
   name: 'Spade Cup FR',
   discordInvite: '',
   apiUrl: 'https://spade-cup-api.popi-coc.workers.dev',
+  repoUrl: 'https://github.com/AbdelhakimEKT/spade-cup',
 } as const;

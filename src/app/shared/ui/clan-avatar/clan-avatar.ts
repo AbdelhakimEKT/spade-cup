@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { ClanRef } from '../../../../core/tournament/models';
+import { ClanRef } from '../../../core/tournament/models';
 import { clanColor, clanInitials } from '../clan-visuals';
 
 /**

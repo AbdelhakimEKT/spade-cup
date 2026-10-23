@@ -1,3 +1,4 @@
+import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { DEMO_TOURNAMENT } from '../data/demo-tournament';
 import { BracketView } from './bracket-view';
@@ -6,7 +7,7 @@ import { BracketView } from './bracket-view';
 const bracket = DEMO_TOURNAMENT.bracket!;
 
 async function render() {
-  TestBed.configureTestingModule({ imports: [BracketView] });
+  TestBed.configureTestingModule({ imports: [BracketView], providers: [provideRouter([])] });
   const fixture = TestBed.createComponent(BracketView);
   fixture.componentRef.setInput('bracket', bracket);
   await fixture.whenStable();

@@ -13,6 +13,20 @@
         class="nav__link"
         >Tournois</a
       >
+      <a
+        routerLink="/joueurs"
+        routerLinkActive="nav__link--active"
+        ariaCurrentWhenActive="page"
+        class="nav__link"
+        >Joueurs</a
+      >
+      <a
+        routerLink="/a-propos"
+        routerLinkActive="nav__link--active"
+        ariaCurrentWhenActive="page"
+        class="nav__link"
+        >Règles</a
+      >
 
       @if (discordInvite) {
         <a class="nav__link" [href]="discordInvite" target="_blank" rel="noopener">Discord</a>

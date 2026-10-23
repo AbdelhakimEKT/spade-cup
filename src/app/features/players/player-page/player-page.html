@@ -1,5 +1,94 @@
-<h1>Joueur</h1>
-<p>
-  Statistiques de tournoi du joueur <code>#{{ tag() }}</code
-  >, bientôt ici.
-</p>
+@if (profile(); as p) {
+  <a class="crumb" routerLink="/joueurs">← Classement des joueurs</a>
+
+  <header class="page-head">
+    <p class="eyebrow">Joueur · {{ p.totals.tag }}</p>
+    <h1 class="page-title">{{ p.totals.name }}</h1>
+    <a class="clan" [routerLink]="['/clans', url(p.totals.clan.tag)]">
+      <sc-clan-avatar [clan]="p.totals.clan" />
+      {{ p.totals.clan.name }}
+    </a>
+  </header>
+
+  <dl class="tiles">
+    <div class="tile">
+      <dt>Guerres jouées</dt>
+      <dd>{{ p.totals.wars }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Étoiles</dt>
+      <dd>{{ p.totals.stars }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Étoiles par attaque</dt>
+      <dd>{{ average() | number: '1.2-2' }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Triples (3 étoiles)</dt>
+      <dd>{{ p.totals.triples }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Destruction moyenne</dt>
+      <dd>{{ p.totals.destruction | number: '1.1-1' }} %</dd>
+    </div>
+  </dl>
+
+  <section class="section">
+    <h2 class="section-title">Ses guerres</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <caption class="visually-hidden">
+          Guerres de
+          {{
+            p.totals.name
+          }}, de la plus récente à la plus ancienne
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" class="cell-text">Tournoi</th>
+            <th scope="col" class="cell-text">Match</th>
+            <th scope="col">Résultat</th>
+            <th scope="col">Étoiles</th>
+            <th scope="col">Destr.</th>
+            <th scope="col">HDV</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (h of p.history; track h.tournament.slug + h.matchId) {
+            <tr>
+              <td class="cell-text">
+                <a [routerLink]="['/tournois', h.tournament.slug]">{{ h.tournament.name }}</a>
+                <span class="muted round">{{ roundLabel(h.round, h.roundCount) }}</span>
+              </td>
+              <td class="cell-text">
+                <a [routerLink]="['/tournois', h.tournament.slug, 'matchs', h.matchId]">
+                  {{ h.clan.name }} contre {{ h.opponent?.name ?? '?' }}
+                </a>
+              </td>
+              <td>
+                @if (h.won === true) {
+                  <span class="result result--win">V</span>
+                } @else if (h.won === false) {
+                  <span class="result result--lose">D</span>
+                } @else {
+                  <span class="muted">–</span>
+                }
+              </td>
+              <td><span class="star" aria-hidden="true">★</span> {{ h.line.stars }}</td>
+              <td>{{ h.line.attacks ? (h.line.destruction | number: '1.1-1') + ' %' : '–' }}</td>
+              <td>{{ h.line.townHall }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+} @else if (notFound()) {
+  <h1 class="page-title">Joueur introuvable</h1>
+  <p class="muted">
+    Aucun joueur avec ce tag n'a encore joué de match.
+    <a routerLink="/joueurs">Voir le classement</a>
+  </p>
+} @else {
+  <sc-request-state [resource]="request" />
+}

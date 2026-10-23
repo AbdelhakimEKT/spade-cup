@@ -13,16 +13,18 @@ type ReloadableResource = Resource<unknown> & { reload(): boolean };
 @Component({
   selector: 'sc-request-state',
   template: `
-    @if (resource().error()) {
-      <div class="state state--error" role="alert">
-        <p>{{ errorMessage() }}</p>
-        <button type="button" class="retry" (click)="resource().reload()">Réessayer</button>
-      </div>
-    } @else if (resource().isLoading()) {
+    <!-- Le chargement passe avant l'erreur : après « Réessayer », l'ancienne
+         erreur s'efface tout de suite, preuve que le clic a été pris en compte. -->
+    @if (resource().isLoading()) {
       <p class="state state--loading" role="status">
         <span class="spinner" aria-hidden="true"></span>
         Chargement…
       </p>
+    } @else if (resource().error()) {
+      <div class="state state--error" role="alert">
+        <p>{{ errorMessage() }}</p>
+        <button type="button" class="retry" (click)="resource().reload()">Réessayer</button>
+      </div>
     }
   `,
   styleUrl: './request-state.scss',

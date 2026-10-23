@@ -1,3 +1,4 @@
+import { provideRouter } from '@angular/router';
 import { registerLocaleData } from '@angular/common';
 import localeFr from '@angular/common/locales/fr';
 import { LOCALE_ID } from '@angular/core';
@@ -21,7 +22,7 @@ const base: BracketMatch = {
 async function render(match: BracketMatch, final = false) {
   TestBed.configureTestingModule({
     imports: [MatchCard],
-    providers: [{ provide: LOCALE_ID, useValue: 'fr' }],
+    providers: [{ provide: LOCALE_ID, useValue: 'fr' }, provideRouter([])],
   });
   const fixture = TestBed.createComponent(MatchCard);
   fixture.componentRef.setInput('match', match);
@@ -58,9 +59,19 @@ describe('MatchCard', () => {
     expect(el.querySelector('.team--win')?.textContent).toContain('Clan B');
     expect(el.querySelector('.team--lose')?.textContent).toContain('Clan A');
     expect(el.textContent).not.toContain('%');
-    expect(el.querySelector('article')?.getAttribute('aria-label')).toBe(
+    // Les deux clans sont connus : la phrase est portée par le lien vers le match.
+    const link = el.querySelector('a.match__link');
+    expect(link?.getAttribute('aria-label')).toBe(
       'Clan A contre Clan B, 12 étoiles à 13. Vainqueur : Clan B',
     );
+    expect(link?.getAttribute('href')).toBe('/matchs/R1-M1');
+    expect(el.querySelector('article')?.hasAttribute('aria-label')).toBe(false);
+  });
+
+  it('place encore vide : pas de lien, la phrase reste sur la carte', async () => {
+    const el = await render({ ...base, away: null });
+    expect(el.querySelector('a')).toBeNull();
+    expect(el.querySelector('article')?.getAttribute('aria-label')).toContain('Clan A contre');
   });
 
   it('égalité d’étoiles : le départage s’affiche sous la carte, au format français', async () => {

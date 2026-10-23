@@ -1,0 +1,14 @@
+// Le SITE (fichiers construits par `ng build`), servi par Cloudflare.
+// Le serveur de données, lui, a sa propre configuration : api/wrangler.jsonc.
+{
+  "$schema": "api/node_modules/wrangler/config-schema.json",
+  "name": "spade-cup",
+  "compatibility_date": "2026-10-21",
+  "assets": {
+    "directory": "./dist/spade-cup/browser",
+    // Application à page unique : une adresse comme /joueurs/D1P1 n'existe
+    // pas en tant que fichier ; Cloudflare renvoie alors index.html, et c'est
+    // le routeur d'Angular qui affiche la bonne page.
+    "not_found_handling": "single-page-application"
+  }
+}

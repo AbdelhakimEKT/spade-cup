@@ -80,6 +80,31 @@
     <p class="pending">
       Les inscriptions se font sur le Discord. L'arbre sera tiré au sort à leur clôture.
     </p>
+    @if (t.clans.length) {
+      <section class="section">
+        <h2 class="section-title">Clans inscrits</h2>
+        <ul class="registered">
+          @for (clan of t.clans; track clan.tag) {
+            <li>
+              <a [routerLink]="['/clans', url(clan.tag)]">
+                <sc-clan-avatar [clan]="clan" />
+                {{ clan.name }}
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  }
+
+  @if (topPlayers().length) {
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section-title">Meilleurs joueurs</h2>
+        <a [routerLink]="['/joueurs']" [queryParams]="{ tournoi: t.slug }">Classement complet →</a>
+      </div>
+      <sc-ranking-table [players]="topPlayers()" [caption]="'Meilleurs joueurs de ' + t.name" />
+    </section>
   }
 } @else if (notFound()) {
   <h1>Tournoi introuvable</h1>

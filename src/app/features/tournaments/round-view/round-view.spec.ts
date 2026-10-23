@@ -1,10 +1,11 @@
+import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { DEMO_TOURNAMENT } from '../data/demo-tournament';
 import { RoundView } from './round-view';
 
 describe('RoundView', () => {
   it('s’ouvre sur le tour en cours, puis change de tour au clic', async () => {
-    TestBed.configureTestingModule({ imports: [RoundView] });
+    TestBed.configureTestingModule({ imports: [RoundView], providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(RoundView);
     fixture.componentRef.setInput('bracket', DEMO_TOURNAMENT.bracket!);
     await fixture.whenStable();

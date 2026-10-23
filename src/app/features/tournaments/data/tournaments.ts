@@ -1,6 +1,7 @@
 import { HttpResourceRef, httpResource } from '@angular/common/http';
 import { Service } from '@angular/core';
 import { SITE_CONFIG } from '../../../core/site-config';
+import { MatchDetail } from '../../../core/tournament/stats';
 import { Tournament, TournamentSummary } from './tournament';
 
 /**
@@ -25,9 +26,22 @@ export class Tournaments {
   /**
    * `slug` est une fonction (un signal, typiquement) : si elle change, la
    * ressource relance la requête toute seule. Passer d'un tournoi à un autre
-   * sans quitter la page fonctionne donc sans code supplémentaire.
+   * sans quitter la page fonctionne donc sans code supplémentaire. Si elle
+   * renvoie `null`, rien n'est demandé.
    */
-  bySlug(slug: () => string): HttpResourceRef<Tournament | undefined> {
-    return httpResource<Tournament>(() => `${this.api}/tournaments/${encodeURIComponent(slug())}`);
+  bySlug(slug: () => string | null): HttpResourceRef<Tournament | undefined> {
+    return httpResource<Tournament>(() => {
+      const value = slug();
+      // Pas de slug : la ressource reste au repos, aucune requête ne part.
+      return value === null ? undefined : `${this.api}/tournaments/${encodeURIComponent(value)}`;
+    });
+  }
+
+  /** Un match de l'arbre, avec les lignes de ses joueurs. */
+  match(slug: () => string, matchId: () => string): HttpResourceRef<MatchDetail | undefined> {
+    return httpResource<MatchDetail>(
+      () =>
+        `${this.api}/tournaments/${encodeURIComponent(slug())}/matches/${encodeURIComponent(matchId())}`,
+    );
   }
 }

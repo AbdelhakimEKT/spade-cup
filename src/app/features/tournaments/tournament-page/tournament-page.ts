@@ -10,10 +10,22 @@ import { STATUS_LABEL } from '../data/tournament';
 import { Tournaments } from '../data/tournaments';
 import { FeaturedMatch } from '../featured-match/featured-match';
 import { RequestState } from '../../../shared/request-state/request-state';
+import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
+import { RankingTable } from '../../../shared/ui/ranking-table';
+import { tagToUrl } from '../../../core/tournament/tags';
+import { Players } from '../../players/data/players';
 
 @Component({
   selector: 'sc-tournament-page',
-  imports: [BracketView, FeaturedMatch, NgOptimizedImage, RequestState, RouterLink],
+  imports: [
+    BracketView,
+    ClanAvatar,
+    FeaturedMatch,
+    NgOptimizedImage,
+    RankingTable,
+    RequestState,
+    RouterLink,
+  ],
   templateUrl: './tournament-page.html',
   styleUrl: './tournament-page.scss',
 })
@@ -35,6 +47,14 @@ export class TournamentPage {
   protected readonly tournament = computed(() =>
     this.request.hasValue() ? this.request.value() : null,
   );
+
+  /** Les 5 meilleurs joueurs du tournoi (vide tant qu'aucune guerre n'a été lue). */
+  private readonly ranking = inject(Players).ranking(this.slug);
+  protected readonly topPlayers = computed(() =>
+    this.ranking.hasValue() ? this.ranking.value().slice(0, 5) : [],
+  );
+
+  protected readonly url = tagToUrl;
 
   /** Le serveur a répondu « ce tournoi n'existe pas » (et non « je suis en panne »). */
   protected readonly notFound = computed(() => this.request.statusCode() === 404);

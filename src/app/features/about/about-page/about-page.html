@@ -1,0 +1,181 @@
+<header class="page-head">
+  <p class="eyebrow">À propos</p>
+  <h1 class="page-title">Comment ça marche</h1>
+  <p class="lead">
+    J'ai créé Spade Cup FR pour organiser les tournois de guerres amicales des clans francophones
+    sans tableur, et sans recopier des captures d'écran à la main. Voici les règles telles que le
+    site les applique, puis, pour les curieux, comment il est construit.
+  </p>
+</header>
+
+<section class="section" aria-labelledby="rules-title">
+  <h2 id="rules-title" class="section-title">Les règles, en clair</h2>
+
+  <div class="cards">
+    <article class="card">
+      <h3>Le format</h3>
+      <p>
+        Chaque match est une guerre amicale en
+        <b>{{ rules.teamSize }} contre {{ rules.teamSize }}</b
+        >, uniquement avec des <b>HDV {{ rules.townHallLevel }}</b
+        >. Les deux chefs lancent la guerre entre eux dans le jeu, comme d'habitude. Élimination
+        directe : on perd, on sort.
+      </p>
+    </article>
+
+    <article class="card">
+      <h3>S'inscrire</h3>
+      <p>
+        Tout se passe sur le Discord : un chef tape <code>/inscription</code> avec le tag de son
+        clan. Le bot vérifie que le clan existe et récupère son nom et son blason. Pas de liste de
+        joueurs à fournir : chaque clan aligne qui il veut, du moment qu'ils sont HDV
+        {{ rules.townHallLevel }}.
+      </p>
+    </article>
+
+    <article class="card">
+      <h3>Le tirage</h3>
+      <p>
+        À la clôture des inscriptions, l'arbre est tiré au sort par l'ordinateur, avec un hasard
+        cryptographique : personne, pas même moi, ne peut le prévoir ni l'orienter.
+      </p>
+      <p>
+        S'il n'y a pas pile 8, 16 ou 32 clans, certains sont <b>exempts</b> : qualifiés d'office
+        pour le tour suivant. Les places vides sont réparties pour que deux exempts ne se croisent
+        jamais.
+      </p>
+    </article>
+
+    <article class="card">
+      <h3>Qui gagne ?</h3>
+      <ol class="steps">
+        <li>Le clan qui a le plus d'<b>étoiles</b>.</li>
+        <li>À égalité, le meilleur <b>pourcentage de destruction</b>.</li>
+        <li>Encore à égalité, celui qui a attaqué <b>le moins longtemps</b> au total.</li>
+        <li>Égalité parfaite (ça n'arrive presque jamais) : les arbitres tranchent.</li>
+      </ol>
+    </article>
+
+    <article class="card">
+      <h3>Les résultats</h3>
+      <p>
+        À la fin de la guerre, un arbitre tape <code>/arbitre resultat</code> : le bot lit la guerre
+        directement dans l'API officielle du jeu. Rien à recopier, donc pas d'erreur de saisie.
+      </p>
+      <p>
+        Un joueur qui n'est pas HDV {{ rules.townHallLevel }}, une guerre qui n'est pas en
+        {{ rules.teamSize }} contre {{ rules.teamSize }} : le résultat est enregistré, mais signalé
+        aux arbitres. Pour que le bot puisse lire la guerre, le journal de guerre d'au moins un des
+        deux clans doit être public.
+      </p>
+    </article>
+
+    <article class="card">
+      <h3>Les arbitres</h3>
+      <p>
+        Ils décident de tout ce que le site ne peut pas savoir : délais, forfaits, litiges. Si le
+        jeu ne répond pas, ils peuvent saisir le score à la main. Gardez vos captures d'écran : en
+        cas de désaccord, ce sont elles qui comptent.
+      </p>
+    </article>
+  </div>
+
+  <p class="note">
+    Chaque guerre lue dans le jeu enregistre aussi la ligne de chaque joueur (étoiles, destruction,
+    temps). C'est ce qui alimente le
+    <a routerLink="/joueurs">classement des joueurs</a> : qui a le plus joué, qui a fait le plus
+    d'étoiles, qui enchaîne les triples.
+  </p>
+</section>
+
+<section class="section" aria-labelledby="tech-title">
+  <h2 id="tech-title" class="section-title">Sous le capot</h2>
+  <p class="lead">
+    Je suis développeur, et ce site est aussi mon projet vitrine. Il est open source : tout le code
+    est sur <a [href]="repoUrl" target="_blank" rel="noopener">GitHub</a>.
+  </p>
+
+  <div class="cards">
+    <article class="card">
+      <h3>Le site</h3>
+      <p>
+        <b>Angular 22</b> : composants autonomes, <i>signals</i>, sans zone.js, pages chargées à la
+        demande, données lues avec <code>httpResource</code>. Navigable au clavier, lisible par les
+        lecteurs d'écran, en thème clair ou sombre.
+      </p>
+    </article>
+    <article class="card">
+      <h3>Le serveur</h3>
+      <p>
+        Un <b>Cloudflare Worker</b> en TypeScript et une base SQL <b>D1</b>. L'API publique est en
+        lecture seule : les écritures passent uniquement par le bot Discord.
+      </p>
+    </article>
+    <article class="card">
+      <h3>Le bot Discord</h3>
+      <p>
+        Pas de bot connecté en permanence : à chaque commande, Discord envoie une requête HTTP
+        <b>signée</b> (Ed25519), et le serveur vérifie la signature avant d'agir. Quand le jeu met
+        du temps à répondre, le bot répond « je réfléchis » puis complète son message.
+      </p>
+    </article>
+    <article class="card">
+      <h3>Une seule logique</h3>
+      <p>
+        Les règles (arbre, départage, lecture des guerres) sont écrites une seule fois, en
+        TypeScript pur, et partagées par le site et le serveur. Si l'un change, le compilateur
+        prévient l'autre.
+      </p>
+    </article>
+    <article class="card">
+      <h3>Les tests</h3>
+      <p>
+        Plus de 250 tests automatisés, relancés à chaque modification par <b>GitHub Actions</b> :
+        logique du tournoi, pages du site, et serveur testé dans le vrai moteur de Cloudflare avec
+        une base de données jetable.
+      </p>
+    </article>
+    <article class="card">
+      <h3>Le coût</h3>
+      <p>
+        <b>0 €.</b> Tout tourne sur les offres gratuites de Cloudflare, et le code est conçu pour
+        rester dans leurs limites.
+      </p>
+    </article>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="problems-title">
+  <h2 id="problems-title" class="section-title">Trois problèmes que j'ai dû résoudre</h2>
+  <ol class="problems">
+    <li>
+      <h3>Une API qui exige une adresse IP fixe</h3>
+      <p>
+        L'API du jeu n'accepte que les adresses IP déclarées à l'avance, alors qu'un serveur
+        Cloudflare en change sans arrêt. Les requêtes passent donc par un relais à IP fixe, et
+        l'adresse de ce relais est un simple réglage : on peut en changer sans toucher au code.
+      </p>
+    </li>
+    <li>
+      <h3>Corriger une finale</h3>
+      <p>
+        Mes tests ont montré qu'une fois la finale saisie, le tournoi passait « terminé » et le bot
+        ne le retrouvait plus : impossible de corriger une erreur d'arbitrage. Le dernier tournoi
+        reste désormais modifiable jusqu'à la création du suivant.
+      </p>
+    </li>
+    <li>
+      <h3>Une mise à jour qui effaçait des données</h3>
+      <p>
+        En SQLite, « remplacer » une ligne veut dire la supprimer puis la recréer. Avec les
+        suppressions en cascade, mettre à jour un match aurait effacé les statistiques de ses
+        joueurs. J'utilise une vraie mise à jour (un <i>upsert</i>), et un test le vérifie.
+      </p>
+    </li>
+  </ol>
+</section>
+
+<p class="signature">
+  Rags, créateur de Spade Cup FR. Une idée, un bug ? Parles-en sur le Discord, ou ouvre un ticket
+  sur <a [href]="repoUrl + '/issues'" target="_blank" rel="noopener">GitHub</a>.
+</p>

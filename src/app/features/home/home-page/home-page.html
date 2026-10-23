@@ -14,6 +14,7 @@
 
   <div class="hero__actions">
     <a class="button button--primary" routerLink="/tournois">Voir les tournois</a>
+    <a class="button" routerLink="/joueurs">Classement des joueurs</a>
     @if (discordInvite) {
       <a class="button" [href]="discordInvite" target="_blank" rel="noopener"
         >Rejoindre le Discord</a
@@ -34,4 +35,8 @@
       </li>
     }
   </ol>
+
+  <p class="how__more">
+    <a routerLink="/a-propos">Toutes les règles, expliquées simplement →</a>
+  </p>
 </section>

@@ -1,64 +1,62 @@
 # Spade Cup FR
 
-Site des tournois de guerres amicales Clash of Clans entre clans francophones :
-inscription des clans, arbre des matchs généré à la clôture, résultats et
-statistiques des joueurs.
+[![CI](https://github.com/AbdelhakimEKT/spade-cup/actions/workflows/ci.yml/badge.svg)](https://github.com/AbdelhakimEKT/spade-cup/actions/workflows/ci.yml)
+
+Tournois de guerres amicales Clash of Clans entre clans francophones, en
+**5 contre 5, HDV 18**. Les clans s'inscrivent sur Discord, l'arbre est tiré au
+sort, les résultats sont lus directement dans l'API du jeu, et chaque joueur
+entre au classement.
+
+- **Site** : https://spade-cup.popi-coc.workers.dev
+- **API** : https://spade-cup-api.popi-coc.workers.dev
+- Les règles et les choix techniques, expliqués simplement : page
+  [Comment ça marche](https://spade-cup.popi-coc.workers.dev/a-propos)
 
 ## Stack
 
-- **Angular 22** : composants autonomes (standalone), signaux, sans zone.js
+- **Angular 22** : composants autonomes, signals, sans zone.js, `httpResource`
 - **SCSS** avec des jetons de design en variables CSS (thèmes sombre et clair)
-- **Vitest** pour les tests unitaires
-- Polices Rajdhani et Inter hébergées avec le site (Fontsource)
-- **Serveur** : Cloudflare Worker en TypeScript + base **D1** (SQLite), dans `api/`
-
-## Commandes
-
-| Commande | Rôle |
-|---|---|
-| `npm start` | serveur de développement sur http://localhost:4200 |
-| `npm test` | tests unitaires (Vitest) |
-| `npm run build` | version de production dans `dist/` |
-| `npx ng generate component features/x/y` | créer un composant |
+- **Cloudflare Workers** : le site (fichiers statiques) et le serveur (TypeScript)
+- **D1** (SQLite) pour la base de données
+- **Bot Discord** par requêtes HTTP signées (Ed25519), sans connexion permanente
+- **Vitest** partout : site, logique partagée, et serveur dans le vrai moteur Cloudflare
+- **GitHub Actions** : tests à chaque push, mise en ligne automatique sur `main`
 
 ## Organisation
 
 ```
 src/
-├─ styles/              jetons de design (_tokens), base globale (_base)
-├─ app/
-│  ├─ app.ts / app.html  coquille : en-tête, contenu, pied de page
-│  ├─ app.routes.ts      plan du site, pages chargées à la demande
-│  ├─ app.config.ts      configuration globale (routeur, titres)
-│  ├─ core/              services uniques : thème, titre des pages, réglages
-│  ├─ shared/            petits composants réutilisables (chargement / erreur)
-│  ├─ layout/            en-tête et pied de page
-│  └─ features/          un dossier par domaine : accueil, tournois, clans, joueurs
-public/                  fichiers servis tels quels : logos, favicon
+├─ styles/                jetons de design, base globale, éléments partagés (_ui)
+├─ testing/               outils des tests (faux serveur, données de test)
+└─ app/
+   ├─ core/tournament/    LA LOGIQUE DU TOURNOI, en TypeScript pur, partagée avec le serveur :
+   │                      arbre, départage, lecture des guerres du jeu, statistiques
+   ├─ core/               services uniques : thème, titre des pages, réglages
+   ├─ shared/             composants réutilisables : classement, blason, chargement/erreur
+   ├─ layout/             en-tête et pied de page
+   └─ features/           une page par dossier : accueil, tournois, matchs, joueurs, clans, règles
+api/
+├─ migrations/            le schéma de la base, une migration par évolution
+├─ src/index.ts           les adresses de l'API
+├─ src/repository.ts      tournois : le seul endroit qui écrit du SQL (avec stats-repository.ts)
+├─ src/coc.ts             client de l'API du jeu (via un relais à IP fixe)
+├─ src/discord/           le bot : signature, commandes, réponses
+├─ scripts/               démo, déclaration des commandes Discord
+└─ test/                  tests du serveur
+wrangler.jsonc            mise en ligne du site
 ```
 
-Les règles de code suivies sont dans `CLAUDE.md` (bonnes pratiques officielles d'Angular 22).
+## Commandes
 
-## Serveur (`api/`)
-
-API publique en lecture : https://spade-cup-api.popi-coc.workers.dev
-
-| Adresse | Rôle |
+| Commande (à la racine) | Rôle |
 |---|---|
-| `GET /health` | le serveur répond-il ? |
-| `GET /tournaments` | liste des tournois |
-| `GET /tournaments/:slug` | un tournoi complet : clans et arbre |
+| `npm start` | site en développement sur http://localhost:4200 |
+| `npm test` | tests du site et de la logique partagée |
+| `npm run build` | version de production dans `dist/` |
 
-Le serveur importe directement la logique du tournoi de `src/app/core/tournament/` :
-une seule version des règles, partagée avec le site.
-
-Le site lit ces données avec `httpResource` (service `Tournaments`). L'adresse du
-serveur est dans `src/app/core/site-config.ts` (`apiUrl`) : la remplacer par
-`http://localhost:8787` pour développer contre un serveur local.
-
-Il a son propre `package.json` (les tests Cloudflare exigent une autre version de
-Vitest que le site). Installer avec **npm 11** : npm 10.9 plante sur les
-dépendances optionnelles de Vitest 4.
+Le serveur a son propre `package.json` (les tests Cloudflare exigent une autre
+version de Vitest). L'installer avec **npm 11** : npm 10.9 plante sur les
+dépendances de Vitest 4.
 
 ```bash
 cd api && npx npm@11 install
@@ -66,13 +64,69 @@ cd api && npx npm@11 install
 
 | Commande (dans `api/`) | Rôle |
 |---|---|
-| `npm test` | tests dans le vrai moteur des Workers, avec une base D1 jetable |
-| `npm run typecheck` | vérification des types |
+| `npm test` | tests dans le vrai moteur des Workers, base D1 jetable vidée avant chaque test |
+| `npm run typecheck` | vérification des types (serveur et scripts) |
 | `npm run dev` | serveur local sur http://localhost:8787 |
 | `npm run migrate` | applique les migrations à la base de production |
-| `npm run seed:demo` | (ré)installe le tournoi de démonstration en production |
+| `npm run seed:demo` | (ré)installe le tournoi de démonstration et ses joueurs |
 | `npm run deploy` | met le serveur en ligne |
+| `npx wrangler deploy -c ../wrangler.jsonc` | met le site en ligne (après `npm run build` à la racine) |
 
-Base de données : une **migration** par évolution du schéma, dans `api/migrations/`.
-On ne modifie jamais la base à la main.
+Pour développer le site contre un serveur local, remplacer `apiUrl` par
+`http://localhost:8787` dans `src/app/core/site-config.ts`.
 
+## API publique (lecture seule)
+
+| Adresse | Rôle |
+|---|---|
+| `GET /tournaments` | liste des tournois |
+| `GET /tournaments/:slug` | un tournoi complet : clans et arbre |
+| `GET /tournaments/:slug/matches/:id` | un match et les lignes de ses joueurs |
+| `GET /players[?tournament=slug]` | classement des joueurs (hors démo sans filtre) |
+| `GET /players/:tag` · `GET /clans/:tag` | fiches, tag sans « # » |
+
+Les écritures passent **uniquement** par le bot Discord (`POST /discord`).
+
+## Bot Discord
+
+| Commande | Qui | Rôle |
+|---|---|---|
+| `/inscription tag:` | tout le monde | inscrire son clan |
+| `/desinscription tag:` | celui qui a inscrit, ou un admin | retirer un clan |
+| `/tournoi` | tout le monde | où en est le tournoi |
+| `/arbitre creer nom:` | arbitres | créer un tournoi, ouvrir les inscriptions |
+| `/arbitre tirage` | arbitres | clore les inscriptions et tirer l'arbre |
+| `/arbitre lancer match:` | arbitres | signaler qu'une guerre a commencé |
+| `/arbitre resultat match:` | arbitres | lire le résultat dans le jeu |
+| `/arbitre score match: …` | arbitres | saisir le score à la main (secours) |
+| `/arbitre vainqueur match: clan:` | arbitres | forfait, égalité parfaite, litige |
+
+`/arbitre` est réservé par défaut à « Gérer le serveur » ; les admins peuvent
+l'ouvrir à un rôle Arbitre dans *Paramètres du serveur → Intégrations*.
+
+### Mise en route (une seule fois)
+
+1. Sur https://discord.com/developers/applications : créer une application,
+   copier sa **Public Key** dans `DISCORD_PUBLIC_KEY` (`api/wrangler.jsonc`),
+   puis `npm run deploy` dans `api/`.
+2. Dans *General Information → Interactions Endpoint URL* :
+   `https://spade-cup-api.popi-coc.workers.dev/discord` (Discord vérifie
+   l'adresse en envoyant une requête signée).
+3. Déclarer les commandes, avec le jeton du bot, **jamais écrit dans un fichier** :
+   ```bash
+   DISCORD_APPLICATION_ID=… DISCORD_BOT_TOKEN=… npm run register:commands
+   ```
+4. Inviter le bot (*OAuth2 → URL Generator*, scope `applications.commands`).
+5. Clé de l'API du jeu : sur https://developer.clashofclans.com, créer une clé
+   avec l'adresse IP **45.79.218.79** (celle du relais RoyaleAPI), puis :
+   ```bash
+   npx wrangler secret put COC_API_TOKEN
+   ```
+
+## Mise en ligne automatique
+
+Le workflow `.github/workflows/ci.yml` lance tous les tests à chaque push. Sur
+`main`, il met aussi le serveur et le site en ligne, si deux secrets existent
+dans *Settings → Secrets and variables → Actions* : `CLOUDFLARE_API_TOKEN`
+(jeton Cloudflare avec les droits *Workers Scripts* et *D1* en écriture) et
+`CLOUDFLARE_ACCOUNT_ID`.

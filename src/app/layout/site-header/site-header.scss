@@ -82,3 +82,25 @@
     border-color: var(--color-accent-strong);
   }
 }
+
+// Téléphone : trois liens + le thème ne tiennent pas à côté du nom du site.
+// Le logo seul suffit à reconnaître la marque.
+@media (max-width: 560px) {
+  .brand__name {
+    // Caché à l'écran, mais toujours lu par les lecteurs d'écran.
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .nav {
+    gap: 0;
+  }
+
+  .nav__link {
+    padding-inline: var(--space-2);
+    font-size: 0.95rem;
+  }
+}

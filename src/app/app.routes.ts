@@ -52,10 +52,26 @@ export const routes: Routes = [
     loadComponent: () => import('./features/clans/clan-page/clan-page').then((m) => m.ClanPage),
   },
   {
-    path: 'joueurs/:tag',
-    title: 'Joueur',
-    loadComponent: () =>
-      import('./features/players/player-page/player-page').then((m) => m.PlayerPage),
+    path: 'joueurs',
+    children: [
+      {
+        path: '',
+        title: 'Classement des joueurs',
+        loadComponent: () =>
+          import('./features/players/ranking-page/ranking-page').then((m) => m.RankingPage),
+      },
+      {
+        path: ':tag',
+        title: 'Joueur',
+        loadComponent: () =>
+          import('./features/players/player-page/player-page').then((m) => m.PlayerPage),
+      },
+    ],
+  },
+  {
+    path: 'a-propos',
+    title: 'Comment ça marche',
+    loadComponent: () => import('./features/about/about-page/about-page').then((m) => m.AboutPage),
   },
   {
     // Toute autre adresse : page introuvable.

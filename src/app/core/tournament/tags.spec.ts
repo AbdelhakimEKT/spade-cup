@@ -15,5 +15,6 @@ describe('tags', () => {
 
   it('retire le « # » pour les URL', () => {
     expect(tagToUrl('#2JU0GRG98')).toBe('2JU0GRG98');
+    expect(tagToUrl('#DEMO1')).toBe('DEMO1'); // tel quel : pas de « O » changé en zéro
   });
 });

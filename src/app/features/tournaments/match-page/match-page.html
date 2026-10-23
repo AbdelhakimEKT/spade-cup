@@ -1,5 +1,122 @@
-<h1>Match</h1>
-<p>
-  Détail du match <code>{{ matchId() }}</code> du tournoi <code>{{ slug() }}</code
-  >, bientôt ici.
-</p>
+@if (detail(); as d) {
+  <a class="crumb" [routerLink]="['/tournois', d.tournament.slug]">← {{ d.tournament.name }}</a>
+
+  <header class="page-head">
+    <p class="eyebrow">{{ round() }}</p>
+    <h1 class="page-title">
+      {{ d.match.home?.name ?? 'À déterminer' }} contre {{ d.match.away?.name ?? 'À déterminer' }}
+    </h1>
+  </header>
+
+  <section class="scoreboard" aria-label="Score">
+    @for (s of sides(); track s.side) {
+      <div
+        class="team"
+        [class.team--away]="s.side === 'away'"
+        [class.team--win]="s.clan && s.clan.tag === winnerTag()"
+      >
+        <sc-clan-avatar [clan]="s.clan" size="lg" />
+        <div class="team__info">
+          @if (s.clan) {
+            <a class="team__name" [routerLink]="['/clans', url(s.clan.tag)]">{{ s.clan.name }}</a>
+            <span class="muted">{{ s.clan.tag }}</span>
+          } @else {
+            <span class="team__name muted">{{
+              d.match.status === 'bye' ? 'Exempt' : 'À déterminer'
+            }}</span>
+          }
+        </div>
+        @if (s.score; as score) {
+          <dl class="team__score">
+            <div>
+              <dt>Étoiles</dt>
+              <dd><span class="star" aria-hidden="true">★</span> {{ score.stars }}</dd>
+            </div>
+            <div>
+              <dt>Destruction</dt>
+              <dd>{{ score.destruction | number: '1.1-1' }} %</dd>
+            </div>
+            <div>
+              <dt>Temps</dt>
+              <dd>{{ duration(score.totalDurationSec) }}</dd>
+            </div>
+          </dl>
+        }
+        @if (s.clan && s.clan.tag === winnerTag()) {
+          <span class="chip">Qualifié</span>
+        }
+      </div>
+    }
+  </section>
+
+  <p class="verdict" [class.verdict--live]="d.match.status === 'live'">
+    {{ verdict() }}
+    @if (d.source === 'game') {
+      <span class="muted">Résultat lu directement dans le jeu.</span>
+    } @else if (d.source === 'referee') {
+      <span class="muted">Score saisi par un arbitre.</span>
+    }
+  </p>
+
+  @if (d.players.home.length || d.players.away.length) {
+    <div class="lineups">
+      @for (s of sides(); track s.side) {
+        <section class="section">
+          <h2 class="section-title">{{ s.clan?.name }}</h2>
+          <div class="table-wrap">
+            <table class="data-table">
+              <caption class="visually-hidden">
+                Joueurs de
+                {{
+                  s.clan?.name
+                }}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Pos.</th>
+                  <th scope="col" class="cell-text">Joueur</th>
+                  <th scope="col">HDV</th>
+                  <th scope="col">Étoiles</th>
+                  <th scope="col">Destr.</th>
+                  <th scope="col">Temps</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of s.players; track p.tag) {
+                  <tr>
+                    <td class="muted">{{ p.mapPosition }}</td>
+                    <td class="cell-text">
+                      <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
+                    </td>
+                    <td [class.off-rules]="p.townHall !== 18">{{ p.townHall }}</td>
+                    <td>
+                      @if (p.attacks) {
+                        <span class="star" aria-hidden="true">★</span> {{ p.stars }}
+                      } @else {
+                        <span class="muted">Pas attaqué</span>
+                      }
+                    </td>
+                    <td>{{ p.attacks ? (p.destruction | number: '1.1-1') + ' %' : '–' }}</td>
+                    <td>{{ p.attacks ? duration(p.durationSec) : '–' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    </div>
+  } @else if (d.match.status === 'done') {
+    <p class="muted">
+      Le détail joueur par joueur n'existe que pour les résultats lus dans le jeu.
+    </p>
+  }
+} @else if (notFound()) {
+  <h1 class="page-title">Match introuvable</h1>
+  <p class="muted">
+    Ce match n'existe pas, ou son tournoi a été supprimé.
+    <a routerLink="/tournois">Voir les tournois</a>
+  </p>
+} @else {
+  <sc-request-state [resource]="request" />
+}

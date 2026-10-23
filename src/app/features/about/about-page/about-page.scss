@@ -1,0 +1,109 @@
+:host {
+  display: grid;
+  // Sans minmax(0, …), la colonne s'élargit à la taille du plus large contenu
+  // (un tableau) et le texte déborde de l'écran sur téléphone.
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-7);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: var(--space-4);
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+
+  h3 {
+    color: var(--color-accent);
+    font-size: 1.3rem;
+    text-transform: uppercase;
+  }
+
+  p {
+    color: var(--color-muted);
+  }
+
+  b {
+    color: var(--color-text);
+  }
+}
+
+code {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-2);
+  color: var(--color-text);
+  font-size: 0.9em;
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: 1.3em;
+  color: var(--color-muted);
+
+  li::marker {
+    color: var(--color-cyan);
+    font-weight: 700;
+  }
+}
+
+.note {
+  padding: var(--space-4) var(--space-5);
+  border-left: 3px solid var(--color-win);
+  background: var(--color-panel);
+  color: var(--color-muted);
+}
+
+.problems {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: problem;
+
+  li {
+    position: relative;
+    padding: var(--space-4) var(--space-5) var(--space-4) calc(var(--space-5) + 40px);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    background: var(--color-panel);
+    counter-increment: problem;
+
+    &::before {
+      content: counter(problem);
+      position: absolute;
+      top: var(--space-4);
+      left: var(--space-5);
+      color: var(--color-accent-strong);
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+  }
+
+  h3 {
+    margin-bottom: var(--space-2);
+    font-size: 1.2rem;
+  }
+
+  p {
+    color: var(--color-muted);
+  }
+}
+
+.signature {
+  color: var(--color-muted);
+  font-style: italic;
+}

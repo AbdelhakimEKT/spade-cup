@@ -11,6 +11,22 @@
   background: var(--card-bg);
 }
 
+// Le lien couvre toute la carte (voir le template).
+.match__link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+
+  &:focus-visible {
+    outline-offset: 2px;
+  }
+}
+
+.match:has(.match__link:hover) {
+  border-color: var(--color-accent-strong);
+}
+
 // Match en train de se jouer : lueur cyan.
 .match--live {
   border-color: var(--color-cyan);

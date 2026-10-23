@@ -48,17 +48,20 @@ const s = (stars: number, destruction: number, totalDurationSec: number): SideSc
   totalDurationSec,
 });
 
-/** Scores inventés. 5 contre 5 : 15 étoiles au maximum. */
+/**
+ * Scores inventés, mais possibles : 5 contre 5, donc 15 étoiles au maximum et
+ * 900 s de temps total au maximum (5 attaques de 3 minutes).
+ */
 const DEMO_SCORES: readonly (readonly [string, SideScore, SideScore])[] = [
-  ['R1-M1', s(13, 91.2, 860), s(11, 84.0, 905)],
-  ['R1-M2', s(14, 96.8, 790), s(9, 71.4, 980)],
-  ['R1-M3', s(12, 89.6, 840), s(12, 87.1, 812)], // départagé au pourcentage
-  ['R1-M4', s(11, 85.3, 870), s(8, 66.2, 940)],
-  ['R1-M5', s(14, 97.0, 800), s(10, 79.5, 930)],
-  ['R1-M6', s(10, 80.2, 900), s(13, 92.4, 845)],
-  ['R1-M7', s(13, 90.1, 850), s(10, 81.7, 890)],
-  ['R1-M8', s(9, 72.8, 960), s(12, 88.3, 870)],
-  ['R2-M3', s(13, 93.5, 820), s(11, 86.0, 875)],
+  ['R1-M1', s(13, 91.2, 610), s(11, 84.0, 655)],
+  ['R1-M2', s(14, 96.8, 540), s(9, 71.4, 730)],
+  ['R1-M3', s(12, 89.6, 590), s(12, 87.1, 562)], // départagé au pourcentage
+  ['R1-M4', s(11, 85.3, 620), s(8, 66.2, 690)],
+  ['R1-M5', s(14, 97.0, 550), s(10, 79.5, 680)],
+  ['R1-M6', s(10, 80.2, 650), s(13, 92.4, 595)],
+  ['R1-M7', s(13, 90.1, 600), s(10, 81.7, 640)],
+  ['R1-M8', s(9, 72.8, 710), s(12, 88.3, 620)],
+  ['R2-M3', s(13, 93.5, 570), s(11, 86.0, 625)],
 ];
 
 function buildDemoBracket(): Bracket {

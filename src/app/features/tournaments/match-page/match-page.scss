@@ -1,3 +1,98 @@
-@use 'placeholder';
+:host {
+  display: grid;
+  // Sans minmax(0, …), la colonne s'élargit à la taille du plus large contenu
+  // (un tableau) et le texte déborde de l'écran sur téléphone.
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
 
-@include placeholder.placeholder-page;
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.team {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+}
+
+.team--win {
+  border-color: var(--color-win);
+  box-shadow: 0 0 22px rgb(53 224 122 / 0.15);
+}
+
+.team__info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.team__name {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    color: var(--color-accent);
+  }
+}
+
+.team__score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+
+  dt {
+    color: var(--color-muted);
+    font-size: 0.8rem;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.verdict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-accent-strong);
+  background: var(--color-panel);
+}
+
+.verdict--live {
+  border-left-color: var(--color-cyan);
+}
+
+.lineups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: var(--space-5);
+}
+
+.off-rules {
+  color: var(--color-lose);
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .scoreboard {
+    grid-template-columns: 1fr;
+  }
+}

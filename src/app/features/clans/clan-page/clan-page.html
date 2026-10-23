@@ -1,5 +1,70 @@
-<h1>Clan</h1>
-<p>
-  Participations et joueurs du clan <code>#{{ tag() }}</code
-  >, bientôt ici.
-</p>
+@if (profile(); as c) {
+  <header class="head">
+    <sc-clan-avatar [clan]="c.clan" size="lg" />
+    <div class="page-head">
+      <p class="eyebrow">Clan · {{ c.clan.tag }}</p>
+      <h1 class="page-title">{{ c.clan.name }}</h1>
+    </div>
+  </header>
+
+  <dl class="tiles">
+    <div class="tile">
+      <dt>Tournois</dt>
+      <dd>{{ c.runs.length }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Matchs joués</dt>
+      <dd>{{ c.record.played }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Victoires</dt>
+      <dd>{{ c.record.won }}</dd>
+    </div>
+    <div class="tile">
+      <dt>Défaites</dt>
+      <dd>{{ c.record.lost }}</dd>
+    </div>
+  </dl>
+
+  <section class="section">
+    <h2 class="section-title">Ses tournois</h2>
+    <ul class="runs">
+      @for (run of c.runs; track run.tournament.slug) {
+        <li>
+          <a class="run" [routerLink]="['/tournois', run.tournament.slug]">
+            <span class="run__name">{{ run.tournament.name }}</span>
+            @if (run.tournament.isDemo) {
+              <span class="chip chip--muted">Démo</span>
+            }
+            <span
+              class="chip"
+              [class.chip--gold]="run.outcome === 'champion'"
+              [class.chip--muted]="run.outcome === 'eliminated'"
+            >
+              {{ outcome(run) }}
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  </section>
+
+  @if (c.players.length) {
+    <section class="section">
+      <h2 class="section-title">Ses joueurs</h2>
+      <sc-ranking-table
+        [players]="c.players"
+        [showClan]="false"
+        [caption]="'Joueurs de ' + c.clan.name"
+      />
+    </section>
+  }
+} @else if (notFound()) {
+  <h1 class="page-title">Clan introuvable</h1>
+  <p class="muted">
+    Ce clan ne s'est encore inscrit à aucun tournoi.
+    <a routerLink="/tournois">Voir les tournois</a>
+  </p>
+} @else {
+  <sc-request-state [resource]="request" />
+}

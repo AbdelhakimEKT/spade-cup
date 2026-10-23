@@ -14,7 +14,10 @@ export function isValidTag(tag: string): boolean {
   return TAG_ALPHABET.test(tag);
 }
 
-/** Tag utilisable dans une URL : sans le « # » (/clans/2JU0GRG98). */
+/**
+ * Tag utilisable dans une URL : sans le « # » (/clans/2JU0GRG98).
+ * Pas de normalisation ici : les tags enregistrés le sont déjà, à l'inscription.
+ */
 export function tagToUrl(tag: string): string {
-  return normalizeTag(tag).slice(1);
+  return tag.replace(/^#/, '');
 }

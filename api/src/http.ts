@@ -3,7 +3,7 @@
  *
  * CORS : par sécurité, un navigateur refuse qu'une page lise la réponse d'un
  * autre domaine… sauf si ce domaine l'autorise explicitement. Le site
- * (spade-cup.pages.dev) et le serveur (spade-cup-api.…workers.dev) sont deux
+ * (spade-cup.popi-coc.workers.dev) et le serveur (spade-cup-api.…workers.dev) sont deux
  * domaines différents. Comme les données sont publiques et en lecture seule,
  * on autorise tout le monde (« * »). Les écritures, elles, passeront par le
  * bot Discord, de serveur à serveur : le CORS ne les concerne pas.

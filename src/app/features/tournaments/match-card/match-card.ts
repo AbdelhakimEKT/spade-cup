@@ -1,8 +1,9 @@
 import { formatNumber } from '@angular/common';
 import { Component, LOCALE_ID, computed, inject, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { winnerOf } from '../../../core/tournament/bracket';
 import { BracketMatch, ClanRef, Side, SideScore } from '../../../core/tournament/models';
-import { ClanAvatar } from '../ui/clan-avatar/clan-avatar';
+import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
 
 interface Row {
   readonly side: Side;
@@ -15,14 +16,24 @@ interface Row {
 /** Un match de l'arbre : les deux clans, les étoiles, le vainqueur. */
 @Component({
   selector: 'sc-match-card',
-  imports: [ClanAvatar],
+  imports: [ClanAvatar, RouterLink],
   template: `
     <article
       class="match"
       [class.match--live]="match().status === 'live'"
       [class.match--final]="final()"
-      [attr.aria-label]="ariaLabel()"
+      [attr.aria-label]="linkable() ? null : ariaLabel()"
     >
+      @if (linkable()) {
+        <!-- Lien « étiré » sur toute la carte : un seul arrêt au clavier, une
+             seule phrase pour les lecteurs d'écran. Relatif à la page du
+             tournoi : /tournois/:slug/matchs/R1-M3. -->
+        <a
+          class="match__link"
+          [routerLink]="['matchs', match().id]"
+          [attr.aria-label]="ariaLabel()"
+        ></a>
+      }
       @for (row of rows(); track row.side) {
         <div
           class="team"
@@ -67,6 +78,9 @@ export class MatchCard {
   readonly match = input.required<BracketMatch>();
   /** La finale a droit à sa bordure dorée. */
   readonly final = input(false);
+
+  /** Une fois les deux clans connus, la carte mène à la page du match. */
+  protected readonly linkable = computed(() => !!(this.match().home && this.match().away));
 
   protected readonly rows = computed<Row[]>(() => {
     const m = this.match();
