@@ -34,9 +34,9 @@ function plan(shot: Shot): {
   return shot.kind === 'bracket'
     ? {
         path: `/tournois/${slug}?capture`,
-        // Seulement l'arbre : ni titre, ni bandeau, ni adresse du site.
-        selector: 'sc-bracket-view .panel',
-        ready: 'sc-bracket-view .panel',
+        // L'en-tête du tournoi (logo, nom, tour en cours) et l'arbre.
+        selector: 'sc-tournament-page',
+        ready: 'sc-tournament-page sc-bracket-view .panel',
         // Assez large pour que les noms de clans tiennent dans les cartes ;
         // résolution ×2 : sur téléphone, on zoome et les noms restent nets.
         width: 1700,
@@ -94,10 +94,13 @@ export async function captureScreens(
     for (const shot of shots) {
       const { path, selector, ready, width, scale } = plan(shot);
       await page.setViewport({ width, height: 1000, deviceScaleFactor: scale });
-      await page.goto(`${siteUrl}${path}`, { waitUntil: 'networkidle0', timeout: 20_000 });
+      // On n'attend pas « plus aucune activité réseau » : le site vérifie le
+      // direct en arrière-plan, et cette attente pouvait ne jamais finir. On
+      // attend la page chargée, puis l'élément qui prouve que les données sont là.
+      await page.goto(`${siteUrl}${path}`, { waitUntil: 'load', timeout: 30_000 });
       await page.addStyleTag({ content: CAPTURE_CSS });
       // Le contenu est là quand l'élément attendu est affiché (données chargées).
-      await page.waitForSelector(ready, { timeout: 10_000 });
+      await page.waitForSelector(ready, { timeout: 20_000 });
       // Code exécuté DANS le navigateur : on attend que les polices soient chargées.
       await page.evaluate('document.fonts.ready');
       const area = await page.$(selector);

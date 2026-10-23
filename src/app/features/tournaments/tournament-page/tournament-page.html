@@ -1,5 +1,6 @@
 @if (tournament(); as t) {
-  @if (t.isDemo) {
+  <!-- Sur le site, la démo est signalée ; pas dans l'image envoyée sur Discord. -->
+  @if (t.isDemo && !capture()) {
     <p class="demo-note">Démonstration : les clans et les scores sont fictifs.</p>
   }
 

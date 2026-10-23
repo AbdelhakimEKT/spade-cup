@@ -115,4 +115,26 @@ describe('TournamentPage', () => {
     expect(el.querySelector('.registered a')?.getAttribute('href')).toBe('/clans/DEMO1');
     expect(el.querySelector('sc-ranking-table')).toBeNull(); // aucun joueur encore
   });
+
+  it('mode capture (image Discord) : titre et arbre, sans mention « démo » ni boutons', async () => {
+    TestBed.configureTestingModule({
+      imports: [TournamentPage],
+      providers: [provideRouter([]), provideHttpClientTesting()],
+    });
+    const fixture = TestBed.createComponent(TournamentPage);
+    fixture.componentRef.setInput('slug', 'demo');
+    fixture.componentRef.setInput('capture', true);
+    TestBed.tick();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${SITE_CONFIG.apiUrl}/tournaments/demo`).flush(DEMO_TOURNAMENT);
+    http.expectOne(`${SITE_CONFIG.apiUrl}/players?tournament=demo`).flush([]);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('h1')?.textContent).toBe('Tournoi de démonstration');
+    expect(el.querySelector('sc-bracket-view')).not.toBeNull();
+    expect(el.textContent).not.toContain('les clans et les scores sont fictifs');
+    expect(el.querySelector('.copy')).toBeNull();
+    expect(el.querySelector('.toolbar')).toBeNull();
+  });
 });
