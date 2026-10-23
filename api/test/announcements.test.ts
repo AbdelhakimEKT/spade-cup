@@ -1,37 +1,54 @@
 import { describe, expect, it } from 'vitest';
 import { bracketFromSeeds, recordResult } from '../../src/app/core/tournament/bracket';
-import { announce, pack, roundsCompleted, webhookFor } from '../src/announcements';
+import { announce, destinationFor, pack, roundsCompleted } from '../src/announcements';
 import { CLANS, FAKE_PNG, fakeAnnouncer } from './helpers';
 
-describe('webhookFor : chaque annonce dans son salon', () => {
-  const all = {
-    DISCORD_WEBHOOK_RESULTATS: 'r',
-    DISCORD_WEBHOOK_CLASSEMENT: 'c',
-    DISCORD_WEBHOOK_ARBITRES: 'a',
-    DISCORD_ANNOUNCE_WEBHOOK: 'ancien',
+describe('destinationFor : chaque annonce dans son salon', () => {
+  const hooks = {
+    DISCORD_WEBHOOK_RESULTATS: 'w-r',
+    DISCORD_WEBHOOK_CLASSEMENT: 'w-c',
+    DISCORD_WEBHOOK_ARBITRES: 'w-a',
+  };
+  const bot = {
+    DISCORD_BOT_TOKEN: 'jeton',
+    DISCORD_CHANNEL_RESULTATS: '111',
+    DISCORD_CHANNEL_CLASSEMENT: '222',
+    DISCORD_CHANNEL_ARBITRES: '333',
   };
 
-  it('un webhook par salon', () => {
-    expect(webhookFor(all, 'results')).toBe('r');
-    expect(webhookFor(all, 'bracket')).toBe('c');
-    expect(webhookFor(all, 'referees')).toBe('a');
+  it('le bot en priorité : son nom et son avatar, dans le salon indiqué', () => {
+    expect(destinationFor({ ...hooks, ...bot }, 'results')).toEqual({
+      by: 'bot',
+      token: 'jeton',
+      channelId: '111',
+    });
+    expect(destinationFor({ ...hooks, ...bot }, 'referees')).toMatchObject({ channelId: '333' });
   });
 
-  it('à défaut, l’ancien webhook unique sert pour tout', () => {
+  it('sans jeton du bot, ou sans identifiant de salon : le webhook du salon', () => {
+    expect(destinationFor({ ...hooks, DISCORD_CHANNEL_RESULTATS: '111' }, 'results')).toEqual({
+      by: 'webhook',
+      url: 'w-r',
+    });
+    expect(destinationFor({ ...hooks, ...bot, DISCORD_CHANNEL_CLASSEMENT: '' }, 'bracket')).toEqual(
+      {
+        by: 'webhook',
+        url: 'w-c',
+      },
+    );
+  });
+
+  it('à défaut, l’ancien webhook unique ; les alertes arbitres retombent dans #résultats', () => {
     const old = { DISCORD_ANNOUNCE_WEBHOOK: 'ancien' };
-    expect([
-      webhookFor(old, 'results'),
-      webhookFor(old, 'bracket'),
-      webhookFor(old, 'referees'),
-    ]).toEqual(['ancien', 'ancien', 'ancien']);
-  });
-
-  it('sans salon des arbitres : les alertes vont dans #résultats plutôt que d’être perdues', () => {
-    expect(webhookFor({ DISCORD_WEBHOOK_RESULTATS: 'r' }, 'referees')).toBe('r');
+    expect(destinationFor(old, 'bracket')).toEqual({ by: 'webhook', url: 'ancien' });
+    expect(destinationFor(old, 'referees')).toEqual({ by: 'webhook', url: 'ancien' });
+    expect(destinationFor({ ...bot, DISCORD_CHANNEL_ARBITRES: '' }, 'referees')).toMatchObject({
+      channelId: '111',
+    });
   });
 
   it('rien de configuré : aucune annonce', () => {
-    expect(webhookFor({}, 'results')).toBeUndefined();
+    expect(destinationFor({}, 'results')).toBeNull();
   });
 });
 

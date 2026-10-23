@@ -2,7 +2,7 @@ import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
-import { editBody, postToWebhook } from '../src/discord/payload';
+import { editBody, postAsBot, postToWebhook } from '../src/discord/payload';
 import { verifyDiscordSignature } from '../src/discord/verify';
 import { command, referee } from './helpers';
 
@@ -181,5 +181,19 @@ describe('postToWebhook : annonces dans le salon', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await postToWebhook('https://discord.test/webhook', { content: 'x' }, async () => {});
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('postAsBot : annonces au nom du bot', () => {
+  it('poste dans le salon, avec le jeton du bot', async () => {
+    const calls: { url: string; auth: string | null }[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      calls.push({ url: String(input), auth: new Headers(init?.headers).get('Authorization') });
+      return new Response('{}');
+    });
+    await postAsBot('jeton', '111', { content: 'Résultat' });
+    expect(calls).toEqual([
+      { url: 'https://discord.com/api/v10/channels/111/messages', auth: 'Bot jeton' },
+    ]);
   });
 });

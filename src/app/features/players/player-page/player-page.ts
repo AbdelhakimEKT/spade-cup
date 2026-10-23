@@ -1,9 +1,10 @@
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, inject, input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { fullTitle } from '../../../core/page-title';
 import { roundLabel } from '../../../core/tournament/bracket';
+import { PlayerTotals } from '../../../core/tournament/stats';
 import { tagToUrl } from '../../../core/tournament/tags';
 import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
 import { starsPerAttack } from '../../../shared/ui/labels';
@@ -13,7 +14,7 @@ import { Players } from '../data/players';
 /** Fiche d'un joueur : son bilan, puis chacune de ses guerres. */
 @Component({
   selector: 'sc-player-page',
-  imports: [ClanAvatar, DecimalPipe, RequestState, RouterLink],
+  imports: [ClanAvatar, DatePipe, DecimalPipe, NgTemplateOutlet, RequestState, RouterLink],
   templateUrl: './player-page.html',
   styleUrl: './player-page.scss',
 })
@@ -27,10 +28,10 @@ export class PlayerPage {
   );
   protected readonly notFound = computed(() => this.request.statusCode() === 404);
 
-  protected readonly average = computed(() => {
-    const t = this.profile()?.totals;
-    return t ? starsPerAttack(t.stars, t.attacks) : 0;
-  });
+  /** Étoiles par attaque d'un bilan (Spade Cup ou FW). */
+  protected perAttack(t: PlayerTotals): number {
+    return starsPerAttack(t.stars, t.attacks);
+  }
 
   protected readonly roundLabel = roundLabel;
   protected readonly url = tagToUrl;

@@ -46,27 +46,49 @@ export function editBody(reply: Reply): { body: BodyInit; headers?: Record<strin
   return { body: form };
 }
 
-/**
- * Poste un message avec le webhook d'un salon (annonces automatiques).
- * `?wait=true` : Discord répond seulement une fois le message publié, ce qui
- * permet de détecter une erreur.
- */
-export async function postToWebhook(
-  webhookUrl: string,
+/** Discord demande d'attendre (429) : on patiente une fois, puis on réessaie. */
+type Wait = (ms: number) => Promise<void>;
+const sleep: Wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function postMessage(
+  url: string,
+  auth: Record<string, string>,
   reply: Reply,
-  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+  wait: Wait,
 ): Promise<void> {
   for (let attempt = 1; ; attempt++) {
     // Corps reconstruit à chaque essai : un formulaire ne s'envoie qu'une fois.
-    const response = await fetch(`${webhookUrl}?wait=true`, { method: 'POST', ...editBody(reply) });
+    const { body, headers } = editBody(reply);
+    const response = await fetch(url, { method: 'POST', body, headers: { ...headers, ...auth } });
     if (response.ok) return;
-    // 429 = « trop de messages, réessaie dans X secondes » : on patiente une fois.
     if (response.status === 429 && attempt === 1) {
-      const body = (await response.json().catch(() => ({}))) as { retry_after?: number };
-      await wait(Math.min((body.retry_after ?? 1) * 1000, 10_000));
+      const json = (await response.json().catch(() => ({}))) as { retry_after?: number };
+      await wait(Math.min((json.retry_after ?? 1) * 1000, 10_000));
       continue;
     }
     console.error('Annonce refusée par Discord', response.status, await response.text());
     return;
   }
+}
+
+/**
+ * Poste un message avec le webhook d'un salon. `?wait=true` : Discord répond
+ * seulement une fois le message publié, ce qui permet de détecter une erreur.
+ */
+export function postToWebhook(webhookUrl: string, reply: Reply, wait: Wait = sleep) {
+  return postMessage(`${webhookUrl}?wait=true`, {}, reply, wait);
+}
+
+/**
+ * Poste un message EN TANT QUE BOT (nom et avatar de l'application « Spade Cup
+ * FR »), dans le salon `channelId`. Le bot doit pouvoir voir le salon et y
+ * écrire, y compris dans un salon privé.
+ */
+export function postAsBot(token: string, channelId: string, reply: Reply, wait: Wait = sleep) {
+  return postMessage(
+    `https://discord.com/api/v10/channels/${channelId}/messages`,
+    { Authorization: `Bot ${token}` },
+    reply,
+    wait,
+  );
 }

@@ -1,7 +1,7 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
-import { playerProfile } from '../../../../testing/fixtures';
+import { fwOnlyProfile, playerProfile } from '../../../../testing/fixtures';
 import { openPage } from '../../../../testing/open-page';
 import { PlayerPage } from './player-page';
 
@@ -52,5 +52,33 @@ describe('PlayerPage', () => {
     await reply('/players/ZZZ', { error: 'Joueur introuvable.' }, 404);
     expect(el.querySelector('h1')?.textContent).toBe('Joueur introuvable');
     expect(el.querySelector('a[href="/joueurs"]')).not.toBeNull();
+  });
+
+  it('joueur de FW classiques seulement : sa section FW, pas de Spade Cup, pas de lien de clan', async () => {
+    const profile = fwOnlyProfile();
+    const tag = profile.totals.tag.slice(1);
+    const { el, reply } = await openPage(PlayerPage, { tag });
+    await reply(`/players/${tag}`, profile);
+
+    const titles = [...el.querySelectorAll('h2')].map((h) => h.textContent);
+    expect(titles).toEqual(['En FW classiques']);
+    expect(el.querySelector('a.clan')).toBeNull(); // FW-team2 n'a pas de fiche de clan
+    expect(el.querySelector('span.clan')?.textContent).toContain('FW-team2');
+    const row = el.querySelector('tbody tr')!;
+    expect(row.textContent).toContain('FW-team2 13★ – 11★ FW-team1');
+    expect(row.textContent).toContain('20 oct. 2026');
+    expect(row.querySelector('.result--win')).not.toBeNull();
+  });
+
+  it('joueur des deux : une section par type de guerre', async () => {
+    const profile = { ...playerProfile(), fw: fwOnlyProfile().fw };
+    const tag = profile.totals.tag.slice(1);
+    const { el, reply } = await openPage(PlayerPage, { tag });
+    await reply(`/players/${tag}`, profile);
+    expect([...el.querySelectorAll('h2')].map((h) => h.textContent)).toEqual([
+      'En Spade Cup',
+      'En FW classiques',
+    ]);
+    expect(el.querySelectorAll('.tiles')).toHaveLength(2);
   });
 });

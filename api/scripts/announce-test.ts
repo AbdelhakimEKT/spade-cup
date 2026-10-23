@@ -7,9 +7,14 @@
  *   http://localhost:8798/            aperçu : rien n'est envoyé
  *   http://localhost:8798/?envoyer=1  envoi réel (une fois)
  */
-import { announce, webhookFor, type Announcer, type Channel } from '../src/announcements';
+import {
+  announce,
+  createAnnouncer,
+  destinationFor,
+  type Announcer,
+  type Channel,
+} from '../src/announcements';
 import type { Reply } from '../src/discord/bot';
-import { postToWebhook } from '../src/discord/payload';
 import { getTournament } from '../src/repository';
 import { captureScreens } from '../src/screens';
 
@@ -21,7 +26,10 @@ export default {
   async fetch(request, env): Promise<Response> {
     const send = new URL(request.url).searchParams.get('envoyer') === '1';
     const channels: Channel[] = ['results', 'bracket', 'referees'];
-    const configured = Object.fromEntries(channels.map((c) => [c, Boolean(webhookFor(env, c))]));
+    const configured = Object.fromEntries(
+      channels.map((c) => [c, destinationFor(env, c)?.by ?? false]),
+    );
+    const real = createAnnouncer(env);
 
     const t = await getTournament(env.DB, 'demo');
     if (!t?.bracket) return Response.json({ error: 'Démo introuvable en base.' }, { status: 500 });
@@ -34,14 +42,14 @@ export default {
         if (!bannerDone.has(channel)) {
           bannerDone.add(channel);
           plan.push({ channel, content: BANNER, files: [] });
-          if (send) await postToWebhook(webhookFor(env, channel)!, { content: BANNER });
+          if (send) await real.post(channel, { content: BANNER });
         }
         plan.push({
           channel,
           content: reply.content,
           files: (reply.files ?? []).map((f) => f.name),
         });
-        if (send) await postToWebhook(webhookFor(env, channel)!, reply);
+        if (send) await real.post(channel, reply);
       },
       // En aperçu, pas de navigateur : on note seulement quelles images partiraient.
       capture: (shots) =>

@@ -5,7 +5,9 @@ import {
   clanRun,
   totalsOf,
   type ClanProfile,
+  type FriendlyWarSummary,
   type MatchDetail,
+  type PlayerFwWar,
   type PlayerProfile,
   type PlayerTotals,
 } from '../../src/app/core/tournament/stats';
@@ -155,7 +157,6 @@ export async function getPlayerProfile(db: D1Database, tag: string): Promise<Pla
         away_badge: string | null;
       }
     >();
-  if (results.length === 0) return null;
 
   const history = results.map((r) => {
     const home = clanOf(r.home_tag, r.home_name, r.home_badge);
@@ -172,10 +173,140 @@ export async function getPlayerProfile(db: D1Database, tag: string): Promise<Pla
     };
   });
 
-  const latest = history[0];
+  const fw = await getPlayerFw(db, tag);
+  if (history.length === 0 && !fw) return null;
+
+  // Pseudo et clan : ceux de sa guerre la plus récente (tournoi d'abord).
+  const latest = history[0] ?? fw!.history[0];
+  const clan = 'clan' in latest ? latest.clan : fwClanOf(latest);
   return {
     totals: totalsOf(
-      { tag, name: latest.line.name, clan: latest.clan },
+      { tag, name: latest.line.name, clan },
+      history.map((h) => h.line),
+    ),
+    history,
+    fw,
+  };
+}
+
+// ------------------------------------------------------------ FW classiques
+
+interface FwRow {
+  id: number;
+  ended_at: string | null;
+  team_size: number | null;
+  home_tag: string;
+  home_name: string;
+  home_stars: number;
+  home_destruction: number;
+  away_tag: string;
+  away_name: string;
+  away_stars: number;
+  away_destruction: number;
+  winner: 'home' | 'away' | null;
+}
+
+function toFwSummary(r: FwRow): FriendlyWarSummary {
+  return {
+    id: r.id,
+    endedAt: r.ended_at ? `${r.ended_at.replace(' ', 'T')}Z` : null,
+    teamSize: r.team_size,
+    home: {
+      tag: r.home_tag,
+      name: r.home_name,
+      stars: r.home_stars,
+      destruction: r.home_destruction,
+    },
+    away: {
+      tag: r.away_tag,
+      name: r.away_name,
+      stars: r.away_stars,
+      destruction: r.away_destruction,
+    },
+    winner: r.winner,
+  };
+}
+
+/** Le clan d'un joueur dans une FW classique (celui de son camp). */
+function fwClanOf(w: PlayerFwWar): ClanRef {
+  const side = w.line.side === 'home' ? w.war.home : w.war.away;
+  return { tag: side.tag, name: side.name };
+}
+
+/** Les dernières FW classiques, de la plus récente à la plus ancienne. */
+export async function listFriendlyWars(db: D1Database, limit = 30): Promise<FriendlyWarSummary[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM friendly_wars ORDER BY ended_at DESC, id DESC LIMIT ?')
+    .bind(limit)
+    .all<FwRow>();
+  return results.map(toFwSummary);
+}
+
+/** Classement des joueurs en FW classiques (séparé de la Spade Cup). */
+export async function listFwPlayers(db: D1Database): Promise<PlayerTotals[]> {
+  const { results } = await db
+    .prepare(
+      `WITH lines AS (
+         SELECT p.*, w.home_tag, w.home_name, w.away_tag, w.away_name,
+                ROW_NUMBER() OVER (PARTITION BY p.player_tag ORDER BY w.ended_at DESC, w.id DESC) AS recency
+         FROM fw_players p JOIN friendly_wars w ON w.id = p.war_id
+       )
+       SELECT player_tag,
+              MAX(CASE WHEN recency = 1 THEN player_name END) AS name,
+              MAX(CASE WHEN recency = 1 THEN clan_tag END)    AS clan_tag,
+              MAX(CASE WHEN recency = 1 THEN
+                    CASE WHEN side = 'home' THEN home_name ELSE away_name END END) AS clan_name,
+              COUNT(*) AS wars, SUM(attacks) AS attacks, SUM(stars) AS stars,
+              SUM(triples) AS triples, SUM(destruction_sum) AS destruction_sum
+       FROM lines GROUP BY player_tag
+       ORDER BY stars DESC, wars DESC, name
+       LIMIT 500`,
+    )
+    .all<{
+      player_tag: string;
+      name: string;
+      clan_tag: string;
+      clan_name: string;
+      wars: number;
+      attacks: number;
+      stars: number;
+      triples: number;
+      destruction_sum: number;
+    }>();
+  return results.map((r) => ({
+    tag: r.player_tag,
+    name: r.name,
+    clan: { tag: r.clan_tag, name: r.clan_name },
+    wars: r.wars,
+    attacks: r.attacks,
+    stars: r.stars,
+    triples: r.triples,
+    destruction: r.attacks ? Math.round((r.destruction_sum / r.attacks) * 10) / 10 : 0,
+  }));
+}
+
+/** Les FW classiques d'un joueur et son bilan, ou `null` s'il n'en a jamais joué. */
+async function getPlayerFw(db: D1Database, tag: string): Promise<PlayerProfile['fw']> {
+  const { results } = await db
+    .prepare(
+      `SELECT w.*, p.side, p.clan_tag, p.player_tag, p.player_name, p.town_hall, p.map_position,
+              p.attacks, p.stars, p.destruction_sum, p.triples, p.duration
+       FROM fw_players p JOIN friendly_wars w ON w.id = p.war_id
+       WHERE p.player_tag = ?
+       ORDER BY w.ended_at DESC, w.id DESC`,
+    )
+    .bind(tag)
+    .all<FwRow & PlayerRow>();
+  if (results.length === 0) return null;
+
+  const history: PlayerFwWar[] = results.map((r) => ({
+    war: toFwSummary(r),
+    won: r.winner ? r.winner === r.side : null,
+    line: toLine(r),
+  }));
+  return {
+    totals: totalsOf(
+      { tag, name: history[0].line.name, clan: fwClanOf(history[0]) },
       history.map((h) => h.line),
     ),
     history,

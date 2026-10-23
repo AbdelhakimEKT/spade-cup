@@ -17,7 +17,8 @@
     "../src/app/core/tournament/*.ts",
     "../src/app/features/tournaments/data/demo-tournament.ts",
     "../src/app/features/tournaments/data/demo-players.ts",
-    "../src/app/features/tournaments/data/tournament.ts"
+    "../src/app/features/tournaments/data/tournament.ts",
+    "../src/testing/real-friendly-war.ts"
   ],
   "exclude": ["../src/**/*.spec.ts", "scripts"]
 }

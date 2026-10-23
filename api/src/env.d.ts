@@ -4,7 +4,9 @@
 interface SpadeCupSecrets {
   /** Clé de l'API du jeu (via le relais à IP fixe). */
   COC_API_TOKEN?: string;
-  /** Webhooks des salons d'annonces (voir src/announcements.ts). */
+  /** Jeton du bot : les annonces sont postées en son nom (voir src/announcements.ts). */
+  DISCORD_BOT_TOKEN?: string;
+  /** Webhooks des salons d'annonces : solution de secours si le bot n'est pas configuré. */
   DISCORD_WEBHOOK_RESULTATS?: string;
   DISCORD_WEBHOOK_CLASSEMENT?: string;
   DISCORD_WEBHOOK_ARBITRES?: string;

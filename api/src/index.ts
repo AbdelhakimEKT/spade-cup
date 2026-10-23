@@ -1,9 +1,17 @@
-import { createAnnouncer, webhookFor } from './announcements';
+import { createAnnouncer, destinationFor, type Channel } from './announcements';
 import { cocHealth, createCocClient } from './coc';
 import { handleDiscord } from './discord/route';
 import { CORS_HEADERS, SHORT_CACHE, errorResponse, json } from './http';
 import { getTournament, listTournaments } from './repository';
-import { getClanProfile, getMatchDetail, getPlayerProfile, listPlayers } from './stats-repository';
+import {
+  getClanProfile,
+  getMatchDetail,
+  getPlayerProfile,
+  listFriendlyWars,
+  listFwPlayers,
+  listPlayers,
+} from './stats-repository';
+import { fwClans, trackFriendlyWars } from './fw-tracker';
 import { runWatch, type WatchDeps } from './watch';
 
 /**
@@ -17,6 +25,7 @@ import { runWatch, type WatchDeps } from './watch';
  *   GET /players[?tournament=slug]             classement des joueurs
  *   GET /players/:tag                          fiche d'un joueur (tag sans « # »)
  *   GET /clans/:tag                            fiche d'un clan (tag sans « # »)
+ *   GET /fw/players · GET /fw/wars             FW classiques : classement, dernières guerres
  *
  * Écritures : uniquement par le bot Discord (POST /discord, requêtes signées).
  */
@@ -51,6 +60,14 @@ export default {
    * automatique regarde les guerres des matchs en cours.
    */
   async scheduled(_event, env, ctx): Promise<void> {
+    // FW classiques : seulement des stats, aucune annonce.
+    ctx.waitUntil(
+      trackFriendlyWars(env.DB, createCocClient(env), fwClans(env.FW_CLANS))
+        .then((result) => {
+          if (result === 'recorded') console.log('FW classique enregistrée');
+        })
+        .catch((error) => console.error('Suivi des FW en échec', error)),
+    );
     ctx.waitUntil(
       runWatch(watchDeps(env))
         .then((report) => {
@@ -87,10 +104,13 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
     if (params.has('coc')) {
       body['coc'] = await cocHealth(env);
       // Les salons des annonces sont-ils branchés ? (jamais les adresses elles-mêmes)
+      // Pour chaque salon : posté par le « bot », par un « webhook », ou rien (false).
+      const via = (c: Channel) => destinationFor(env, c)?.by ?? false;
       body['announce'] = {
-        resultats: Boolean(webhookFor(env, 'results')),
-        classement: Boolean(webhookFor(env, 'bracket')),
-        arbitres: Boolean(env.DISCORD_WEBHOOK_ARBITRES),
+        resultats: via('results'),
+        classement: via('bracket'),
+        arbitres:
+          env.DISCORD_CHANNEL_ARBITRES || env.DISCORD_WEBHOOK_ARBITRES ? via('referees') : false,
       };
     }
     return json(body, 200, { 'Cache-Control': 'no-store' });
@@ -114,6 +134,13 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
       200,
       SHORT_CACHE,
     );
+  }
+  // FW classiques (hors tournoi) : classement et dernières guerres.
+  if (pathname === '/fw/players') {
+    return json(await listFwPlayers(env.DB), 200, SHORT_CACHE);
+  }
+  if (pathname === '/fw/wars') {
+    return json(await listFriendlyWars(env.DB), 200, SHORT_CACHE);
   }
   if ((m = new RegExp(`^/players/${TAG}$`).exec(pathname))) {
     return found(await getPlayerProfile(env.DB, `#${m[1]}`), 'Joueur introuvable.');

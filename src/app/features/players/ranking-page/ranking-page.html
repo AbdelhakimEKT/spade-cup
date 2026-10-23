@@ -1,0 +1,107 @@
+<header class="page-head">
+  <p class="eyebrow">Statistiques</p>
+  <h1 class="page-title">Classement des joueurs</h1>
+  <p class="lead">
+    Chaque guerre lue dans le jeu ajoute une ligne par joueur. Clique sur une colonne pour changer
+    le tri.
+  </p>
+</header>
+
+<nav class="tabs" aria-label="Type de classement">
+  <a
+    class="tab"
+    routerLink="/joueurs"
+    [attr.aria-current]="isFw() ? null : 'page'"
+    [class.tab--active]="!isFw()"
+    >Spade Cup</a
+  >
+  <a
+    class="tab"
+    routerLink="/joueurs"
+    [queryParams]="{ type: 'fw' }"
+    [attr.aria-current]="isFw() ? 'page' : null"
+    [class.tab--active]="isFw()"
+    >FW classiques</a
+  >
+</nav>
+
+@if (isFw()) {
+  <p class="muted">
+    Les FW de tous les jours entre les clans du serveur, hors tournoi. Elles ne comptent pas dans le
+    classement de la Spade Cup.
+  </p>
+
+  @if (fwPlayers.hasValue()) {
+    @if (fwPlayers.value().length) {
+      <sc-ranking-table
+        [players]="fwPlayers.value()"
+        [showClan]="false"
+        caption="Classement des FW classiques"
+      />
+    } @else {
+      <p class="panel">
+        Aucune FW classique enregistrée pour l'instant : la première arrivera bientôt.
+      </p>
+    }
+  } @else {
+    <sc-request-state [resource]="fwPlayers" />
+  }
+
+  @if (fwWars.hasValue() && fwWars.value().length) {
+    <section class="section">
+      <h2 class="section-title">Dernières FW</h2>
+      <ul class="wars">
+        @for (w of fwWars.value(); track w.id) {
+          <li class="war">
+            <span class="war__date muted">{{
+              w.endedAt ? (w.endedAt | date: 'EEE d MMM, HH:mm') : ''
+            }}</span>
+            <span class="war__side" [class.war__side--win]="w.winner === 'home'">
+              {{ w.home.name }} <b>{{ w.home.stars }}★</b>
+              <span class="muted">{{ w.home.destruction | number: '1.1-1' }} %</span>
+            </span>
+            <span class="muted">—</span>
+            <span class="war__side" [class.war__side--win]="w.winner === 'away'">
+              <b>{{ w.away.stars }}★</b>
+              <span class="muted">{{ w.away.destruction | number: '1.1-1' }} %</span>
+              {{ w.away.name }}
+            </span>
+            @if (w.teamSize) {
+              <span class="chip chip--muted">{{ w.teamSize }} contre {{ w.teamSize }}</span>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+  }
+} @else {
+  @if (slug()) {
+    <p class="filter">
+      <span class="chip">Tournoi : {{ tournamentName() }}</span>
+      <a routerLink="/joueurs">Voir tous les tournois</a>
+    </p>
+  }
+
+  @if (players.hasValue()) {
+    @if (players.value().length) {
+      <sc-ranking-table [players]="players.value()" />
+    } @else if (!slug()) {
+      <div class="panel">
+        <p>
+          Aucune guerre de tournoi n'a encore été jouée : le classement démarrera avec le premier
+          tournoi.
+        </p>
+        <p>
+          En attendant, voici à quoi il ressemblera :
+          <a routerLink="/joueurs" [queryParams]="{ tournoi: 'demo' }"
+            >classement du tournoi de démonstration</a
+          >.
+        </p>
+      </div>
+    } @else {
+      <p class="panel">Aucune guerre lue dans le jeu pour ce tournoi.</p>
+    }
+  } @else {
+    <sc-request-state [resource]="players" />
+  }
+}

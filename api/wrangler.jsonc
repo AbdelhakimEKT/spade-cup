@@ -27,6 +27,13 @@
     "DISCORD_PUBLIC_KEY": "5d4eba9edc4e064ae264537d2a8cf2407ef2c19b3685e04200067cc988d84dc2",
     // Adresse du site, pour les liens dans les messages du bot.
     "SITE_URL": "https://spade-cup.popi-coc.workers.dev",
+    // Salons où le bot poste ses annonces (identifiants publics : clic droit sur
+    // le salon → Copier l'identifiant, avec le mode développeur de Discord).
+    "DISCORD_CHANNEL_RESULTATS": "",
+    "DISCORD_CHANNEL_CLASSEMENT": "",
+    "DISCORD_CHANNEL_ARBITRES": "",
+    // Les deux clans des FW classiques (hors tournoi), suivis pour les stats.
+    "FW_CLANS": "#2JVUP2PGC,#2CYJPRCG8",
     // Relais vers l'API du jeu, depuis une IP fixe (voir src/coc.ts).
     "COC_API_BASE": "https://cocproxy.royaleapi.dev/v1"
   }

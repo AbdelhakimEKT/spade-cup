@@ -87,6 +87,11 @@ describe('API HTTP', () => {
     expect((await call('/clans/%23DEMO1')).status).toBe(404); // le « # » n'a rien à faire dans l'URL
   });
 
+  it('GET /fw/players et /fw/wars : vides tant qu’aucune FW classique n’est enregistrée', async () => {
+    expect(await (await call('/fw/players')).json()).toEqual([]);
+    expect(await (await call('/fw/wars')).json()).toEqual([]);
+  });
+
   it('GET /discord : 405 (seul Discord y écrit, en POST)', async () => {
     expect((await call('/discord')).status).toBe(405);
   });

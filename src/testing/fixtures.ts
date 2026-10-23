@@ -1,5 +1,6 @@
 import {
   ClanProfile,
+  FriendlyWarSummary,
   MatchDetail,
   PlayerProfile,
   PlayerTotals,
@@ -78,6 +79,40 @@ export function playerProfile(): PlayerProfile {
         line,
       },
     ],
+    fw: null,
+  };
+}
+
+/** Une FW classique terminée : FW-team2 gagne 13★ à 11★. */
+export function friendlyWar(id = 1): FriendlyWarSummary {
+  return {
+    id,
+    endedAt: '2026-10-20T19:32:58Z',
+    teamSize: 10,
+    home: { tag: '#2JVUP2PGC', name: 'FW-team2', stars: 13, destruction: 53.4 },
+    away: { tag: '#2CYJPRCG8', name: 'FW-team1', stars: 11, destruction: 46.4 },
+    winner: 'home',
+  };
+}
+
+/** Un joueur qui n'a fait QUE des FW classiques (aucune Spade Cup). */
+export function fwOnlyProfile(): PlayerProfile {
+  const line = DEMO_MATCH_PLAYERS.get('R1-M1')![0];
+  const clan = { tag: '#2JVUP2PGC', name: 'FW-team2' };
+  const totals = {
+    tag: line.tag,
+    name: line.name,
+    clan,
+    wars: 1,
+    attacks: 1,
+    stars: 3,
+    triples: 1,
+    destruction: 100,
+  };
+  return {
+    totals: { ...totals, wars: 0, attacks: 0, stars: 0, triples: 0, destruction: 0 },
+    history: [],
+    fw: { totals, history: [{ war: friendlyWar(), won: true, line }] },
   };
 }
 

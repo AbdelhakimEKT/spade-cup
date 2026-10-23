@@ -182,6 +182,28 @@ dans `DISCORD_PUBLIC_KEY` (`api/wrangler.jsonc`) : elle n'est pas secrète.
    npx wrangler secret put COC_API_TOKEN
    ```
 
+### Annonces au nom du bot
+
+Pour que les annonces soient postées par le bot « Spade Cup FR » (son nom et
+son avatar) plutôt que par des webhooks : poser le jeton du bot, et mettre
+l'identifiant de chaque salon dans `wrangler.jsonc` (`DISCORD_CHANNEL_*`,
+identifiants publics : clic droit sur le salon → Copier l'identifiant, mode
+développeur activé). Le bot doit pouvoir voir et écrire dans chaque salon,
+salon privé des arbitres compris.
+
+```bash
+npx wrangler secret put DISCORD_BOT_TOKEN
+```
+
+Sans jeton ou sans identifiant, le webhook du salon prend le relais.
+
+### FW classiques (hors tournoi)
+
+Les FW de tous les jours entre les clans de `FW_CLANS` (`wrangler.jsonc`) sont
+suivies à chaque passage (`src/fw-tracker.ts`) : aucune annonce, seulement
+les stats des joueurs, dans un classement séparé (`/joueurs?type=fw` sur le
+site, `GET /fw/players` et `GET /fw/wars` sur l'API).
+
 ### Image de l'arbre
 
 `/arbitre arbre` fait ouvrir la page du tournoi (`?capture`) par un vrai

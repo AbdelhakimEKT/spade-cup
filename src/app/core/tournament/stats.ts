@@ -36,9 +36,39 @@ export interface PlayerWar {
 }
 
 export interface PlayerProfile {
+  /** Bilan en Spade Cup (0 guerre si le joueur n'a joué que des FW classiques). */
   readonly totals: PlayerTotals;
-  /** Du plus récent au plus ancien. */
+  /** Guerres de Spade Cup, de la plus récente à la plus ancienne. */
   readonly history: readonly PlayerWar[];
+  /** Bilan et guerres en FW classiques, ou `null` s'il n'en a jamais joué. */
+  readonly fw: { readonly totals: PlayerTotals; readonly history: readonly PlayerFwWar[] } | null;
+}
+
+/** Un camp d'une FW classique. */
+export interface FwSide {
+  readonly tag: string;
+  readonly name: string;
+  readonly stars: number;
+  readonly destruction: number;
+}
+
+/** Une FW classique (hors tournoi), telle que la liste des dernières FW l'affiche. */
+export interface FriendlyWarSummary {
+  readonly id: number;
+  /** Fin de la guerre (heure du jeu, ISO), si connue. */
+  readonly endedAt: string | null;
+  readonly teamSize: number | null;
+  readonly home: FwSide;
+  readonly away: FwSide;
+  /** `null` = égalité parfaite. */
+  readonly winner: 'home' | 'away' | null;
+}
+
+/** Une FW classique dans l'historique d'un joueur. */
+export interface PlayerFwWar {
+  readonly war: FriendlyWarSummary;
+  readonly won: boolean | null;
+  readonly line: PlayerLine;
 }
 
 /** Le parcours d'un clan dans un tournoi. */

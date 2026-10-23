@@ -1,7 +1,7 @@
 import { roundLabel } from '../../src/app/core/tournament/bracket';
 import type { Bracket, BracketMatch } from '../../src/app/core/tournament/models';
 import { bracketCaption, nextRoundName, resultMessage, versus, type Reply } from './discord/bot';
-import { postToWebhook } from './discord/payload';
+import { postAsBot, postToWebhook } from './discord/payload';
 import { captureScreens, type Shot } from './screens';
 
 /**
@@ -31,36 +31,58 @@ export interface Outcome {
   readonly ties?: readonly BracketMatch[];
 }
 
-type Secrets = Pick<
-  Env,
-  | 'DISCORD_WEBHOOK_RESULTATS'
-  | 'DISCORD_WEBHOOK_CLASSEMENT'
-  | 'DISCORD_WEBHOOK_ARBITRES'
-  | 'DISCORD_ANNOUNCE_WEBHOOK'
+/** Réglages utiles ; tous facultatifs (le serveur doit marcher même à moitié configuré). */
+type Config = Partial<
+  Pick<
+    Env,
+    | 'DISCORD_BOT_TOKEN'
+    | 'DISCORD_CHANNEL_RESULTATS'
+    | 'DISCORD_CHANNEL_CLASSEMENT'
+    | 'DISCORD_CHANNEL_ARBITRES'
+    | 'DISCORD_WEBHOOK_RESULTATS'
+    | 'DISCORD_WEBHOOK_CLASSEMENT'
+    | 'DISCORD_WEBHOOK_ARBITRES'
+    | 'DISCORD_ANNOUNCE_WEBHOOK'
+  >
 >;
 
+/** Où poster : en tant que bot dans un salon, ou par un webhook. */
+export type Destination =
+  | { readonly by: 'bot'; readonly token: string; readonly channelId: string }
+  | { readonly by: 'webhook'; readonly url: string };
+
 /**
- * Le webhook de chaque salon. À défaut, l'ancien webhook unique
- * (DISCORD_ANNOUNCE_WEBHOOK) sert pour tout ; les alertes arbitres, à défaut
- * de leur salon, vont dans #résultats plutôt que d'être perdues.
+ * La destination de chaque annonce. De préférence le BOT (son nom et son
+ * avatar) ; à défaut, le webhook du salon, puis l'ancien webhook unique. Les
+ * alertes arbitres, à défaut de leur salon, vont dans #résultats plutôt que
+ * d'être perdues.
  */
-export function webhookFor(env: Secrets, channel: Channel): string | undefined {
-  const results = env.DISCORD_WEBHOOK_RESULTATS || env.DISCORD_ANNOUNCE_WEBHOOK;
-  switch (channel) {
-    case 'results':
-      return results;
-    case 'bracket':
-      return env.DISCORD_WEBHOOK_CLASSEMENT || env.DISCORD_ANNOUNCE_WEBHOOK;
-    case 'referees':
-      return env.DISCORD_WEBHOOK_ARBITRES || results;
-  }
+export function destinationFor(env: Config, channel: Channel): Destination | null {
+  const ids = {
+    results: env.DISCORD_CHANNEL_RESULTATS,
+    bracket: env.DISCORD_CHANNEL_CLASSEMENT,
+    referees: env.DISCORD_CHANNEL_ARBITRES,
+  };
+  const hooks = {
+    results: env.DISCORD_WEBHOOK_RESULTATS || env.DISCORD_ANNOUNCE_WEBHOOK,
+    bracket: env.DISCORD_WEBHOOK_CLASSEMENT || env.DISCORD_ANNOUNCE_WEBHOOK,
+    referees: env.DISCORD_WEBHOOK_ARBITRES,
+  };
+  const own = (c: Channel): Destination | null => {
+    if (env.DISCORD_BOT_TOKEN && ids[c]) {
+      return { by: 'bot', token: env.DISCORD_BOT_TOKEN, channelId: ids[c]! };
+    }
+    return hooks[c] ? { by: 'webhook', url: hooks[c]! } : null;
+  };
+  return own(channel) ?? (channel === 'referees' ? own('results') : null);
 }
 
 export function createAnnouncer(env: Env): Announcer {
   return {
     async post(channel, reply) {
-      const webhook = webhookFor(env, channel);
-      if (webhook) await postToWebhook(webhook, reply);
+      const to = destinationFor(env, channel);
+      if (to?.by === 'bot') await postAsBot(to.token, to.channelId, reply);
+      else if (to?.by === 'webhook') await postToWebhook(to.url, reply);
     },
     capture: (shots) => captureScreens(env.BROWSER, env.SITE_URL, shots),
   };
