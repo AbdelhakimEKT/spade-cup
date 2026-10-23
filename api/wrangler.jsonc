@@ -6,6 +6,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-21",
   "observability": { "enabled": true },
+  // La bibliothèque qui pilote le navigateur de Cloudflare utilise des modules de Node.
+  "compatibility_flags": ["nodejs_compat"],
+  // Un vrai navigateur dans le cloud, pour l'image de l'arbre (voir src/bracket-image.ts).
+  "browser": { "binding": "BROWSER" },
   "d1_databases": [
     {
       "binding": "DB",

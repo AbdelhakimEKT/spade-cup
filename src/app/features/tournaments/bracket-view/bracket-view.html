@@ -1,26 +1,28 @@
-<div class="toolbar">
-  <div class="tabs" role="group" aria-label="Affichage de l'arbre">
-    <button
-      type="button"
-      class="tab"
-      [attr.aria-pressed]="mode() === 'full'"
-      (click)="mode.set('full')"
-    >
-      Arbre complet
-    </button>
-    <button
-      type="button"
-      class="tab"
-      [attr.aria-pressed]="mode() === 'round'"
-      (click)="mode.set('round')"
-    >
-      Tour par tour
-    </button>
+@if (toolbar()) {
+  <div class="toolbar">
+    <div class="tabs" role="group" aria-label="Affichage de l'arbre">
+      <button
+        type="button"
+        class="tab"
+        [attr.aria-pressed]="mode() === 'full'"
+        (click)="mode.set('full')"
+      >
+        Arbre complet
+      </button>
+      <button
+        type="button"
+        class="tab"
+        [attr.aria-pressed]="mode() === 'round'"
+        (click)="mode.set('round')"
+      >
+        Tour par tour
+      </button>
+    </div>
+    <p class="toolbar__current">
+      Tour en cours : <strong>{{ currentRoundLabel() }}</strong>
+    </p>
   </div>
-  <p class="toolbar__current">
-    Tour en cours : <strong>{{ currentRoundLabel() }}</strong>
-  </p>
-</div>
+}
 
 <section class="panel" aria-label="Arbre du tournoi">
   <!-- Grand pique en filigrane derrière la finale -->

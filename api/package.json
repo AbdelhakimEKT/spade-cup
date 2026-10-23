@@ -26,5 +26,8 @@
     "esbuild@0.28.2": true,
     "workerd@1.20260815.1": true,
     "workerd@1.20261019.1": true
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.4.0"
   }
 }

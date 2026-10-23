@@ -1,8 +1,18 @@
 import { NgOptimizedImage } from '@angular/common';
-import { Component, DOCUMENT, computed, effect, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  DOCUMENT,
+  booleanAttribute,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { fullTitle } from '../../../core/page-title';
+import { SITE_CONFIG } from '../../../core/site-config';
 import { currentRound, liveMatch, roundLabel } from '../../../core/tournament/bracket';
 import { TOURNAMENT_RULES } from '../../../core/tournament/models';
 import { BracketView } from '../bracket-view/bracket-view';
@@ -28,6 +38,7 @@ import { Players } from '../../players/data/players';
   ],
   templateUrl: './tournament-page.html',
   styleUrl: './tournament-page.scss',
+  host: { '[class.capture]': 'capture()' },
 })
 export class TournamentPage {
   private readonly tournaments = inject(Tournaments);
@@ -35,6 +46,14 @@ export class TournamentPage {
 
   /** Rempli automatiquement depuis l'URL /tournois/:slug. */
   readonly slug = input.required<string>();
+
+  /**
+   * /tournois/:slug?capture : la page réduite à l'en-tête et à l'arbre, pour
+   * l'image que le bot envoie sur Discord (capture d'écran faite par le serveur).
+   */
+  readonly capture = input(false, { transform: booleanAttribute });
+
+  protected readonly siteHost = SITE_CONFIG.siteUrl.replace(/^https:\/\//, '');
 
   /** La requête au serveur ; relancée toute seule si le slug change. */
   protected readonly request = this.tournaments.bySlug(this.slug);

@@ -100,6 +100,7 @@ Les écritures passent **uniquement** par le bot Discord (`POST /discord`).
 | `/arbitre resultat match:` | arbitres | lire le résultat dans le jeu |
 | `/arbitre score match: …` | arbitres | saisir le score à la main (secours) |
 | `/arbitre vainqueur match: clan:` | arbitres | forfait, égalité parfaite, litige |
+| `/arbitre arbre [tournoi:]` | arbitres | publier l'image de l'arbre dans le salon (le tournoi courant, ou un autre, la démo par exemple) |
 | `/arbitre annuler nom:` | arbitres | supprimer le tournoi courant (test, erreur) ; retaper son nom pour confirmer |
 
 **Important pour les arbitres** : l'API du jeu ne garde que la DERNIÈRE guerre
@@ -132,6 +133,19 @@ dans `DISCORD_PUBLIC_KEY` (`api/wrangler.jsonc`) : elle n'est pas secrète.
    ```bash
    npx wrangler secret put COC_API_TOKEN
    ```
+
+### Image de l'arbre
+
+`/arbitre arbre` fait ouvrir la page du tournoi (`?capture`) par un vrai
+navigateur hébergé par Cloudflare (*Browser Rendering*, gratuit jusqu'à
+10 minutes par jour, environ 8 secondes par image), qui en fait une capture
+d'écran envoyée en pièce jointe. Réservé aux arbitres pour protéger ce quota.
+
+![Image de l'arbre envoyée sur Discord](docs/arbre-discord-demo.png)
+
+Essai sans Discord, sur le vrai navigateur :
+`npx wrangler dev scripts/capture-check.ts --remote --port 8799`, puis
+http://localhost:8799/?tournoi=demo
 
 ### Diagnostics
 

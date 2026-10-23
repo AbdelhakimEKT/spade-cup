@@ -110,6 +110,19 @@ export const COMMANDS = [
         type: OptionType.Subcommand,
       },
       {
+        name: 'arbre',
+        description: 'Publier l’image de l’arbre dans ce salon',
+        type: OptionType.Subcommand,
+        options: [
+          {
+            name: 'tournoi',
+            description: 'Un autre tournoi que celui en cours (la démo, par exemple)',
+            type: OptionType.String,
+            autocomplete: true,
+          },
+        ],
+      },
+      {
         name: 'annuler',
         description: 'Supprimer le tournoi en cours (test, erreur). Irréversible.',
         type: OptionType.Subcommand,

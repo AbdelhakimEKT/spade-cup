@@ -28,6 +28,8 @@ import {
   createTournament,
   deleteTournament,
   getCurrentTournament,
+  getTournament,
+  listTournaments,
   registeredBy,
   removeRegistration,
   renameClan,
@@ -53,12 +55,16 @@ export interface BotContext {
   readonly siteUrl: string;
   /** Hasard du tirage : injectable pour des tests reproductibles. */
   readonly random: () => number;
+  /** Capture d'écran de l'arbre d'un tournoi (PNG) : un vrai navigateur en production. */
+  readonly captureBracket: (slug: string) => Promise<Uint8Array>;
 }
 
 export interface Reply {
   readonly content: string;
   /** Visible seulement par la personne qui a tapé la commande (erreurs). */
   readonly ephemeral?: boolean;
+  /** Pièces jointes (l'image de l'arbre). */
+  readonly files?: readonly { readonly name: string; readonly data: Uint8Array }[];
 }
 
 const ORGANIZER = 'Spade Cup FR';
@@ -80,7 +86,7 @@ export function needsDefer(interaction: Interaction): boolean {
   const { command, sub } = parse(interaction);
   return (
     command === 'inscription' ||
-    (command === 'arbitre' && ['resultat', 'tirage'].includes(sub ?? ''))
+    (command === 'arbitre' && ['resultat', 'tirage', 'arbre'].includes(sub ?? ''))
   );
 }
 
@@ -110,9 +116,20 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
 /** Suggestions pendant la saisie d'une option (le match, le clan vainqueur). */
 export async function autocomplete(interaction: Interaction, ctx: BotContext): Promise<Choice[]> {
   const { sub, options, focused } = parse(interaction);
+  if (!focused) return [];
+
+  if (focused.name === 'tournoi') {
+    const typed = String(focused.value ?? '').toLowerCase();
+    return (await listTournaments(ctx.db))
+      .map((t) => ({ name: t.isDemo ? `${t.name} (démo)` : t.name, value: t.slug }))
+      .filter((c) => c.name.toLowerCase().includes(typed))
+      .slice(0, 25)
+      .map((c) => ({ ...c, name: c.name.slice(0, 100) }));
+  }
+
   const active = await getCurrentTournament(ctx.db);
   const bracket = active?.tournament.bracket;
-  if (!bracket || !focused) return [];
+  if (!bracket) return [];
 
   if (focused.name === 'clan') {
     const match = bracket.matches.find((m) => m.id === options.get('match'));
@@ -229,6 +246,7 @@ async function referee(
   if (sub === 'creer') {
     return create(ctx, refereeName, String(options.get('nom')), options.get('reglement'));
   }
+  if (sub === 'arbre') return bracketImage(ctx, options.get('tournoi'));
 
   const active = await getCurrentTournament(ctx.db);
   if (!active) return fail('Aucun tournoi pour le moment. Crée-en un avec `/arbitre creer`.');
@@ -315,6 +333,42 @@ async function draw(ctx: BotContext, active: StoredTournament): Promise<Reply> {
       `🎲 **Tirage de ${t.name}** : ${clans.length} clans, ` +
       `on commence par les ${roundLabel(1, bracket.roundCount).toLowerCase()}.\n` +
       `${firstRound.join('\n')}\n${tournamentUrl(ctx, t.slug)}`,
+  };
+}
+
+/**
+ * Publie l'image de l'arbre dans le salon. Par défaut le tournoi courant ;
+ * l'option `tournoi` permet d'en choisir un autre (la démo, par exemple).
+ */
+async function bracketImage(ctx: BotContext, chosen: string | number | undefined): Promise<Reply> {
+  const slug =
+    typeof chosen === 'string' && chosen
+      ? chosen
+      : ((await getCurrentTournament(ctx.db))?.tournament.slug ??
+        fail('Aucun tournoi pour le moment. Choisis-en un dans la liste (la démo, par exemple).'));
+  const t =
+    (await getTournament(ctx.db, slug)) ?? fail('Tournoi introuvable : choisis-le dans la liste.');
+  const bracket =
+    t.bracket ?? fail(`Le tirage de « ${t.name} » n'a pas encore eu lieu : pas d'arbre à montrer.`);
+
+  let png: Uint8Array;
+  try {
+    png = await ctx.captureBracket(slug);
+  } catch (error) {
+    console.error('Capture de l’arbre impossible', slug, error);
+    return fail(
+      "Impossible de générer l'image pour le moment. Le lien, lui, marche toujours : " +
+        tournamentUrl(ctx, slug),
+    );
+  }
+
+  const champion = championOf(bracket);
+  const stage = champion
+    ? `👑 Victoire de **${champion.name}**`
+    : roundLabel(currentRound(bracket), bracket.roundCount);
+  return {
+    content: `🏆 **${t.name}** · ${stage}\n${tournamentUrl(ctx, slug)}`,
+    files: [{ name: 'arbre.png', data: png }],
   };
 }
 

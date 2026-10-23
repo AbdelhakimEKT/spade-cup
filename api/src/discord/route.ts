@@ -1,3 +1,4 @@
+import { captureBracket } from '../bracket-image';
 import { createCocClient } from '../coc';
 import { json } from '../http';
 import { autocomplete, needsDefer, runCommand, type BotContext, type Reply } from './bot';
@@ -30,6 +31,7 @@ export async function handleDiscord(
     db: env.DB,
     coc: createCocClient(env),
     siteUrl: env.SITE_URL,
+    captureBracket: (slug) => captureBracket(env.BROWSER, env.SITE_URL, slug),
     // Hasard cryptographique pour le tirage : impossible à prédire ou à orienter.
     random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
   };
@@ -84,11 +86,35 @@ function message(reply: Reply) {
 /** Remplace le « je réfléchis » par la vraie réponse. */
 async function editOriginal(interaction: Interaction, reply: Reply): Promise<void> {
   const url = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(message(reply)),
-  });
-  if (!response.ok)
+  const response = await fetch(url, { method: 'PATCH', ...editBody(reply) });
+  if (!response.ok) {
     console.error('Réponse Discord refusée', response.status, await response.text());
+  }
+}
+
+/**
+ * Corps de la requête : du JSON, ou, avec une pièce jointe, un formulaire
+ * « multipart » (le JSON dans `payload_json`, chaque fichier dans `files[n]`).
+ * Pour un formulaire, `fetch` pose lui-même l'en-tête Content-Type (avec la
+ * « frontière » qui sépare les parties) : il ne faut surtout pas l'écrire.
+ */
+export function editBody(reply: Reply): { body: BodyInit; headers?: Record<string, string> } {
+  if (!reply.files?.length) {
+    return {
+      body: JSON.stringify(message(reply)),
+      headers: { 'Content-Type': 'application/json' },
+    };
+  }
+  const form = new FormData();
+  form.append(
+    'payload_json',
+    JSON.stringify({
+      ...message(reply),
+      attachments: reply.files.map((f, id) => ({ id, filename: f.name })),
+    }),
+  );
+  reply.files.forEach((f, id) =>
+    form.append(`files[${id}]`, new Blob([f.data], { type: 'image/png' }), f.name),
+  );
+  return { body: form };
 }

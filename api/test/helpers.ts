@@ -92,8 +92,17 @@ export function fakeCoc(
   };
 }
 
+/** Fausse image PNG : les 8 octets de signature d'un vrai fichier PNG. */
+export const FAKE_PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 export function botContext(db: D1Database, coc: CocClient = fakeCoc()): BotContext {
-  return { db, coc, siteUrl: 'https://site.test', random: seededRandom() };
+  return {
+    db,
+    coc,
+    siteUrl: 'https://site.test',
+    random: seededRandom(),
+    captureBracket: async () => FAKE_PNG,
+  };
 }
 
 // ------------------------------------------------------------ interactions Discord

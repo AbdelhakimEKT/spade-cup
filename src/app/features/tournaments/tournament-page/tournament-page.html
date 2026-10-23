@@ -39,30 +39,32 @@
       </ul>
       <p class="rules-text">{{ t.rules }}</p>
     </div>
-    <button type="button" class="copy" (click)="copyLink()">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        aria-hidden="true"
-      >
-        <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
-        <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
-      </svg>
-      @switch (copyState()) {
-        @case ('copied') {
-          Lien copié
+    @if (!capture()) {
+      <button type="button" class="copy" (click)="copyLink()">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+          <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+        </svg>
+        @switch (copyState()) {
+          @case ('copied') {
+            Lien copié
+          }
+          @case ('failed') {
+            Copie impossible
+          }
+          @default {
+            Copier le lien
+          }
         }
-        @case ('failed') {
-          Copie impossible
-        }
-        @default {
-          Copier le lien
-        }
-      }
-    </button>
+      </button>
+    }
   </header>
 
   <!-- Annonce le résultat de la copie aux lecteurs d'écran. -->
@@ -71,11 +73,13 @@
   </p>
 
   @if (featured(); as f) {
-    <sc-featured-match [match]="f.match" [roundLabel]="f.label" />
+    @if (!capture()) {
+      <sc-featured-match [match]="f.match" [roundLabel]="f.label" />
+    }
   }
 
   @if (t.bracket; as bracket) {
-    <sc-bracket-view [bracket]="bracket" />
+    <sc-bracket-view [bracket]="bracket" [toolbar]="!capture()" />
   } @else {
     <p class="pending">
       Les inscriptions se font sur le Discord. L'arbre sera tiré au sort à leur clôture.
@@ -97,7 +101,9 @@
     }
   }
 
-  @if (topPlayers().length) {
+  @if (capture()) {
+    <p class="capture-url">{{ siteHost }}/tournois/{{ t.slug }}</p>
+  } @else if (topPlayers().length) {
     <section class="section">
       <div class="section__head">
         <h2 class="section-title">Meilleurs joueurs</h2>

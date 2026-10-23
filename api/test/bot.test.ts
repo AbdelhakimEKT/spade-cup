@@ -4,11 +4,13 @@ import { championOf } from '../../src/app/core/tournament/bracket';
 import type { Tournament } from '../../src/app/core/tournament/tournament';
 import type { CocClient } from '../src/coc';
 import { autocomplete, needsDefer, runCommand, type BotContext } from '../src/discord/bot';
-import { getCurrentTournament, getTournament } from '../src/repository';
+import { getCurrentTournament, getTournament, saveTournament } from '../src/repository';
+import { DEMO_TOURNAMENT } from '../../src/app/features/tournaments/data/demo-tournament';
 import { getMatchDetail, listPlayers } from '../src/stats-repository';
 import {
   ADMIN,
   CLANS,
+  FAKE_PNG,
   MEMBER,
   OTHER_MEMBER,
   botContext,
@@ -560,5 +562,78 @@ describe('/arbitre annuler', () => {
   it('sans tournoi : message clair', async () => {
     const reply = await runCommand(referee('annuler', { nom: 'X' }), botContext(db()));
     expect(reply.content).toContain('Aucun tournoi');
+  });
+});
+
+describe('/arbitre arbre', () => {
+  it('publie l’image de l’arbre du tournoi courant, avec le tour et le lien', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 4);
+    await runCommand(referee('tirage'), ctx);
+    const reply = await runCommand(referee('arbre'), ctx);
+
+    expect(reply.content).toContain("🏆 **Coupe d'Hiver** · Demi-finales");
+    expect(reply.content).toContain('https://site.test/tournois/coupe-d-hiver');
+    expect(reply.files).toEqual([{ name: 'arbre.png', data: FAKE_PNG }]);
+  });
+
+  it('un autre tournoi au choix (la démo), même sans tournoi en cours', async () => {
+    await saveTournament(db(), DEMO_TOURNAMENT);
+    const captured: string[] = [];
+    const ctx = {
+      ...botContext(db()),
+      captureBracket: async (slug: string) => (captured.push(slug), FAKE_PNG),
+    };
+    const reply = await runCommand(referee('arbre', { tournoi: 'demo' }), ctx);
+    expect(reply.content).toContain('**Tournoi de démonstration** · Quarts de finale');
+    expect(captured).toEqual(['demo']);
+  });
+
+  it('tournoi terminé : annonce le champion', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(referee('vainqueur', { match: final.id, clan: 'home' }), ctx);
+    const reply = await runCommand(referee('arbre'), ctx);
+    expect(reply.content).toContain(`👑 Victoire de **${final.home!.name}**`);
+  });
+
+  it('pas encore de tirage, tournoi inconnu, aucun tournoi : message clair, pas d’image', async () => {
+    const ctx = botContext(db());
+    expect((await runCommand(referee('arbre'), ctx)).content).toContain('Aucun tournoi');
+    expect((await runCommand(referee('arbre', { tournoi: 'nexiste-pas' }), ctx)).content).toContain(
+      'introuvable',
+    );
+    await openWith(ctx, 2);
+    const reply = await runCommand(referee('arbre'), ctx);
+    expect(reply).toMatchObject({ ephemeral: true });
+    expect(reply.content).toContain("n'a pas encore eu lieu");
+    expect(reply.files).toBeUndefined();
+  });
+
+  it('le navigateur échoue : message d’erreur avec le lien du site', async () => {
+    const ctx = { ...botContext(db()), captureBracket: () => Promise.reject(new Error('quota')) };
+    await finalOnly(ctx);
+    const reply = await runCommand(referee('arbre'), ctx);
+    expect(reply.ephemeral).toBe(true);
+    expect(reply.content).toContain("Impossible de générer l'image");
+    expect(reply.content).toContain('https://site.test/tournois/coupe-d-hiver');
+  });
+
+  it('autocomplétion : les tournois, démo signalée', async () => {
+    await saveTournament(db(), DEMO_TOURNAMENT);
+    const ctx = botContext(db());
+    await runCommand(referee('creer', { nom: 'Coupe' }), ctx);
+    const choices = await autocomplete(typing('arbre', { tournoi: '' }, 'tournoi'), ctx);
+    expect(choices).toEqual([
+      { name: 'Coupe', value: 'coupe' },
+      { name: 'Tournoi de démonstration (démo)', value: 'demo' },
+    ]);
+    expect(await autocomplete(typing('arbre', { tournoi: 'démo' }, 'tournoi'), ctx)).toHaveLength(
+      1,
+    );
+  });
+
+  it('commande différée : le navigateur prend plusieurs secondes', () => {
+    expect(needsDefer(referee('arbre'))).toBe(true);
   });
 });

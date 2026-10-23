@@ -47,6 +47,8 @@ type Column = SideColumn | CenterColumn;
 })
 export class BracketView {
   readonly bracket = input.required<Bracket>();
+  /** Boutons « Arbre complet / Tour par tour » : masqués pour l'image Discord. */
+  readonly toolbar = input(true);
 
   // Un arbre en miroir demande de la largeur : en dessous, on ouvre en « tour par tour ».
   private readonly isNarrowScreen =

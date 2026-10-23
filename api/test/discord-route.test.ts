@@ -2,6 +2,7 @@ import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
+import { editBody } from '../src/discord/route';
 import { verifyDiscordSignature } from '../src/discord/verify';
 import { command, referee } from './helpers';
 
@@ -117,5 +118,35 @@ describe('verifyDiscordSignature', () => {
   it('accepte une vraie signature', async () => {
     const { signature, timestamp } = await sign('{"a":1}');
     expect(await verifyDiscordSignature(publicKeyHex, signature, timestamp, '{"a":1}')).toBe(true);
+  });
+});
+
+describe('editBody : la réponse envoyée à Discord', () => {
+  it('sans fichier : du JSON', async () => {
+    const { body, headers } = editBody({ content: 'Salut' });
+    expect(headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(JSON.parse(String(body))).toMatchObject({
+      content: 'Salut',
+      allowed_mentions: { parse: [] },
+    });
+  });
+
+  it('avec l’image : un formulaire multipart, la pièce jointe déclarée dans le JSON', async () => {
+    const png = new Uint8Array([1, 2, 3]);
+    const { body, headers } = editBody({
+      content: 'Arbre',
+      files: [{ name: 'arbre.png', data: png }],
+    });
+    expect(headers).toBeUndefined(); // fetch écrit lui-même l'en-tête multipart
+    const form = body as FormData;
+
+    expect(JSON.parse(String(form.get('payload_json')))).toMatchObject({
+      content: 'Arbre',
+      attachments: [{ id: 0, filename: 'arbre.png' }],
+    });
+    const file = form.get('files[0]') as File;
+    expect(file.name).toBe('arbre.png');
+    expect(file.type).toBe('image/png');
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(png);
   });
 });
