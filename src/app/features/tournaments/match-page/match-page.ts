@@ -1,8 +1,9 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, effect, inject, input } from '@angular/core';
+import { Component, booleanAttribute, computed, effect, inject, input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { fullTitle } from '../../../core/page-title';
+import { SITE_CONFIG } from '../../../core/site-config';
 import { roundLabel, winnerOf } from '../../../core/tournament/bracket';
 import { formatDuration } from '../../../core/tournament/format';
 import { Side } from '../../../core/tournament/models';
@@ -18,10 +19,18 @@ import { Tournaments } from '../data/tournaments';
   imports: [ClanAvatar, DecimalPipe, RequestState, RouterLink],
   templateUrl: './match-page.html',
   styleUrl: './match-page.scss',
+  host: { '[class.capture]': 'capture()' },
 })
 export class MatchPage {
   readonly slug = input.required<string>();
   readonly matchId = input.required<string>();
+
+  /**
+   * /tournois/:slug/matchs/:id?capture : sans le lien de retour, avec l'adresse
+   * du site en signature, pour le récap que le bot poste sur Discord.
+   */
+  readonly capture = input(false, { transform: booleanAttribute });
+  protected readonly siteHost = SITE_CONFIG.siteUrl.replace(/^https:\/\//, '');
 
   protected readonly request = inject(Tournaments).match(this.slug, this.matchId);
   protected readonly detail = computed(() =>

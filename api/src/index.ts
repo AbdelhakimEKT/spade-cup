@@ -1,6 +1,5 @@
-import { captureBracket } from './bracket-image';
+import { createAnnouncer, webhookFor } from './announcements';
 import { cocHealth, createCocClient } from './coc';
-import { postToWebhook } from './discord/payload';
 import { handleDiscord } from './discord/route';
 import { CORS_HEADERS, SHORT_CACHE, errorResponse, json } from './http';
 import { getTournament, listTournaments } from './repository';
@@ -65,13 +64,11 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export function watchDeps(env: Env): WatchDeps {
-  const webhook = env.DISCORD_ANNOUNCE_WEBHOOK;
   return {
     db: env.DB,
     coc: createCocClient(env),
     siteUrl: env.SITE_URL,
-    captureBracket: (slug) => captureBracket(env.BROWSER, env.SITE_URL, slug),
-    announce: webhook ? (reply) => postToWebhook(webhook, reply) : null,
+    announcer: createAnnouncer(env),
   };
 }
 
@@ -89,8 +86,12 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
     // /health?coc : vérifie aussi que la clé de l'API du jeu fonctionne.
     if (params.has('coc')) {
       body['coc'] = await cocHealth(env);
-      // Le salon des annonces automatiques est-il branché ? (jamais l'adresse elle-même)
-      body['announce'] = Boolean(env.DISCORD_ANNOUNCE_WEBHOOK);
+      // Les salons des annonces sont-ils branchés ? (jamais les adresses elles-mêmes)
+      body['announce'] = {
+        resultats: Boolean(webhookFor(env, 'results')),
+        classement: Boolean(webhookFor(env, 'bracket')),
+        arbitres: Boolean(env.DISCORD_WEBHOOK_ARBITRES),
+      };
     }
     return json(body, 200, { 'Cache-Control': 'no-store' });
   }

@@ -1,6 +1,8 @@
 import type { CocWar, CocWarMember } from '../../src/app/core/tournament/coc-war';
 import type { ClanRef } from '../../src/app/core/tournament/models';
-import type { BotContext } from '../src/discord/bot';
+import type { Announcer, Channel, Outcome } from '../src/announcements';
+import type { BotContext, Reply } from '../src/discord/bot';
+import type { Shot } from '../src/screens';
 import type { Interaction } from '../src/discord/types';
 import type { CocClient, CocResult } from '../src/coc';
 
@@ -100,14 +102,47 @@ export function fakeCoc(
 /** Fausse image PNG : les 8 octets de signature d'un vrai fichier PNG. */
 export const FAKE_PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-export function botContext(db: D1Database, coc: CocClient = fakeCoc()): BotContext {
+/**
+ * Contexte du bot pour les tests. `published` garde ce que le bot a demandé de
+ * publier dans les salons (débuts, résultats saisis à la main).
+ */
+export function botContext(
+  db: D1Database,
+  coc: CocClient = fakeCoc(),
+): BotContext & { published: Outcome[] } {
+  const published: Outcome[] = [];
   return {
     db,
     coc,
     siteUrl: 'https://site.test',
     random: seededRandom(),
-    captureBracket: async () => FAKE_PNG,
+    capture: async (shots) => shots.map(() => FAKE_PNG),
+    publish: (_t, _bracket, outcome) => void published.push(outcome),
+    published,
   };
+}
+
+/** Un message posté dans un salon. */
+export interface Posted {
+  readonly channel: Channel;
+  readonly reply: Reply;
+}
+
+/** Faux salons Discord et faux navigateur : on note ce qui est posté et photographié. */
+export function fakeAnnouncer(options: { failCapture?: boolean } = {}) {
+  const posted: Posted[] = [];
+  const shots: Shot[][] = [];
+  const announcer: Announcer = {
+    post: async (channel, reply) => void posted.push({ channel, reply }),
+    capture: async (list) => {
+      shots.push([...list]);
+      if (options.failCapture) throw new Error('quota du navigateur épuisé');
+      return list.map(() => FAKE_PNG);
+    },
+  };
+  const inChannel = (channel: Channel) =>
+    posted.filter((p) => p.channel === channel).map((p) => p.reply);
+  return { announcer, posted, shots, inChannel };
 }
 
 // ------------------------------------------------------------ interactions Discord

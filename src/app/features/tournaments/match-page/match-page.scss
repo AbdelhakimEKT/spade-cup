@@ -96,3 +96,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+// Mode capture (récap Discord) : marges fixes, signature en bas.
+:host(.capture) {
+  padding: var(--space-5);
+}
+
+.capture-url {
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  text-align: right;
+}

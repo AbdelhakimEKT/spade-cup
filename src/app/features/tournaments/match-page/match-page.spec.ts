@@ -86,4 +86,16 @@ describe('MatchPage', () => {
     await reply('/tournaments/demo/matches/R9-M9', { error: 'Match introuvable.' }, 404);
     expect(el.querySelector('h1')?.textContent).toBe('Match introuvable');
   });
+
+  it('mode capture (récap Discord) : pas de lien de retour, signature du site', async () => {
+    const { el, reply } = await openPage(MatchPage, {
+      slug: 'demo',
+      matchId: 'R1-M1',
+      capture: true,
+    });
+    await reply('/tournaments/demo/matches/R1-M1', matchDetail('R1-M1'));
+    expect(el.querySelector('a.crumb')).toBeNull();
+    expect(el.querySelector('.capture-url')?.textContent).toContain('/tournois/demo/matchs/R1-M1');
+    expect(el.querySelectorAll('.lineups table')).toHaveLength(2);
+  });
 });

@@ -21,7 +21,9 @@ import type {
 import { TOURNAMENT_RULES } from '../../../src/app/core/tournament/models';
 import { isValidTag, normalizeTag } from '../../../src/app/core/tournament/tags';
 import { decideWinner } from '../../../src/app/core/tournament/war-result';
+import type { Outcome } from '../announcements';
 import { COC_ERROR_TEXT, type CocClient } from '../coc';
+import type { Shot } from '../screens';
 import {
   addReferee,
   addRegistration,
@@ -55,8 +57,18 @@ export interface BotContext {
   readonly siteUrl: string;
   /** Hasard du tirage : injectable pour des tests reproductibles. */
   readonly random: () => number;
-  /** Capture d'écran de l'arbre d'un tournoi (PNG) : un vrai navigateur en production. */
-  readonly captureBracket: (slug: string) => Promise<Uint8Array>;
+  /** Images des pages du site (PNG) : un vrai navigateur en production. */
+  readonly capture: (shots: readonly Shot[]) => Promise<Uint8Array[]>;
+  /**
+   * Publie un événement dans les salons (#résultats, #classement, arbitres),
+   * en arrière-plan : un résultat saisi à la main est annoncé comme un résultat
+   * automatique.
+   */
+  readonly publish: (
+    t: { readonly name: string; readonly slug: string },
+    bracket: Bracket,
+    outcome: Outcome,
+  ) => void;
 }
 
 export interface Reply {
@@ -353,7 +365,7 @@ async function bracketImage(ctx: BotContext, chosen: string | number | undefined
 
   let png: Uint8Array;
   try {
-    png = await ctx.captureBracket(slug);
+    [png] = await ctx.capture([{ kind: 'bracket', slug }]);
   } catch (error) {
     console.error('Capture de l’arbre impossible', slug, error);
     return fail(
@@ -393,6 +405,7 @@ async function launch(
 ): Promise<Reply> {
   const updated = attempt(() => startMatch(bracket, match.id));
   await saveBracket(ctx.db, active.id, updated);
+  ctx.publish(active.tournament, updated, { started: [match] });
   return {
     content:
       `⚔️ **${versus(match)}** est lancé ` +
@@ -436,6 +449,9 @@ async function readResult(
       result: { matchId: match.id, source: 'game', players: reading.players },
       finished: { matchId: match.id, at: cocTime(war.value.endTime) },
     });
+    ctx.publish(active.tournament, updated, {
+      finished: [{ matchId: match.id, warnings: reading.warnings }],
+    });
 
     return {
       content:
@@ -475,6 +491,7 @@ async function manualScore(
     result: { matchId: match.id, source: 'referee', players: [] },
     finished: { matchId: match.id },
   });
+  ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id, warnings: [] }] });
   return { content: resultMessage(ctx.siteUrl, active.tournament, updated, match.id) };
 }
 
@@ -492,6 +509,7 @@ async function forceWinner(
     status: championOf(updated) ? 'finished' : undefined,
     finished: { matchId: match.id },
   });
+  ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id, warnings: [] }] });
   return {
     content: `🧑‍⚖️ Décision des arbitres. ${resultMessage(ctx.siteUrl, active.tournament, updated, match.id)}`,
   };

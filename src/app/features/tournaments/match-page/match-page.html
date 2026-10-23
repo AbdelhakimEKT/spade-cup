@@ -1,5 +1,9 @@
 @if (detail(); as d) {
-  <a class="crumb" [routerLink]="['/tournois', d.tournament.slug]">← {{ d.tournament.name }}</a>
+  @if (capture()) {
+    <p class="eyebrow">{{ d.tournament.name }}</p>
+  } @else {
+    <a class="crumb" [routerLink]="['/tournois', d.tournament.slug]">← {{ d.tournament.name }}</a>
+  }
 
   <header class="page-head">
     <p class="eyebrow">{{ round() }}</p>
@@ -109,6 +113,11 @@
   } @else if (d.match.status === 'done') {
     <p class="muted">
       Le détail joueur par joueur n'existe que pour les résultats lus dans le jeu.
+    </p>
+  }
+  @if (capture()) {
+    <p class="capture-url">
+      {{ siteHost }}/tournois/{{ d.tournament.slug }}/matchs/{{ d.match.id }}
     </p>
   }
 } @else if (notFound()) {

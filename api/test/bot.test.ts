@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { championOf } from '../../src/app/core/tournament/bracket';
 import type { Tournament } from '../../src/app/core/tournament/tournament';
 import type { CocClient } from '../src/coc';
+import type { Shot } from '../src/screens';
 import {
   autocomplete,
   needsDefer,
@@ -588,7 +589,7 @@ describe('/arbitre arbre', () => {
     const captured: string[] = [];
     const ctx = {
       ...botContext(db()),
-      captureBracket: async (slug: string) => (captured.push(slug), FAKE_PNG),
+      capture: async (shots: readonly Shot[]) => (captured.push(shots[0].slug), [FAKE_PNG]),
     };
     const reply = await runCommand(referee('arbre', { tournoi: 'demo' }), ctx);
     expect(reply.content).toContain('**Tournoi de démonstration** · Quarts de finale');
@@ -617,7 +618,7 @@ describe('/arbitre arbre', () => {
   });
 
   it('le navigateur échoue : message d’erreur avec le lien du site', async () => {
-    const ctx = { ...botContext(db()), captureBracket: () => Promise.reject(new Error('quota')) };
+    const ctx = { ...botContext(db()), capture: () => Promise.reject(new Error('quota')) };
     await finalOnly(ctx);
     const reply = await runCommand(referee('arbre'), ctx);
     expect(reply.ephemeral).toBe(true);
@@ -649,5 +650,61 @@ describe('nextRoundName', () => {
     expect(nextRoundName(4, 4)).toBe('la finale');
     expect(nextRoundName(3, 4)).toBe('les demi-finales');
     expect(nextRoundName(2, 4)).toBe('les quarts de finale');
+  });
+});
+
+describe('résultats saisis à la main : annoncés dans les salons comme les automatiques', () => {
+  it('lancer, resultat, score, vainqueur publient chacun leur événement', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(referee('lancer', { match: final.id }), ctx);
+    expect(ctx.published).toEqual([{ started: [expect.objectContaining({ id: final.id })] }]);
+
+    const withWar = {
+      ...botContext(
+        db(),
+        fakeCoc({
+          [final.home!.tag]: {
+            ok: true,
+            value: fakeWar(final.home!, final.away!, { townHall: 17 }),
+          },
+        }),
+      ),
+    };
+    await runCommand(referee('resultat', { match: final.id }), withWar);
+    expect(withWar.published).toEqual([
+      {
+        finished: [
+          {
+            matchId: final.id,
+            warnings: expect.arrayContaining([expect.stringContaining('HDV 17')]),
+          },
+        ],
+      },
+    ]);
+
+    const score = {
+      match: final.id,
+      etoiles_1: 9,
+      pourcent_1: 70,
+      temps_1: '10:00',
+      etoiles_2: 12,
+      pourcent_2: 90,
+      temps_2: '11:00',
+    };
+    const ctx2 = botContext(db());
+    await runCommand(referee('score', score), ctx2);
+    await runCommand(referee('vainqueur', { match: final.id, clan: 'home' }), ctx2);
+    expect(ctx2.published).toEqual([
+      { finished: [{ matchId: final.id, warnings: [] }] },
+      { finished: [{ matchId: final.id, warnings: [] }] },
+    ]);
+  });
+
+  it('une commande refusée ne publie rien', async () => {
+    const ctx = botContext(db());
+    await finalOnly(ctx);
+    await runCommand(referee('vainqueur', { match: 'R9-M9', clan: 'home' }), ctx);
+    expect(ctx.published).toEqual([]);
   });
 });

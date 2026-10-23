@@ -129,14 +129,31 @@ tournoi simulé de 32 clans (`test/tournament-simulation.test.ts`). L'API du jeu
 chaque clan : si les clans relancent une guerre dans les 5 minutes, le résultat
 se saisit à la main (`/arbitre resultat` ou `/arbitre score`).
 
-Les annonces partent dans le salon d'un **webhook**, à poser comme secret
-(Paramètres du salon → Intégrations → Webhooks → Copier l'URL) :
+Chaque annonce va dans son salon (`src/announcements.ts`), par un **webhook**
+(Paramètres du salon → Intégrations → Webhooks → Copier l'URL), posé comme
+secret :
+
+| Salon | Ce qui y est posté | Secret |
+|---|---|---|
+| #résultats | ⚔️ débuts, 🏆 résultats, 📊 récap joueur par joueur (image) | `DISCORD_WEBHOOK_RESULTATS` |
+| #classement | l'image de l'arbre à jour | `DISCORD_WEBHOOK_CLASSEMENT` |
+| salon des arbitres | ⚠️ guerre hors règlement validée, ⚖️ égalité parfaite | `DISCORD_WEBHOOK_ARBITRES` |
 
 ```bash
-npx wrangler secret put DISCORD_ANNOUNCE_WEBHOOK
+npx wrangler secret put DISCORD_WEBHOOK_RESULTATS
 ```
 
-Sans webhook, les résultats sont quand même enregistrés, sans annonce.
+À défaut, l'ancien webhook unique `DISCORD_ANNOUNCE_WEBHOOK` sert pour tout,
+et les alertes arbitres vont dans #résultats. Un résultat saisi à la main
+(`/arbitre resultat`, `score`, `vainqueur`) est annoncé exactement comme un
+résultat automatique. Sans aucun webhook, les résultats sont quand même
+enregistrés, sans annonce.
+
+![Récap d'un match posté dans #résultats](docs/recap-match-demo.png)
+
+Les images d'un passage (récaps + arbre) sont faites dans UNE session du
+navigateur ; si Cloudflare refuse d'en ouvrir une (1 nouvelle toutes les
+20 s sur le plan gratuit), elle est redemandée 21 s plus tard.
 
 `/arbitre` est réservé par défaut à « Gérer le serveur » ; les admins peuvent
 l'ouvrir à un rôle Arbitre dans *Paramètres du serveur → Intégrations*.

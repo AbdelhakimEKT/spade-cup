@@ -1,16 +1,27 @@
 import { env } from 'cloudflare:workers';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { championOf } from '../../src/app/core/tournament/bracket';
 import type { CocWar } from '../../src/app/core/tournament/coc-war';
 import type { BracketMatch } from '../../src/app/core/tournament/models';
 import type { CocResult } from '../src/coc';
-import { runCommand, type Reply } from '../src/discord/bot';
+import { runCommand } from '../src/discord/bot';
 import { getCurrentTournament, getTournament } from '../src/repository';
 import { getMatchDetail } from '../src/stats-repository';
-import { assessWar, pack, runWatch, type WatchDeps } from '../src/watch';
-import { CLANS, FAKE_PNG, botContext, command, fakeCoc, fakeWar, referee } from './helpers';
+import { assessWar, runWatch, type WatchDeps } from '../src/watch';
+import {
+  CLANS,
+  FAKE_PNG,
+  botContext,
+  command,
+  fakeAnnouncer,
+  fakeCoc,
+  fakeWar,
+  referee,
+} from './helpers';
 
 const db = () => env.DB;
+
+afterEach(() => vi.restoreAllMocks());
 
 /** Tournoi tiré au sort avec `count` clans de test. */
 async function drawn(count: number) {
@@ -23,18 +34,19 @@ async function drawn(count: number) {
   return (await getCurrentTournament(db()))!;
 }
 
-/** Dépendances de l'arbitre automatique, avec un salon d'annonces factice. */
-function deps(wars: Record<string, CocResult<CocWar>>, options: { webhook?: boolean } = {}) {
-  const announced: Reply[] = [];
-  const captures: string[] = [];
+/** Dépendances de l'arbitre automatique, avec de faux salons Discord. */
+function deps(
+  wars: Record<string, CocResult<CocWar>>,
+  options: { webhook?: boolean; failCapture?: boolean } = {},
+) {
+  const fake = fakeAnnouncer(options);
   const watch: WatchDeps = {
     db: db(),
     coc: fakeCoc(wars),
     siteUrl: 'https://site.test',
-    captureBracket: async (slug) => (captures.push(slug), FAKE_PNG),
-    announce: options.webhook === false ? null : async (reply) => void announced.push(reply),
+    announcer: options.webhook === false ? null : fake.announcer,
   };
-  return { watch, announced, captures };
+  return { watch, ...fake };
 }
 
 const ok = (war: CocWar): CocResult<CocWar> => ({ ok: true, value: war });
@@ -95,23 +107,28 @@ describe('runWatch', () => {
     expect((await runWatch(deps({}).watch)).checked).toBe(0);
   });
 
-  it('guerre lancée : le match passe « en cours », annoncé une seule fois', async () => {
+  it('guerre lancée : le match passe « en cours », annoncé une seule fois dans #résultats', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
-    const { watch, announced } = deps({
+    const { watch, posted } = deps({
       [final.home!.tag]: ok(fakeWar(final.home!, final.away!, { state: 'inWar' })),
     });
 
     expect((await runWatch(watch)).started).toEqual(['R1-M1']);
     expect((await getCurrentTournament(db()))!.tournament.bracket!.matches[0].status).toBe('live');
     await runWatch(watch); // 5 minutes plus tard : rien de nouveau
-    expect(announced.map((a) => a.content)).toEqual([
-      `⚔️ **${final.home!.name} contre ${final.away!.name}** a commencé (finale). Bonne guerre !`,
+    expect(posted).toEqual([
+      {
+        channel: 'results',
+        reply: {
+          content: `⚔️ **${final.home!.name} contre ${final.away!.name}** a commencé (finale). Bonne guerre !`,
+        },
+      },
     ]);
   });
 
-  it('guerre terminée : résultat, joueurs, champion, annonce avec l’image de l’arbre', async () => {
+  it('guerre terminée : résultat, récap des joueurs (#résultats), arbre (#classement)', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
-    const { watch, announced, captures } = deps({
+    const { watch, posted, shots } = deps({
       [final.home!.tag]: ok(fakeWar(final.home!, final.away!)),
     });
 
@@ -121,15 +138,26 @@ describe('runWatch', () => {
     expect(championOf(t.bracket!)?.tag).toBe(final.home!.tag);
     expect((await getMatchDetail(db(), 'cup', 'R1-M1'))!.players.home).toHaveLength(5);
 
-    // D'abord le résultat (texte), PUIS l'image : si l'image échouait, le résultat serait déjà parti.
-    expect(announced).toHaveLength(2);
-    expect(announced[0].content).toContain(`👑 **${final.home!.name}** remporte **Cup**`);
-    expect(announced[0].files).toBeUndefined();
-    expect(announced[1]).toEqual({
+    // Dans l'ordre : le résultat (texte), PUIS les images. Si les images
+    // échouaient, le résultat serait déjà parti.
+    expect(posted.map((p) => p.channel)).toEqual(['results', 'results', 'bracket']);
+    expect(posted[0].reply.content).toContain(`👑 **${final.home!.name}** remporte **Cup**`);
+    expect(posted[0].reply.files).toBeUndefined();
+    expect(posted[1].reply).toEqual({
+      content: `📊 **${final.home!.name} contre ${final.away!.name}** · le détail joueur par joueur`,
+      files: [{ name: 'recap-R1-M1.png', data: FAKE_PNG }],
+    });
+    expect(posted[2].reply).toEqual({
       content: `🏆 **Cup** · 👑 Victoire de **${final.home!.name}**`,
       files: [{ name: 'arbre.png', data: FAKE_PNG }],
     });
-    expect(captures).toEqual(['cup']);
+    // Toutes les images dans UNE session du navigateur.
+    expect(shots).toEqual([
+      [
+        { kind: 'match', slug: 'cup', matchId: 'R1-M1' },
+        { kind: 'bracket', slug: 'cup' },
+      ],
+    ]);
   });
 
   it('guerre lancée ET finie entre deux passages : directement le résultat', async () => {
@@ -138,16 +166,21 @@ describe('runWatch', () => {
     expect(await runWatch(watch)).toMatchObject({ started: [], finished: ['R1-M1'] });
   });
 
-  it('deux résultats dans le même passage : un seul message pour les deux, puis une seule image', async () => {
+  it('deux résultats dans le même passage : un message, deux récaps, un seul arbre', async () => {
     const semis = (await drawn(4)).tournament.bracket!.matches.filter((m) => m.round === 1);
-    const { watch, announced, captures } = deps(
+    const { watch, inChannel, shots } = deps(
       Object.fromEntries(semis.map((m) => [m.home!.tag, ok(fakeWar(m.home!, m.away!))])),
     );
 
     expect((await runWatch(watch)).finished).toEqual(['R1-M1', 'R1-M2']);
-    expect(announced.map((a) => Boolean(a.files))).toEqual([false, true]);
-    expect(announced[0].content.match(/se qualifie pour la finale/g)).toHaveLength(2);
-    expect(captures).toHaveLength(1);
+    const results = inChannel('results');
+    expect(results[0].content.match(/se qualifie pour la finale/g)).toHaveLength(2);
+    expect(results.slice(1).map((r) => r.files?.[0].name)).toEqual([
+      'recap-R1-M1.png',
+      'recap-R1-M2.png',
+    ]);
+    expect(inChannel('bracket')).toHaveLength(1);
+    expect(shots).toHaveLength(1);
     // La finale a maintenant ses deux clans : elle sera surveillée au passage suivant.
     const final = (await getCurrentTournament(db()))!.tournament.bracket!.matches[2];
     expect([final.home?.tag, final.away?.tag]).toEqual([semis[0].home!.tag, semis[1].home!.tag]);
@@ -155,40 +188,44 @@ describe('runWatch', () => {
 
   it('vieille guerre entre les deux mêmes clans (avant le tirage) : ignorée', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
-    const { watch, announced } = deps({
+    const { watch, posted } = deps({
       [final.home!.tag]: ok(
         fakeWar(final.home!, final.away!, { launchedAt: '20201020T191758.000Z' }),
       ),
     });
     expect(await runWatch(watch)).toMatchObject({ checked: 1, started: [], finished: [] });
-    expect(announced).toEqual([]);
+    expect(posted).toEqual([]);
   });
 
-  it('égalité parfaite : rien d’enregistré, alerte aux arbitres une seule fois', async () => {
+  it('égalité parfaite : rien d’enregistré, alerte dans le salon des arbitres, une seule fois', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
     const tie = fakeWar(final.home!, final.away!, {
       homeStars: [3, 3, 2, 2, 2],
       awayStars: [3, 3, 2, 2, 2],
     });
-    const { watch, announced } = deps({ [final.home!.tag]: ok(tie) });
+    const { watch, posted } = deps({ [final.home!.tag]: ok(tie) });
 
     expect((await runWatch(watch)).ties).toEqual(['R1-M1']);
     expect((await runWatch(watch)).ties).toEqual([]);
-    expect(announced).toHaveLength(1);
-    expect(announced[0].content).toContain('⚖️ Égalité parfaite');
+    expect(posted).toHaveLength(1);
+    expect(posted[0].channel).toBe('referees');
+    expect(posted[0].reply.content).toContain('⚖️ Égalité parfaite');
     expect((await getCurrentTournament(db()))!.tournament.bracket!.matches[0].status).toBe(
       'pending',
     );
   });
 
-  it('hors règlement (HDV 17) : validé quand même, avec l’alerte dans l’annonce', async () => {
+  it('hors règlement (HDV 17) : validé, résultat propre dans #résultats, alerte chez les arbitres', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
-    const { watch, announced } = deps({
+    const { watch, inChannel } = deps({
       [final.home!.tag]: ok(fakeWar(final.home!, final.away!, { townHall: 17 })),
     });
     expect((await runWatch(watch)).finished).toEqual(['R1-M1']);
-    expect(announced[0].content).toContain('⚠️ À vérifier par les arbitres');
-    expect(announced[0].content).toContain('est HDV 17');
+    expect(inChannel('results')[0].content).not.toContain('⚠️');
+    const [alert] = inChannel('referees');
+    expect(alert.content).toContain('a été validé automatiquement, mais');
+    expect(alert.content).toContain('est HDV 17');
+    expect(alert.content).toContain('/arbitre vainqueur');
   });
 
   it('journal privé chez l’un : lu chez l’autre', async () => {
@@ -200,22 +237,26 @@ describe('runWatch', () => {
     expect((await runWatch(watch)).finished).toEqual(['R1-M1']);
   });
 
-  it('sans salon d’annonces : les résultats sont quand même enregistrés, sans image', async () => {
+  it('sans salons d’annonces : les résultats sont quand même enregistrés, sans image', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
-    const { watch, captures } = deps(
+    const { watch, shots } = deps(
       { [final.home!.tag]: ok(fakeWar(final.home!, final.away!)) },
       { webhook: false },
     );
     expect((await runWatch(watch)).finished).toEqual(['R1-M1']);
-    expect(captures).toEqual([]);
+    expect(shots).toEqual([]);
   });
 
-  it('l’image échoue : les annonces partent quand même, sans pièce jointe', async () => {
+  it('les images échouent : le résultat est quand même annoncé', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
-    const { watch, announced } = deps({ [final.home!.tag]: ok(fakeWar(final.home!, final.away!)) });
-    await runWatch({ ...watch, captureBracket: () => Promise.reject(new Error('quota')) });
-    expect(announced).toHaveLength(1);
-    expect(announced[0].files).toBeUndefined();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { watch, posted } = deps(
+      { [final.home!.tag]: ok(fakeWar(final.home!, final.away!)) },
+      { failCapture: true },
+    );
+    await runWatch(watch);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].reply.files).toBeUndefined();
   });
 });
 
@@ -261,14 +302,5 @@ describe('« jouable depuis »', () => {
     expect((await runWatch(watch)).finished).toEqual(['R1-M1']); // demie lue chez l'adversaire
     expect(await readyOf('R2-M1')).toBe(Date.UTC(2030, 0, 1, 20, 0)); // fin de la demie, pas 20h05
     expect((await runWatch(watch)).started).toEqual(['R2-M1']); // la finale de 20h02 est bien prise
-  });
-});
-
-describe('pack', () => {
-  it('regroupe les annonces sans dépasser 2 000 caractères', () => {
-    expect(pack(['a', 'b'])).toEqual(['a\n\nb']);
-    const long = 'x'.repeat(1500);
-    expect(pack([long, long, 'c'])).toEqual([long, `${long}\n\nc`]);
-    expect(pack([])).toEqual([]);
   });
 });

@@ -4,7 +4,11 @@
 interface SpadeCupSecrets {
   /** Clé de l'API du jeu (via le relais à IP fixe). */
   COC_API_TOKEN?: string;
-  /** Webhook du salon où le bot annonce débuts et résultats des guerres. */
+  /** Webhooks des salons d'annonces (voir src/announcements.ts). */
+  DISCORD_WEBHOOK_RESULTATS?: string;
+  DISCORD_WEBHOOK_CLASSEMENT?: string;
+  DISCORD_WEBHOOK_ARBITRES?: string;
+  /** Ancien webhook unique : sert de secours si un salon n'a pas le sien. */
   DISCORD_ANNOUNCE_WEBHOOK?: string;
 }
 

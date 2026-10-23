@@ -4,11 +4,11 @@ import { championOf } from '../../src/app/core/tournament/bracket';
 import type { CocWar } from '../../src/app/core/tournament/coc-war';
 import type { ClanRef } from '../../src/app/core/tournament/models';
 import type { CocClient } from '../src/coc';
-import { runCommand, type Reply } from '../src/discord/bot';
+import { runCommand } from '../src/discord/bot';
 import { getCurrentTournament, getTournament } from '../src/repository';
 import { listPlayers } from '../src/stats-repository';
 import { runWatch, type WatchDeps } from '../src/watch';
-import { FAKE_PNG, botContext, command, fakeCoc, fakeWar, referee } from './helpers';
+import { botContext, command, fakeAnnouncer, fakeCoc, fakeWar, referee } from './helpers';
 
 /**
  * TOURNOIS COMPLETS joués par l'arbitre automatique, de l'inscription au
@@ -63,21 +63,14 @@ class Game {
 
 /** Un passage de l'arbitre automatique, avec le décompte des requêtes sortantes. */
 async function pass(game: Game) {
-  const announced: Reply[] = [];
-  let captures = 0;
+  const { announcer, posted, shots, inChannel } = fakeAnnouncer();
   game.calls = 0;
-  const deps: WatchDeps = {
-    db: db(),
-    coc: game.client(),
-    siteUrl: 'https://site.test',
-    captureBracket: async () => (captures++, FAKE_PNG),
-    announce: async (reply) => void announced.push(reply),
-  };
+  const deps: WatchDeps = { db: db(), coc: game.client(), siteUrl: 'https://site.test', announcer };
   const report = await runWatch(deps);
-  // Requêtes sortantes : appels au jeu + messages Discord + navigateur.
+  // Requêtes sortantes : appels au jeu + messages Discord + sessions du navigateur.
   // Le plan gratuit de Cloudflare en autorise 50 par exécution.
-  const outgoing = game.calls + announced.length + captures;
-  return { report, announced, captures, outgoing };
+  const outgoing = game.calls + posted.length + shots.length;
+  return { report, posted, shots, inChannel, outgoing };
 }
 
 async function openTournament(clans: ClanRef[]) {
@@ -104,15 +97,22 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     for (const m of qf) game.play(m.home!, m.away!, 'inWar', t(19), t(20));
     let p = await pass(game);
     expect(p.report.started).toEqual(['R1-M1', 'R1-M2', 'R1-M3', 'R1-M4']);
-    expect(p.announced).toHaveLength(1); // les 4 débuts regroupés en UN message
-    expect(p.announced[0].content.match(/⚔️/g)).toHaveLength(4);
+    expect(p.posted).toHaveLength(1); // les 4 débuts regroupés en UN message
+    expect(p.posted[0].reply.content.match(/⚔️/g)).toHaveLength(4);
 
     // 20h00 : trois quarts sont finis, le quatrième a pris du retard.
     for (const m of qf.slice(0, 3)) game.play(m.home!, m.away!, 'warEnded', t(19), t(20));
     p = await pass(game);
     expect(p.report.finished).toEqual(['R1-M1', 'R1-M2', 'R1-M3']);
-    expect(p.announced.map((a) => Boolean(a.files))).toEqual([false, true]); // texte, puis 1 image
-    expect(p.captures).toBe(1);
+    // #résultats : les 3 résultats en un message, puis un récap par match ; #classement : 1 arbre.
+    expect(p.inChannel('results').map((r) => r.files?.[0].name ?? 'texte')).toEqual([
+      'texte',
+      'recap-R1-M1.png',
+      'recap-R1-M2.png',
+      'recap-R1-M3.png',
+    ]);
+    expect(p.inChannel('bracket')).toHaveLength(1);
+    expect(p.shots).toHaveLength(1); // une seule session du navigateur
 
     // La demie 1 (vainqueurs des quarts 1 et 2) est lancée à 20h03.
     const sf1 = await matchOf('R2-M1');
@@ -144,8 +144,10 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     game.play(final.home!, final.away!, 'warEnded', t(21, 24), t(22, 24));
     p = await pass(game);
     expect(p.report.finished).toEqual(['R3-M1']);
-    expect(p.announced[0].content).toContain(`👑 **${final.home!.name}** remporte **Spade Cup**`);
-    expect(p.announced[1].content).toBe(
+    expect(p.inChannel('results')[0].content).toContain(
+      `👑 **${final.home!.name}** remporte **Spade Cup**`,
+    );
+    expect(p.inChannel('bracket')[0].content).toBe(
       `🏆 **Spade Cup** · 👑 Victoire de **${final.home!.name}**`,
     );
 
@@ -158,7 +160,7 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     expect(players.reduce((sum, pl) => sum + pl.wars, 0)).toBe(7 * 10); // 7 matchs × 10 joueurs
     p = await pass(game);
     expect(p.report.checked).toBe(0);
-    expect(p.announced).toEqual([]);
+    expect(p.posted).toEqual([]);
   });
 });
 
@@ -194,7 +196,8 @@ describe('gros tournoi : 32 clans, 16 guerres qui finissent en même temps', () 
     const first = await pass(game);
     expect(first.report.finished).toHaveLength(15);
     expect(first.outgoing).toBeLessThanOrEqual(50);
-    expect(first.announced.length).toBeLessThanOrEqual(3); // regroupées, + l'image
+    // 1 message de résultats + 15 récaps + 1 arbre : sous la limite, grâce au regroupement.
+    expect(first.inChannel('bracket')).toHaveLength(1);
 
     const second = await pass(game);
     expect(second.report.finished).toHaveLength(1);

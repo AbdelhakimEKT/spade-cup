@@ -25,7 +25,7 @@ describe('API HTTP', () => {
       ok: true,
       service: 'spade-cup-api',
       coc: 'not-configured',
-      announce: false,
+      announce: { resultats: false, classement: false, arbitres: false },
     });
   });
 

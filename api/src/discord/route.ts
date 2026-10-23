@@ -1,4 +1,5 @@
-import { captureBracket } from '../bracket-image';
+import { announce, createAnnouncer } from '../announcements';
+import { captureScreens } from '../screens';
 import { createCocClient } from '../coc';
 import { json } from '../http';
 import { autocomplete, needsDefer, runCommand, type BotContext, type Reply } from './bot';
@@ -32,7 +33,13 @@ export async function handleDiscord(
     db: env.DB,
     coc: createCocClient(env),
     siteUrl: env.SITE_URL,
-    captureBracket: (slug) => captureBracket(env.BROWSER, env.SITE_URL, slug),
+    capture: (shots) => captureScreens(env.BROWSER, env.SITE_URL, shots),
+    publish: (t, bracket, outcome) =>
+      ctx.waitUntil(
+        announce(createAnnouncer(env), env.SITE_URL, t, bracket, outcome).catch((error) =>
+          console.error('Annonce impossible', error),
+        ),
+      ),
     // Hasard cryptographique pour le tirage : impossible à prédire ou à orienter.
     random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
   };
