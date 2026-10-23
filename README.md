@@ -111,8 +111,8 @@ deux clans :
 
 - guerre lancée entre eux → match « en cours », annonce ⚔️ ;
 - guerre terminée → résultat et joueurs enregistrés, vainqueur qualifié,
-  annonce du score et de l'arbre à jour (une image par passage) ; une guerre
-  hors règlement (HDV, 5 contre 5) est validée, avec une alerte aux arbitres ;
+  annonce du score, récap des joueurs et arbre à jour ; le format (HDV 18,
+  5 contre 5) est la responsabilité des clans : pas de contrôle ni d'alerte ;
 - égalité parfaite → rien d'enregistré, alerte aux arbitres (une seule fois).
 
 Ne comptent que les guerres entre les deux clans du match, **lancées après que
@@ -137,7 +137,7 @@ secret :
 |---|---|---|
 | #résultats | ⚔️ débuts, 🏆 résultats, 📊 récap joueur par joueur (image) | `DISCORD_WEBHOOK_RESULTATS` |
 | #classement | l'image de l'arbre à jour | `DISCORD_WEBHOOK_CLASSEMENT` |
-| salon des arbitres | ⚠️ guerre hors règlement validée, ⚖️ égalité parfaite | `DISCORD_WEBHOOK_ARBITRES` |
+| salon des arbitres | ⚖️ égalité parfaite (à trancher avec `/arbitre vainqueur`) | `DISCORD_WEBHOOK_ARBITRES` |
 
 ```bash
 npx wrangler secret put DISCORD_WEBHOOK_RESULTATS

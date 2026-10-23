@@ -449,15 +449,8 @@ async function readResult(
       result: { matchId: match.id, source: 'game', players: reading.players },
       finished: { matchId: match.id, at: cocTime(war.value.endTime) },
     });
-    ctx.publish(active.tournament, updated, {
-      finished: [{ matchId: match.id, warnings: reading.warnings }],
-    });
-
-    return {
-      content:
-        resultMessage(ctx.siteUrl, active.tournament, updated, match.id) +
-        warningsText(reading.warnings),
-    };
+    ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id }] });
+    return { content: resultMessage(ctx.siteUrl, active.tournament, updated, match.id) };
   }
 
   return fail(
@@ -491,7 +484,7 @@ async function manualScore(
     result: { matchId: match.id, source: 'referee', players: [] },
     finished: { matchId: match.id },
   });
-  ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id, warnings: [] }] });
+  ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id }] });
   return { content: resultMessage(ctx.siteUrl, active.tournament, updated, match.id) };
 }
 
@@ -509,7 +502,7 @@ async function forceWinner(
     status: championOf(updated) ? 'finished' : undefined,
     finished: { matchId: match.id },
   });
-  ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id, warnings: [] }] });
+  ctx.publish(active.tournament, updated, { finished: [{ matchId: match.id }] });
   return {
     content: `🧑‍⚖️ Décision des arbitres. ${resultMessage(ctx.siteUrl, active.tournament, updated, match.id)}`,
   };
@@ -533,17 +526,35 @@ export function resultMessage(
 ): string {
   const m = bracket.matches.find((x) => x.id === matchId)!;
   const winner = winnerOf(m)!;
-  const score = m.score
-    ? `**${m.home!.name}** ${m.score.home.stars}★ ${number.format(m.score.home.destruction)} % — ` +
-      `${m.score.away.stars}★ ${number.format(m.score.away.destruction)} % **${m.away!.name}**`
-    : `**${versus(m)}**`;
-
+  const loser = winner === m.home ? m.away! : m.home!;
   const champion = championOf(bracket);
-  const next = champion
-    ? `👑 **${champion.name}** remporte **${t.name}** ! Bravo !`
-    : `➡️ **${winner.name}** se qualifie pour ${nextRoundName(m.round + 1, bracket.roundCount)}.`;
+  const lines = [
+    champion
+      ? `👑 **${champion.name}** remporte **${t.name}** ! Bravo !`
+      : `🏆 **${winner.name}** bat **${loser.name}** · ${roundLabel(m.round, bracket.roundCount).toLowerCase()}`,
+  ];
 
-  return `${score}\n${next}\n${siteUrl}/tournois/${t.slug}/matchs/${m.id}`;
+  if (m.score) {
+    const { home, away } = m.score;
+    // À égalité d'étoiles, on dit ce qui a départagé les clans.
+    const tieBreak =
+      home.stars !== away.stars
+        ? ''
+        : home.destruction !== away.destruction
+          ? ' · départagé au pourcentage'
+          : ' · départagé au temps';
+    lines.push(
+      `${m.home!.name} ${home.stars}★ ${number.format(home.destruction)} % — ` +
+        `${away.stars}★ ${number.format(away.destruction)} % ${m.away!.name}${tieBreak}`,
+    );
+  }
+  if (!champion) {
+    lines.push(
+      `➡️ **${winner.name}** se qualifie pour ${nextRoundName(m.round + 1, bracket.roundCount)}.`,
+    );
+  }
+  // Pas de lien vers le site : le récap en image suit le message.
+  return lines.join('\n');
 }
 
 /** « la finale », « les demi-finales », « les quarts de finale »… */
@@ -558,13 +569,6 @@ export function bracketCaption(name: string, bracket: Bracket): string {
     ? `👑 Victoire de **${champion.name}**`
     : roundLabel(currentRound(bracket), bracket.roundCount);
   return `🏆 **${name}** · ${stage}`;
-}
-
-/** Les écarts au règlement, présentés aux arbitres (vide s'il n'y en a pas). */
-export function warningsText(warnings: readonly string[]): string {
-  return warnings.length
-    ? `\n⚠️ À vérifier par les arbitres :\n${warnings.map((w) => `• ${w}`).join('\n')}`
-    : '';
 }
 
 export const versus = (m: BracketMatch) => `${m.home?.name ?? '?'} contre ${m.away?.name ?? '?'}`;

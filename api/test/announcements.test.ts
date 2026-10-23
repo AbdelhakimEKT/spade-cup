@@ -50,7 +50,7 @@ describe('announce', () => {
     const after = recordResult(four, 'R1-M1', 'home');
     const { announcer, posted } = fakeAnnouncer();
     await announce(announcer, 'https://site.test', t, after, {
-      finished: [{ matchId: 'R1-M1', warnings: [] }],
+      finished: [{ matchId: 'R1-M1' }],
     });
     expect(posted.map((p) => [p.channel, p.reply.files?.[0].name ?? 'texte'])).toEqual([
       ['results', 'texte'],
@@ -58,7 +58,7 @@ describe('announce', () => {
       ['bracket', 'arbre.png'],
     ]);
     expect(posted[0].reply.content).toContain('se qualifie pour la finale');
-    expect(posted[0].reply.content).toContain('https://site.test/tournois/cup/matchs/R1-M1');
+    expect(posted[0].reply.content).not.toContain('https://'); // pas de lien : les images suffisent
     expect(posted[2].reply.files?.[0].data).toEqual(FAKE_PNG);
   });
 });

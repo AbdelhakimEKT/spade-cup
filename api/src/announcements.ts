@@ -9,7 +9,7 @@ import { captureScreens, type Shot } from './screens';
  *
  *   #résultats   ⚔️ début des guerres, 🏆 résultats, 📊 récap des joueurs
  *   #classement  l'image de l'arbre à jour
- *   arbitres     ⚠️ alertes : égalité parfaite, guerre hors règlement
+ *   arbitres     ⚖️ égalité parfaite : à eux de trancher
  *
  * Utilisé par l'arbitre automatique (toutes les 5 minutes) ET par les
  * commandes d'arbitre : un résultat saisi à la main est annoncé pareil.
@@ -27,7 +27,7 @@ export interface Announcer {
 /** Ce qui vient de se passer dans le tournoi, à annoncer. */
 export interface Outcome {
   readonly started?: readonly BracketMatch[];
-  readonly finished?: readonly { readonly matchId: string; readonly warnings: readonly string[] }[];
+  readonly finished?: readonly { readonly matchId: string }[];
   readonly ties?: readonly BracketMatch[];
 }
 
@@ -92,16 +92,9 @@ export async function announce(
   ];
   for (const content of pack(news)) await announcer.post('results', { content });
 
-  // 2. Arbitres : ce qui demande leur attention.
+  // 2. Arbitres : le seul cas que le bot ne peut pas trancher seul. (Le format
+  //    HDV 18 / 5 contre 5 est la responsabilité des clans : pas d'alerte.)
   const alerts = [
-    ...finished
-      .filter((f) => f.warnings.length)
-      .map(
-        (f) =>
-          `⚠️ **${versus(matchOf(f.matchId))}** a été validé automatiquement, mais :\n` +
-          f.warnings.map((w) => `• ${w}`).join('\n') +
-          '\nPour revenir dessus : `/arbitre vainqueur` (tant que le match suivant n’est pas joué).',
-      ),
     ...ties.map(
       (m) =>
         `⚖️ Égalité parfaite entre **${m.home?.name}** et **${m.away?.name}** ` +

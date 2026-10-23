@@ -331,7 +331,7 @@ describe('/arbitre lancer, resultat, score, vainqueur', () => {
     expect(reply2.content).toContain('pas');
   });
 
-  it('resultat : HDV17 ou guerre en 6 contre 6 → enregistré, mais signalé aux arbitres', async () => {
+  it('resultat : HDV17 ou guerre en 6 contre 6 → enregistré tel quel (le format est l’affaire des clans)', async () => {
     const ctx = botContext(db());
     const final = await finalOnly(ctx);
     const war = fakeWar(final.home!, final.away!, { townHall: 17, teamSize: 6 });
@@ -339,9 +339,8 @@ describe('/arbitre lancer, resultat, score, vainqueur', () => {
       referee('resultat', { match: final.id }),
       botContext(db(), fakeCoc({ [final.home!.tag]: { ok: true, value: war } })),
     );
-    expect(reply.content).toContain('⚠️ À vérifier');
-    expect(reply.content).toContain('est HDV 17');
-    expect(reply.content).toContain('6 contre 6');
+    expect(reply.content).toContain(`👑 **${final.home!.name}**`);
+    expect(reply.content).not.toContain('⚠️');
   });
 
   it('score à la main : le pourcentage départage, les lignes de joueurs sont effacées', async () => {
@@ -672,16 +671,7 @@ describe('résultats saisis à la main : annoncés dans les salons comme les aut
       ),
     };
     await runCommand(referee('resultat', { match: final.id }), withWar);
-    expect(withWar.published).toEqual([
-      {
-        finished: [
-          {
-            matchId: final.id,
-            warnings: expect.arrayContaining([expect.stringContaining('HDV 17')]),
-          },
-        ],
-      },
-    ]);
+    expect(withWar.published).toEqual([{ finished: [{ matchId: final.id }] }]);
 
     const score = {
       match: final.id,
@@ -696,8 +686,8 @@ describe('résultats saisis à la main : annoncés dans les salons comme les aut
     await runCommand(referee('score', score), ctx2);
     await runCommand(referee('vainqueur', { match: final.id, clan: 'home' }), ctx2);
     expect(ctx2.published).toEqual([
-      { finished: [{ matchId: final.id, warnings: [] }] },
-      { finished: [{ matchId: final.id, warnings: [] }] },
+      { finished: [{ matchId: final.id }] },
+      { finished: [{ matchId: final.id }] },
     ]);
   });
 

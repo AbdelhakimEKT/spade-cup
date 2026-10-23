@@ -215,17 +215,14 @@ describe('runWatch', () => {
     );
   });
 
-  it('hors règlement (HDV 17) : validé, résultat propre dans #résultats, alerte chez les arbitres', async () => {
+  it('hors format (HDV 17) : validé tel quel, sans alerte (le format est l’affaire des clans)', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
     const { watch, inChannel } = deps({
       [final.home!.tag]: ok(fakeWar(final.home!, final.away!, { townHall: 17 })),
     });
     expect((await runWatch(watch)).finished).toEqual(['R1-M1']);
     expect(inChannel('results')[0].content).not.toContain('⚠️');
-    const [alert] = inChannel('referees');
-    expect(alert.content).toContain('a été validé automatiquement, mais');
-    expect(alert.content).toContain('est HDV 17');
-    expect(alert.content).toContain('/arbitre vainqueur');
+    expect(inChannel('referees')).toEqual([]);
   });
 
   it('journal privé chez l’un : lu chez l’autre', async () => {

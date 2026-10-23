@@ -108,7 +108,7 @@ export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
     .slice(0, MAX_MATCHES);
 
   const started: BracketMatch[] = [];
-  const finished: { matchId: string; warnings: readonly string[] }[] = [];
+  const finished: { matchId: string }[] = [];
   const ties: BracketMatch[] = [];
 
   for (const match of candidates) {
@@ -122,7 +122,7 @@ export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
     }
 
     if (assessment.kind === 'ended') {
-      const { score, players, warnings } = assessment.reading;
+      const { score, players } = assessment.reading;
       const winner = decideWinner(score.home, score.away);
       if (!winner) {
         // Rien n'est enregistré : l'alerte n'est envoyée qu'une fois par guerre.
@@ -135,7 +135,7 @@ export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
         result: { matchId: match.id, source: 'game', players },
         finished: { matchId: match.id, at: assessment.endedAt },
       });
-      finished.push({ matchId: match.id, warnings });
+      finished.push({ matchId: match.id });
     }
   }
 
