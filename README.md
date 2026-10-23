@@ -154,8 +154,9 @@ navigateur de Cloudflare, en une seule session par passage ; s'il refuse d'en
 ouvrir un (1 nouveau toutes les 20 s sur le plan gratuit), il est redemandé
 21 s plus tard.
 
-`/arbitre` est réservé par défaut à « Gérer le serveur » ; les admins peuvent
-l'ouvrir à un rôle Arbitre dans *Paramètres du serveur → Intégrations*.
+`/arbitre` est réservé aux admins (« Gérer le serveur » ou « Administrateur ») :
+Discord cache la commande aux autres membres, ET le serveur vérifie lui-même
+la permission (double sécurité). `/inscription` et `/tournoi` sont ouverts à tous.
 
 ### Mise en route (faite le 23/10/2026)
 

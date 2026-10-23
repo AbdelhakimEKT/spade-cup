@@ -127,8 +127,10 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
 
 /** Suggestions pendant la saisie d'une option (le match, le clan vainqueur). */
 export async function autocomplete(interaction: Interaction, ctx: BotContext): Promise<Choice[]> {
-  const { sub, options, focused } = parse(interaction);
+  const { command, sub, options, focused } = parse(interaction);
   if (!focused) return [];
+  // Les suggestions de /arbitre ne sont proposées qu'aux admins.
+  if (command === 'arbitre' && !isAdmin(interaction.member?.permissions ?? '0')) return [];
 
   if (focused.name === 'tournoi') {
     const typed = String(focused.value ?? '').toLowerCase();
@@ -253,6 +255,11 @@ async function referee(
   options: Map<string, string | number>,
 ): Promise<Reply> {
   const member = interaction.member!;
+  // Double sécurité : Discord cache déjà /arbitre aux non-admins, mais le bot
+  // vérifie aussi, au cas où un réglage du serveur serait changé par erreur.
+  if (!isAdmin(member.permissions)) {
+    fail('Les commandes /arbitre sont réservées aux admins du serveur.');
+  }
   const refereeName = member.nick ?? member.user.global_name ?? member.user.username;
 
   if (sub === 'creer') {

@@ -698,3 +698,55 @@ describe('résultats saisis à la main : annoncés dans les salons comme les aut
     expect(ctx.published).toEqual([]);
   });
 });
+
+describe('autorisations : /arbitre réservé aux admins', () => {
+  it('un membre simple ne peut ni créer, ni tirer, ni annuler un tournoi', async () => {
+    const ctx = botContext(db());
+    for (const sub of ['creer', 'tirage', 'annuler']) {
+      const reply = await runCommand(referee(sub, { nom: 'Pirate' }, MEMBER), ctx);
+      expect(reply, sub).toEqual({
+        content: '❌ Les commandes /arbitre sont réservées aux admins du serveur.',
+        ephemeral: true,
+      });
+    }
+    expect(await getCurrentTournament(db())).toBeNull();
+  });
+
+  it('un membre simple ne peut pas saisir un résultat', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    const reply = await runCommand(
+      referee('vainqueur', { match: final.id, clan: 'home' }, MEMBER),
+      ctx,
+    );
+    expect(reply.ephemeral).toBe(true);
+    expect((await active()).bracket!.matches[0].status).toBe('pending');
+  });
+
+  it('« Administrateur » ou « Gérer le serveur » : autorisé', async () => {
+    const administrator = { id: 'u-a', name: 'Boss', permissions: '8' };
+    const reply = await runCommand(
+      referee('creer', { nom: 'Cup' }, administrator),
+      botContext(db()),
+    );
+    expect(reply.ephemeral).toBeFalsy();
+  });
+
+  it('pas de suggestions /arbitre pour un membre simple', async () => {
+    const ctx = botContext(db());
+    await finalOnly(ctx);
+    const asMember = {
+      ...typing('lancer', { match: '' }, 'match'),
+      member: { user: { id: 'x', username: 'x' }, permissions: '0' },
+    };
+    expect(await autocomplete(asMember, ctx)).toEqual([]);
+    expect(await autocomplete(typing('lancer', { match: '' }, 'match'), ctx)).toHaveLength(1);
+  });
+
+  it('l’inscription reste ouverte à tous', async () => {
+    const ctx = botContext(db());
+    await runCommand(referee('creer', { nom: 'Cup' }), ctx);
+    const reply = await runCommand(command('inscription', { tag: CLANS[0].tag }, MEMBER), ctx);
+    expect(reply.content).toContain('est inscrit');
+  });
+});
