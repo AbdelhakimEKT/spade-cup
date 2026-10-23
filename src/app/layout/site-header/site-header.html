@@ -11,7 +11,13 @@
         routerLinkActive="nav__link--active"
         ariaCurrentWhenActive="page"
         class="nav__link nav__link--live"
-        ><span class="live-dot" aria-hidden="true"></span>Direct</a
+        [attr.aria-label]="live.active() ? 'Direct : une guerre est en cours' : null"
+      >
+        <!-- Le point rouge n'apparaît que si une guerre se joue vraiment. -->
+        @if (live.active()) {
+          <span class="live-dot" aria-hidden="true"></span>
+        }
+        Direct</a
       >
       <a
         routerLink="/tournois"
