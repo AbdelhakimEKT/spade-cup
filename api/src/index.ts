@@ -1,8 +1,11 @@
-import { cocHealth } from './coc';
+import { captureBracket } from './bracket-image';
+import { cocHealth, createCocClient } from './coc';
+import { postToWebhook } from './discord/payload';
 import { handleDiscord } from './discord/route';
 import { CORS_HEADERS, SHORT_CACHE, errorResponse, json } from './http';
 import { getTournament, listTournaments } from './repository';
 import { getClanProfile, getMatchDetail, getPlayerProfile, listPlayers } from './stats-repository';
+import { runWatch, type WatchDeps } from './watch';
 
 /**
  * Point d'entrée du serveur.
@@ -43,7 +46,34 @@ export default {
       return errorResponse(500, 'Erreur interne, réessaie dans un instant.');
     }
   },
+
+  /**
+   * Toutes les 5 minutes (wrangler.jsonc → triggers.crons) : l'arbitre
+   * automatique regarde les guerres des matchs en cours.
+   */
+  async scheduled(_event, env, ctx): Promise<void> {
+    ctx.waitUntil(
+      runWatch(watchDeps(env))
+        .then((report) => {
+          if (report.started.length || report.finished.length || report.ties.length) {
+            console.log('Arbitrage automatique', JSON.stringify(report));
+          }
+        })
+        .catch((error) => console.error('Arbitrage automatique en échec', error)),
+    );
+  },
 } satisfies ExportedHandler<Env>;
+
+export function watchDeps(env: Env): WatchDeps {
+  const webhook = env.DISCORD_ANNOUNCE_WEBHOOK;
+  return {
+    db: env.DB,
+    coc: createCocClient(env),
+    siteUrl: env.SITE_URL,
+    captureBracket: (slug) => captureBracket(env.BROWSER, env.SITE_URL, slug),
+    announce: webhook ? (reply) => postToWebhook(webhook, reply) : null,
+  };
+}
 
 const SLUG = '([a-z0-9-]+)';
 /** Tag sans « # » dans l'URL. */
@@ -57,7 +87,11 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
   if (pathname === '/health') {
     const body: Record<string, unknown> = { ok: true, service: 'spade-cup-api' };
     // /health?coc : vérifie aussi que la clé de l'API du jeu fonctionne.
-    if (params.has('coc')) body['coc'] = await cocHealth(env);
+    if (params.has('coc')) {
+      body['coc'] = await cocHealth(env);
+      // Le salon des annonces automatiques est-il branché ? (jamais l'adresse elle-même)
+      body['announce'] = Boolean(env.DISCORD_ANNOUNCE_WEBHOOK);
+    }
     return json(body, 200, { 'Cache-Control': 'no-store' });
   }
   if (pathname === '/tournaments') {

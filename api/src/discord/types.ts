@@ -24,6 +24,9 @@ export const OptionType = {
 /** Message visible seulement par la personne qui a tapé la commande. */
 export const EPHEMERAL = 64;
 
+/** Pas de grande carte d'aperçu sous les liens : le lien reste cliquable. */
+export const SUPPRESS_EMBEDS = 4;
+
 export interface DiscordUser {
   readonly id: string;
   readonly username: string;

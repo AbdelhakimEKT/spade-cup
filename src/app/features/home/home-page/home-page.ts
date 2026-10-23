@@ -29,7 +29,7 @@ export class HomePage {
     },
     {
       title: 'Guerres amicales',
-      text: 'Chaque match est une guerre amicale en 5 contre 5, HDV 18. Le résultat est lu dans le jeu.',
+      text: 'Chaque match est une guerre amicale en 5 contre 5, HDV 18. Le bot lit le résultat tout seul.',
     },
     {
       title: 'Classement',

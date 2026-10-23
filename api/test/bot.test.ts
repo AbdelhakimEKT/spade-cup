@@ -572,8 +572,8 @@ describe('/arbitre arbre', () => {
     await runCommand(referee('tirage'), ctx);
     const reply = await runCommand(referee('arbre'), ctx);
 
-    expect(reply.content).toContain("🏆 **Coupe d'Hiver** · Demi-finales");
-    expect(reply.content).toContain('https://site.test/tournois/coupe-d-hiver');
+    // L'image seule, sans lien.
+    expect(reply.content).toBe("🏆 **Coupe d'Hiver** · Demi-finales");
     expect(reply.files).toEqual([{ name: 'arbre.png', data: FAKE_PNG }]);
   });
 

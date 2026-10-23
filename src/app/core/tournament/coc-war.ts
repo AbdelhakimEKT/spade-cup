@@ -42,6 +42,9 @@ export interface CocWarClan {
 export interface CocWar {
   readonly state: 'notInWar' | 'preparation' | 'inWar' | 'warEnded';
   readonly teamSize?: number;
+  /** Lancement de la guerre, au format du jeu : « 20261020T191758.000Z ». */
+  readonly preparationStartTime?: string;
+  readonly startTime?: string;
   readonly clan?: CocWarClan;
   readonly opponent?: CocWarClan;
 }
@@ -164,6 +167,12 @@ function playerLines(clan: CocWarClan, side: Side, warnings: string[]): PlayerLi
         durationSec: attacks.reduce((sum, a) => sum + a.duration, 0),
       };
     });
+}
+
+/** « 20261020T191758.000Z » (format du jeu) → millisecondes. `NaN` si illisible. */
+export function cocTime(value: string | undefined): number {
+  const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/.exec(value ?? '');
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : NaN;
 }
 
 function round1(n: number): number {

@@ -192,6 +192,13 @@ export async function listTournaments(db: D1Database): Promise<TournamentSummary
 export interface StoredTournament {
   readonly id: number;
   readonly tournament: Tournament;
+  /** Depuis quand chaque match est jouable (ms), pour l'arbitrage automatique. */
+  readonly readyAt: ReadonlyMap<string, number>;
+}
+
+/** « 2026-10-23 14:05:00 » (SQLite, UTC) → millisecondes. */
+export function sqliteTime(value: string): number {
+  return Date.parse(`${value.replace(' ', 'T')}Z`);
 }
 
 const TOURNAMENT_COLUMNS = 'id, slug, name, status, organizer, referees, rules, is_demo';
@@ -230,7 +237,10 @@ async function load(db: D1Database, t: TournamentRow & { id: number }): Promise<
       )
       .bind(t.id)
       .all<RegistrationRow>(),
-    db.prepare('SELECT * FROM matches WHERE tournament_id = ?').bind(t.id).all<MatchRow>(),
+    db
+      .prepare('SELECT * FROM matches WHERE tournament_id = ?')
+      .bind(t.id)
+      .all<MatchRow & { ready_at: string | null }>(),
   ]);
 
   const clans = registrations.results.map(toClan);
@@ -247,7 +257,33 @@ async function load(db: D1Database, t: TournamentRow & { id: number }): Promise<
       bracket: toBracket(matches.results, clans),
       isDemo: t.is_demo === 1,
     },
+    readyAt: new Map(
+      matches.results
+        .filter((m) => m.ready_at !== null)
+        .map((m) => [m.match_id, sqliteTime(m.ready_at!)]),
+    ),
   };
+}
+
+/**
+ * Note qu'un événement a été annoncé. Renvoie `false` s'il l'était déjà :
+ * c'est la clé primaire qui l'empêche, même si deux vérifications se croisent.
+ */
+export async function markAnnounced(
+  db: D1Database,
+  tournamentId: number,
+  matchId: string,
+  kind: string,
+  warKey: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `INSERT OR IGNORE INTO watch_events (tournament_id, match_id, kind, war_key)
+       VALUES (?, ?, ?, ?)`,
+    )
+    .bind(tournamentId, matchId, kind, warKey)
+    .run();
+  return result.meta.changes === 1;
 }
 
 /** Qui a inscrit ce clan (identifiant Discord), ou `null` s'il n'est pas inscrit. */
@@ -441,14 +477,29 @@ function resultStatements(
  * Insère ou met à jour un match. Surtout pas `INSERT OR REPLACE` : en SQLite,
  * « remplacer » veut dire supprimer puis réinsérer, et la suppression
  * effacerait en cascade les lignes des joueurs du match.
+ *
+ * `ready_at` (jouable depuis) : posé quand les deux clans sont connus,
+ * inchangé tant que l'affiche ne change pas, remis à maintenant si un clan
+ * change (correction d'un résultat du tour précédent).
+ *
+ * Pas de commentaire `--` DANS le SQL : le script de démo met chaque requête
+ * sur une ligne, et le commentaire avalerait toute la fin de la requête.
  */
 function upsertMatch(key: TournamentKey, m: BracketMatch): Statement {
   const r = toMatchRow(m);
   return {
     sql: `INSERT INTO matches (tournament_id, match_id, round, idx, home_tag, away_tag, status, winner,
-            home_stars, home_destruction, home_duration, away_stars, away_destruction, away_duration)
-          VALUES (${key.sql}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            home_stars, home_destruction, home_duration, away_stars, away_destruction, away_duration,
+            ready_at)
+          VALUES (${key.sql}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP END)
           ON CONFLICT (tournament_id, match_id) DO UPDATE SET
+            ready_at = CASE
+              WHEN excluded.ready_at IS NULL THEN NULL
+              WHEN matches.ready_at IS NOT NULL
+                   AND matches.home_tag IS excluded.home_tag
+                   AND matches.away_tag IS excluded.away_tag THEN matches.ready_at
+              ELSE CURRENT_TIMESTAMP END,
             home_tag = excluded.home_tag, away_tag = excluded.away_tag,
             status = excluded.status, winner = excluded.winner,
             home_stars = excluded.home_stars, home_destruction = excluded.home_destruction,
@@ -474,6 +525,7 @@ function upsertMatch(key: TournamentKey, m: BracketMatch): Statement {
       r.away_stars,
       r.away_destruction,
       r.away_duration,
+      r.home_tag && r.away_tag ? 1 : 0,
     ],
   };
 }

@@ -103,9 +103,32 @@ Les écritures passent **uniquement** par le bot Discord (`POST /discord`).
 | `/arbitre arbre [tournoi:]` | arbitres | publier l'image de l'arbre dans le salon (le tournoi courant, ou un autre, la démo par exemple) |
 | `/arbitre annuler nom:` | arbitres | supprimer le tournoi courant (test, erreur) ; retaper son nom pour confirmer |
 
-**Important pour les arbitres** : l'API du jeu ne garde que la DERNIÈRE guerre
-de chaque clan. Lancer `/arbitre resultat` avant que les deux clans aient
-relancé une autre guerre (le bot essaie les deux clans).
+### Arbitrage automatique
+
+Toutes les 5 minutes (tâche planifiée du Worker, `src/watch.ts`), le bot
+regarde les matchs jouables du tournoi en cours et la dernière guerre de leurs
+deux clans :
+
+- guerre lancée entre eux → match « en cours », annonce ⚔️ ;
+- guerre terminée → résultat et joueurs enregistrés, vainqueur qualifié,
+  annonce du score et de l'arbre à jour (une image par passage) ; une guerre
+  hors règlement (HDV, 5 contre 5) est validée, avec une alerte aux arbitres ;
+- égalité parfaite → rien d'enregistré, alerte aux arbitres (une seule fois).
+
+Ne comptent que les guerres entre les deux clans du match, **lancées après que
+le match est devenu jouable** (`ready_at`) : une vieille guerre entre les deux
+mêmes clans n'est jamais prise. L'API du jeu ne garde que la DERNIÈRE guerre de
+chaque clan : si les clans relancent une guerre dans les 5 minutes, le résultat
+se saisit à la main (`/arbitre resultat` ou `/arbitre score`).
+
+Les annonces partent dans le salon d'un **webhook**, à poser comme secret
+(Paramètres du salon → Intégrations → Webhooks → Copier l'URL) :
+
+```bash
+npx wrangler secret put DISCORD_ANNOUNCE_WEBHOOK
+```
+
+Sans webhook, les résultats sont quand même enregistrés, sans annonce.
 
 `/arbitre` est réservé par défaut à « Gérer le serveur » ; les admins peuvent
 l'ouvrir à un rôle Arbitre dans *Paramètres du serveur → Intégrations*.
@@ -151,7 +174,8 @@ http://localhost:8799/?tournoi=demo
 
 - https://spade-cup-api.popi-coc.workers.dev/health?coc : `"coc":"ok"` si la
   clé du jeu fonctionne (au plus un vrai appel toutes les 5 minutes, la clé
-  n'est jamais affichée).
+  n'est jamais affichée), `"announce":true` si le salon des annonces est branché.
+- Journaux de l'arbitre automatique en direct : `npx wrangler tail` (dans `api/`).
 - Lire une guerre comme le bot, sans rien enregistrer :
   ```bash
   COC_API_TOKEN=… npm run check:war -- "#TAGDUCLAN" "#TAGADVERSE"

@@ -367,7 +367,8 @@ async function bracketImage(ctx: BotContext, chosen: string | number | undefined
     ? `👑 Victoire de **${champion.name}**`
     : roundLabel(currentRound(bracket), bracket.roundCount);
   return {
-    content: `🏆 **${t.name}** · ${stage}\n${tournamentUrl(ctx, slug)}`,
+    // Pas de lien : l'image se suffit à elle-même.
+    content: `🏆 **${t.name}** · ${stage}`,
     files: [{ name: 'arbre.png', data: png }],
   };
 }
@@ -439,10 +440,11 @@ async function readResult(
       result: { matchId: match.id, source: 'game', players: reading.players },
     });
 
-    const warnings = reading.warnings.length
-      ? `\n⚠️ À vérifier par les arbitres :\n${reading.warnings.map((w) => `• ${w}`).join('\n')}`
-      : '';
-    return { content: resultMessage(ctx, active, updated, match.id) + warnings };
+    return {
+      content:
+        resultMessage(ctx.siteUrl, active.tournament, updated, match.id) +
+        warningsText(reading.warnings),
+    };
   }
 
   return fail(
@@ -475,7 +477,7 @@ async function manualScore(
     // Score saisi à la main : pas de lignes de joueurs (les anciennes sont effacées).
     result: { matchId: match.id, source: 'referee', players: [] },
   });
-  return { content: resultMessage(ctx, active, updated, match.id) };
+  return { content: resultMessage(ctx.siteUrl, active.tournament, updated, match.id) };
 }
 
 async function forceWinner(
@@ -491,7 +493,9 @@ async function forceWinner(
   await saveBracket(ctx.db, active.id, updated, {
     status: championOf(updated) ? 'finished' : undefined,
   });
-  return { content: `🧑‍⚖️ Décision des arbitres. ${resultMessage(ctx, active, updated, match.id)}` };
+  return {
+    content: `🧑‍⚖️ Décision des arbitres. ${resultMessage(ctx.siteUrl, active.tournament, updated, match.id)}`,
+  };
 }
 
 // ------------------------------------------------------------ messages
@@ -503,9 +507,10 @@ const number = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 1,
 });
 
-function resultMessage(
-  ctx: BotContext,
-  active: StoredTournament,
+/** « A 13★ 91,2 % — 11★ 84,0 % B », qui se qualifie (ou le champion), et le lien du match. */
+export function resultMessage(
+  siteUrl: string,
+  t: { readonly name: string; readonly slug: string },
   bracket: Bracket,
   matchId: string,
 ): string {
@@ -518,13 +523,20 @@ function resultMessage(
 
   const champion = championOf(bracket);
   const next = champion
-    ? `👑 **${champion.name}** remporte **${active.tournament.name}** ! Bravo !`
+    ? `👑 **${champion.name}** remporte **${t.name}** ! Bravo !`
     : `➡️ **${winner.name}** se qualifie pour les ${roundLabel(m.round + 1, bracket.roundCount).toLowerCase()}.`;
 
-  return `${score}\n${next}\n${tournamentUrl(ctx, active.tournament.slug)}/matchs/${m.id}`;
+  return `${score}\n${next}\n${siteUrl}/tournois/${t.slug}/matchs/${m.id}`;
 }
 
-const versus = (m: BracketMatch) => `${m.home?.name ?? '?'} contre ${m.away?.name ?? '?'}`;
+/** Les écarts au règlement, présentés aux arbitres (vide s'il n'y en a pas). */
+export function warningsText(warnings: readonly string[]): string {
+  return warnings.length
+    ? `\n⚠️ À vérifier par les arbitres :\n${warnings.map((w) => `• ${w}`).join('\n')}`
+    : '';
+}
+
+export const versus = (m: BracketMatch) => `${m.home?.name ?? '?'} contre ${m.away?.name ?? '?'}`;
 
 const tournamentUrl = (ctx: BotContext, slug: string) => `${ctx.siteUrl}/tournois/${slug}`;
 

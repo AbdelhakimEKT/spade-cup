@@ -10,6 +10,8 @@
   "compatibility_flags": ["nodejs_compat"],
   // Un vrai navigateur dans le cloud, pour l'image de l'arbre (voir src/bracket-image.ts).
   "browser": { "binding": "BROWSER" },
+  // L'arbitre automatique (src/watch.ts) passe toutes les 5 minutes.
+  "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",

@@ -2,7 +2,7 @@ import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
-import { editBody } from '../src/discord/route';
+import { editBody } from '../src/discord/payload';
 import { verifyDiscordSignature } from '../src/discord/verify';
 import { command, referee } from './helpers';
 
@@ -81,7 +81,7 @@ describe('POST /discord', () => {
     const body = (await (await send(referee('lancer', { match: 'R1-M1' }))).json()) as {
       data: { flags: number };
     };
-    expect(body.data.flags).toBe(64);
+    expect(body.data.flags).toBe(64 | 4); // visible par son auteur seul, sans carte d'aperçu
   });
 
   it('commande lente : « je réfléchis », puis la réponse est envoyée à Discord', async () => {

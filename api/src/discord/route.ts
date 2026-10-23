@@ -2,7 +2,8 @@ import { captureBracket } from '../bracket-image';
 import { createCocClient } from '../coc';
 import { json } from '../http';
 import { autocomplete, needsDefer, runCommand, type BotContext, type Reply } from './bot';
-import { EPHEMERAL, InteractionType, ResponseType, type Interaction } from './types';
+import { editBody, message } from './payload';
+import { InteractionType, ResponseType, type Interaction } from './types';
 import { verifyDiscordSignature } from './verify';
 
 /**
@@ -71,18 +72,6 @@ async function safeRun(interaction: Interaction, bot: BotContext): Promise<Reply
   }
 }
 
-/**
- * Le corps d'un message. `allowed_mentions` vide : un nom de clan comme
- * « @everyone » ne notifiera jamais tout le serveur.
- */
-function message(reply: Reply) {
-  return {
-    content: reply.content.slice(0, 2000), // limite de Discord
-    flags: reply.ephemeral ? EPHEMERAL : 0,
-    allowed_mentions: { parse: [] },
-  };
-}
-
 /** Remplace le « je réfléchis » par la vraie réponse. */
 async function editOriginal(interaction: Interaction, reply: Reply): Promise<void> {
   const url = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
@@ -90,31 +79,4 @@ async function editOriginal(interaction: Interaction, reply: Reply): Promise<voi
   if (!response.ok) {
     console.error('Réponse Discord refusée', response.status, await response.text());
   }
-}
-
-/**
- * Corps de la requête : du JSON, ou, avec une pièce jointe, un formulaire
- * « multipart » (le JSON dans `payload_json`, chaque fichier dans `files[n]`).
- * Pour un formulaire, `fetch` pose lui-même l'en-tête Content-Type (avec la
- * « frontière » qui sépare les parties) : il ne faut surtout pas l'écrire.
- */
-export function editBody(reply: Reply): { body: BodyInit; headers?: Record<string, string> } {
-  if (!reply.files?.length) {
-    return {
-      body: JSON.stringify(message(reply)),
-      headers: { 'Content-Type': 'application/json' },
-    };
-  }
-  const form = new FormData();
-  form.append(
-    'payload_json',
-    JSON.stringify({
-      ...message(reply),
-      attachments: reply.files.map((f, id) => ({ id, filename: f.name })),
-    }),
-  );
-  reply.files.forEach((f, id) =>
-    form.append(`files[${id}]`, new Blob([f.data], { type: 'image/png' }), f.name),
-  );
-  return { body: form };
 }

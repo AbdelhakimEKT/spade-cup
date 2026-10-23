@@ -35,6 +35,8 @@ export function fakeWar(
     state?: CocWar['state'];
     teamSize?: number;
     townHall?: number;
+    /** Lancement de la guerre (format du jeu). Par défaut : dans le futur, donc après le tirage. */
+    launchedAt?: string;
   } = {},
 ): CocWar {
   const { homeStars = [3, 3, 2, 2, 2], awayStars = [2, 2, 2, 2, 1], townHall = 18 } = options;
@@ -67,6 +69,7 @@ export function fakeWar(
   return {
     state: options.state ?? 'warEnded',
     teamSize: options.teamSize ?? 5,
+    preparationStartTime: options.launchedAt ?? '20300101T120000.000Z',
     clan: side(home, homeStars, 'H'),
     opponent: side(away, awayStars, 'A'),
   };

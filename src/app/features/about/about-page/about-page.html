@@ -59,14 +59,21 @@
     <article class="card">
       <h3>Les résultats</h3>
       <p>
-        À la fin de la guerre, un arbitre tape <code>/arbitre resultat</code> : le bot lit la guerre
-        directement dans l'API officielle du jeu. Rien à recopier, donc pas d'erreur de saisie.
+        Rien à faire : toutes les 5 minutes, le bot regarde les guerres des matchs en cours, dans
+        l'API officielle du jeu. Quand une guerre démarre, il l'annonce ; quand elle se termine, il
+        lit le score, qualifie le vainqueur et poste l'arbre à jour sur le Discord. Rien à recopier,
+        donc pas d'erreur de saisie.
+      </p>
+      <p>
+        Seules comptent les guerres entre les deux clans qui doivent se rencontrer, lancées après
+        que leur match est devenu jouable : une guerre d'entraînement ne change rien à l'arbre.
       </p>
       <p>
         Un joueur qui n'est pas HDV {{ rules.townHallLevel }}, une guerre qui n'est pas en
         {{ rules.teamSize }} contre {{ rules.teamSize }} : le résultat est enregistré, mais signalé
         aux arbitres. Pour que le bot puisse lire la guerre, le journal de guerre d'au moins un des
-        deux clans doit être public.
+        deux clans doit être public, et il ne faut pas relancer une autre guerre dans les 5 minutes
+        qui suivent : le jeu ne garde que la dernière.
       </p>
     </article>
 
@@ -115,8 +122,9 @@
       <h3>Le bot Discord</h3>
       <p>
         Pas de bot connecté en permanence : à chaque commande, Discord envoie une requête HTTP
-        <b>signée</b> (Ed25519), et le serveur vérifie la signature avant d'agir. Quand le jeu met
-        du temps à répondre, le bot répond « je réfléchis » puis complète son message.
+        <b>signée</b> (Ed25519), et le serveur vérifie la signature avant d'agir. Toutes les 5
+        minutes, une tâche planifiée joue l'arbitre ; l'image de l'arbre est une capture d'écran du
+        site, faite par un vrai navigateur dans le cloud.
       </p>
     </article>
     <article class="card">
