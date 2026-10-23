@@ -36,7 +36,7 @@ export async function handleDiscord(
     capture: (shots) => captureScreens(env.BROWSER, env.SITE_URL, shots),
     publish: (t, bracket, outcome) =>
       ctx.waitUntil(
-        announce(createAnnouncer(env), env.SITE_URL, t, bracket, outcome).catch((error) =>
+        announce(createAnnouncer(env), t, bracket, outcome).catch((error) =>
           console.error('Annonce impossible', error),
         ),
       ),

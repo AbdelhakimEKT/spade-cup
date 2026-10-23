@@ -143,7 +143,7 @@ export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
   report.finished.push(...finished.map((f) => f.matchId));
   report.ties.push(...ties.map((m) => m.id));
   if (deps.announcer) {
-    await announce(deps.announcer, deps.siteUrl, tournament, bracket, { started, finished, ties });
+    await announce(deps.announcer, tournament, bracket, { started, finished, ties });
   }
   return report;
 }

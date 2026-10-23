@@ -126,7 +126,7 @@ describe('runWatch', () => {
     ]);
   });
 
-  it('guerre terminée : résultat, récap des joueurs (#résultats), arbre (#classement)', async () => {
+  it('guerre terminée : phrase de victoire (#résultats), puis arbre (#classement)', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
     const { watch, posted, shots } = deps({
       [final.home!.tag]: ok(fakeWar(final.home!, final.away!)),
@@ -138,26 +138,22 @@ describe('runWatch', () => {
     expect(championOf(t.bracket!)?.tag).toBe(final.home!.tag);
     expect((await getMatchDetail(db(), 'cup', 'R1-M1'))!.players.home).toHaveLength(5);
 
-    // Dans l'ordre : le résultat (texte), PUIS les images. Si les images
-    // échouaient, le résultat serait déjà parti.
-    expect(posted.map((p) => p.channel)).toEqual(['results', 'results', 'bracket']);
-    expect(posted[0].reply.content).toContain(`👑 **${final.home!.name}** remporte **Cup**`);
-    expect(posted[0].reply.files).toBeUndefined();
-    expect(posted[1].reply).toEqual({
-      content: `📊 **${final.home!.name} contre ${final.away!.name}** · le détail joueur par joueur`,
-      files: [{ name: 'recap-R1-M1.png', data: FAKE_PNG }],
-    });
-    expect(posted[2].reply).toEqual({
-      content: `🏆 **Cup** · 👑 Victoire de **${final.home!.name}**`,
-      files: [{ name: 'arbre.png', data: FAKE_PNG }],
-    });
-    // Toutes les images dans UNE session du navigateur.
-    expect(shots).toEqual([
-      [
-        { kind: 'match', slug: 'cup', matchId: 'R1-M1' },
-        { kind: 'bracket', slug: 'cup' },
-      ],
+    // Dans l'ordre : la victoire (texte), PUIS l'image de l'arbre. Si l'image
+    // échouait, la victoire serait déjà annoncée.
+    expect(posted).toEqual([
+      {
+        channel: 'results',
+        reply: { content: `🏆 Victoire de ${final.home!.name} qui remporte Cup ! 👑` },
+      },
+      {
+        channel: 'bracket',
+        reply: {
+          content: `🏆 **Cup** · 👑 Victoire de **${final.home!.name}**`,
+          files: [{ name: 'arbre.png', data: FAKE_PNG }],
+        },
+      },
     ]);
+    expect(shots).toEqual([[{ kind: 'bracket', slug: 'cup' }]]);
   });
 
   it('guerre lancée ET finie entre deux passages : directement le résultat', async () => {
@@ -166,7 +162,7 @@ describe('runWatch', () => {
     expect(await runWatch(watch)).toMatchObject({ started: [], finished: ['R1-M1'] });
   });
 
-  it('deux résultats dans le même passage : un message, deux récaps, un seul arbre', async () => {
+  it('deux résultats dans le même passage : un seul message, un seul arbre', async () => {
     const semis = (await drawn(4)).tournament.bracket!.matches.filter((m) => m.round === 1);
     const { watch, inChannel, shots } = deps(
       Object.fromEntries(semis.map((m) => [m.home!.tag, ok(fakeWar(m.home!, m.away!))])),
@@ -174,11 +170,8 @@ describe('runWatch', () => {
 
     expect((await runWatch(watch)).finished).toEqual(['R1-M1', 'R1-M2']);
     const results = inChannel('results');
-    expect(results[0].content.match(/se qualifie pour la finale/g)).toHaveLength(2);
-    expect(results.slice(1).map((r) => r.files?.[0].name)).toEqual([
-      'recap-R1-M1.png',
-      'recap-R1-M2.png',
-    ]);
+    expect(results).toHaveLength(1);
+    expect(results[0].content.match(/qui se qualifie pour la finale ! ⚔️/g)).toHaveLength(2);
     expect(inChannel('bracket')).toHaveLength(1);
     expect(shots).toHaveLength(1);
     // La finale a maintenant ses deux clans : elle sera surveillée au passage suivant.

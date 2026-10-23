@@ -135,7 +135,7 @@ secret :
 
 | Salon | Ce qui y est posté | Secret |
 |---|---|---|
-| #résultats | ⚔️ débuts, 🏆 résultats, 📊 récap joueur par joueur (image) | `DISCORD_WEBHOOK_RESULTATS` |
+| #résultats | ⚔️ débuts, puis « 🏆 Victoire de X qui se qualifie pour les quarts de finale ! ⚔️ » | `DISCORD_WEBHOOK_RESULTATS` |
 | #classement | l'image de l'arbre à jour | `DISCORD_WEBHOOK_CLASSEMENT` |
 | salon des arbitres | ⚖️ égalité parfaite (à trancher avec `/arbitre vainqueur`) | `DISCORD_WEBHOOK_ARBITRES` |
 
@@ -149,11 +149,11 @@ et les alertes arbitres vont dans #résultats. Un résultat saisi à la main
 résultat automatique. Sans aucun webhook, les résultats sont quand même
 enregistrés, sans annonce.
 
-![Récap d'un match posté dans #résultats](docs/recap-match-demo.png)
-
-Les images d'un passage (récaps + arbre) sont faites dans UNE session du
-navigateur ; si Cloudflare refuse d'en ouvrir une (1 nouvelle toutes les
-20 s sur le plan gratuit), elle est redemandée 21 s plus tard.
+L'image de l'arbre est faite par le navigateur de Cloudflare ; s'il refuse
+d'en ouvrir un (1 nouveau toutes les 20 s sur le plan gratuit), il est
+redemandé 21 s plus tard. (Le mode capture de la page d'un match existe
+toujours, `?capture`, mais n'est plus posté : les organisateurs préfèrent un
+message court.)
 
 `/arbitre` est réservé par défaut à « Gérer le serveur » ; les admins peuvent
 l'ouvrir à un rôle Arbitre dans *Paramètres du serveur → Intégrations*.

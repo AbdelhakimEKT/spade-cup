@@ -104,13 +104,9 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     for (const m of qf.slice(0, 3)) game.play(m.home!, m.away!, 'warEnded', t(19), t(20));
     p = await pass(game);
     expect(p.report.finished).toEqual(['R1-M1', 'R1-M2', 'R1-M3']);
-    // #résultats : les 3 résultats en un message, puis un récap par match ; #classement : 1 arbre.
-    expect(p.inChannel('results').map((r) => r.files?.[0].name ?? 'texte')).toEqual([
-      'texte',
-      'recap-R1-M1.png',
-      'recap-R1-M2.png',
-      'recap-R1-M3.png',
-    ]);
+    // #résultats : les 3 victoires en un message ; #classement : 1 arbre.
+    expect(p.inChannel('results')).toHaveLength(1); // les 3 victoires en un message
+    expect(p.inChannel('results')[0].content.match(/🏆 Victoire de/g)).toHaveLength(3);
     expect(p.inChannel('bracket')).toHaveLength(1);
     expect(p.shots).toHaveLength(1); // une seule session du navigateur
 
@@ -144,8 +140,8 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     game.play(final.home!, final.away!, 'warEnded', t(21, 24), t(22, 24));
     p = await pass(game);
     expect(p.report.finished).toEqual(['R3-M1']);
-    expect(p.inChannel('results')[0].content).toContain(
-      `👑 **${final.home!.name}** remporte **Spade Cup**`,
+    expect(p.inChannel('results')[0].content).toBe(
+      `🏆 Victoire de ${final.home!.name} qui remporte Spade Cup ! 👑`,
     );
     expect(p.inChannel('bracket')[0].content).toBe(
       `🏆 **Spade Cup** · 👑 Victoire de **${final.home!.name}**`,
@@ -196,7 +192,7 @@ describe('gros tournoi : 32 clans, 16 guerres qui finissent en même temps', () 
     const first = await pass(game);
     expect(first.report.finished).toHaveLength(15);
     expect(first.outgoing).toBeLessThanOrEqual(50);
-    // 1 message de résultats + 15 récaps + 1 arbre : sous la limite, grâce au regroupement.
+    // 1 message de victoires + 1 arbre : sous la limite, grâce au regroupement.
     expect(first.inChannel('bracket')).toHaveLength(1);
 
     const second = await pass(game);

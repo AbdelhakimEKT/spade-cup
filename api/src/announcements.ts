@@ -1,13 +1,13 @@
-import { roundLabel } from '../../src/app/core/tournament/bracket';
+import { championOf, roundLabel, winnerOf } from '../../src/app/core/tournament/bracket';
 import type { Bracket, BracketMatch } from '../../src/app/core/tournament/models';
-import { bracketCaption, nextRoundName, resultMessage, versus, type Reply } from './discord/bot';
+import { bracketCaption, nextRoundName, versus, type Reply } from './discord/bot';
 import { postAsBot, postToWebhook } from './discord/payload';
 import { captureScreens, type Shot } from './screens';
 
 /**
  * Les annonces dans les salons du Discord, chacune à sa place :
  *
- *   #résultats   ⚔️ début des guerres, 🏆 résultats, 📊 récap des joueurs
+ *   #résultats   ⚔️ début des guerres, 🏆 victoire (une phrase courte)
  *   #classement  l'image de l'arbre à jour
  *   arbitres     ⚖️ égalité parfaite : à eux de trancher
  *
@@ -94,13 +94,11 @@ export function createAnnouncer(env: Env): Announcer {
  */
 export async function announce(
   announcer: Announcer,
-  siteUrl: string,
   t: { readonly name: string; readonly slug: string },
   bracket: Bracket,
   outcome: Outcome,
 ): Promise<void> {
   const { started = [], finished = [], ties = [] } = outcome;
-  const matchOf = (id: string) => bracket.matches.find((m) => m.id === id)!;
 
   // 1. #résultats : débuts et résultats, regroupés (Discord limite un webhook
   //    à 5 messages toutes les 2 secondes, et le salon reste lisible).
@@ -110,7 +108,7 @@ export async function announce(
         `⚔️ **${versus(m)}** a commencé ` +
         `(${roundLabel(m.round, bracket.roundCount).toLowerCase()}). Bonne guerre !`,
     ),
-    ...finished.map((f) => resultMessage(siteUrl, t, bracket, f.matchId)),
+    ...finished.map((f) => victoryText(t, bracket, f.matchId)),
   ];
   for (const content of pack(news)) await announcer.post('results', { content });
 
@@ -125,30 +123,36 @@ export async function announce(
   ];
   for (const content of pack(alerts)) await announcer.post('referees', { content });
 
-  // 3. Les images, en une seule session du navigateur : le récap de chaque
-  //    match terminé (#résultats), puis l'arbre à jour (#classement).
+  // 3. L'arbre à jour en image (#classement).
   if (finished.length === 0) return;
-  const shots: Shot[] = [
-    ...finished.map((f) => ({ kind: 'match' as const, slug: t.slug, matchId: f.matchId })),
-    { kind: 'bracket', slug: t.slug },
-  ];
-  let images: Uint8Array[];
+  let image: Uint8Array;
   try {
-    images = await announcer.capture(shots);
+    [image] = await announcer.capture([{ kind: 'bracket', slug: t.slug }]);
   } catch (error) {
-    console.error('Images impossibles', error);
+    console.error('Image de l’arbre impossible', error);
     return;
-  }
-  for (const [i, f] of finished.entries()) {
-    await announcer.post('results', {
-      content: `📊 **${versus(matchOf(f.matchId))}** · le détail joueur par joueur`,
-      files: [{ name: `recap-${f.matchId}.png`, data: images[i] }],
-    });
   }
   await announcer.post('bracket', {
     content: bracketCaption(t.name, bracket) + roundsCompleted(bracket, finished),
-    files: [{ name: 'arbre.png', data: images.at(-1)! }],
+    files: [{ name: 'arbre.png', data: image }],
   });
+}
+
+/**
+ * L'annonce d'un résultat dans #résultats, volontairement courte (demande des
+ * organisateurs) : « 🏆 Victoire de Vega qui se qualifie pour les quarts de
+ * finale ! ⚔️ ». Le détail du score reste sur le site.
+ */
+export function victoryText(
+  t: { readonly name: string },
+  bracket: Bracket,
+  matchId: string,
+): string {
+  const match = bracket.matches.find((m) => m.id === matchId)!;
+  const winner = winnerOf(match)!;
+  return championOf(bracket)
+    ? `🏆 Victoire de ${winner.name} qui remporte ${t.name} ! 👑`
+    : `🏆 Victoire de ${winner.name} qui se qualifie pour ${nextRoundName(match.round + 1, bracket.roundCount)} ! ⚔️`;
 }
 
 /**

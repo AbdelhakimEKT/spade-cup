@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { bracketFromSeeds, recordResult } from '../../src/app/core/tournament/bracket';
-import { announce, destinationFor, pack, roundsCompleted } from '../src/announcements';
+import { announce, destinationFor, pack, roundsCompleted, victoryText } from '../src/announcements';
 import { CLANS, FAKE_PNG, fakeAnnouncer } from './helpers';
+
+/** Un tournoi de 4 clans : deux demies, puis la finale. */
+const t = { name: 'Cup', slug: 'cup' };
+const four = bracketFromSeeds(CLANS.slice(0, 4));
 
 describe('destinationFor : chaque annonce dans son salon', () => {
   const hooks = {
@@ -53,30 +57,49 @@ describe('destinationFor : chaque annonce dans son salon', () => {
 });
 
 describe('announce', () => {
-  const t = { name: 'Cup', slug: 'cup' };
-  const four = bracketFromSeeds(CLANS.slice(0, 4));
-
   it('un simple début : un message dans #résultats, aucune image', async () => {
     const { announcer, posted, shots } = fakeAnnouncer();
-    await announce(announcer, 'https://site.test', t, four, { started: [four.matches[0]] });
+    await announce(announcer, t, four, { started: [four.matches[0]] });
     expect(posted.map((p) => p.channel)).toEqual(['results']);
     expect(shots).toEqual([]);
   });
 
-  it('un résultat : texte, récap, arbre, dans cet ordre et chacun dans son salon', async () => {
+  it('un résultat : la phrase courte dans #résultats, puis l’arbre dans #classement', async () => {
     const after = recordResult(four, 'R1-M1', 'home');
     const { announcer, posted } = fakeAnnouncer();
-    await announce(announcer, 'https://site.test', t, after, {
-      finished: [{ matchId: 'R1-M1' }],
-    });
-    expect(posted.map((p) => [p.channel, p.reply.files?.[0].name ?? 'texte'])).toEqual([
-      ['results', 'texte'],
-      ['results', 'recap-R1-M1.png'],
-      ['bracket', 'arbre.png'],
+    await announce(announcer, t, after, { finished: [{ matchId: 'R1-M1' }] });
+    expect(posted).toEqual([
+      {
+        channel: 'results',
+        reply: { content: `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️` },
+      },
+      {
+        channel: 'bracket',
+        reply: {
+          // L'autre demie reste à jouer : pas encore de « fin de tour ».
+          content: '🏆 **Cup** · Demi-finales',
+          files: [{ name: 'arbre.png', data: FAKE_PNG }],
+        },
+      },
     ]);
-    expect(posted[0].reply.content).toContain('se qualifie pour la finale');
-    expect(posted[0].reply.content).not.toContain('https://'); // pas de lien : les images suffisent
-    expect(posted[2].reply.files?.[0].data).toEqual(FAKE_PNG);
+  });
+});
+
+describe('victoryText : la phrase demandée par les organisateurs', () => {
+  it('qualification pour le tour suivant', () => {
+    const after = recordResult(four, 'R1-M2', 'away');
+    expect(victoryText(t, after, 'R1-M2')).toBe(
+      `🏆 Victoire de ${after.matches[1].away!.name} qui se qualifie pour la finale ! ⚔️`,
+    );
+  });
+
+  it('la finale : le champion remporte le tournoi', () => {
+    let b = recordResult(four, 'R1-M1', 'home');
+    b = recordResult(b, 'R1-M2', 'home');
+    b = recordResult(b, 'R2-M1', 'away');
+    expect(victoryText(t, b, 'R2-M1')).toBe(
+      `🏆 Victoire de ${b.matches[2].away!.name} qui remporte Cup ! 👑`,
+    );
   });
 });
 

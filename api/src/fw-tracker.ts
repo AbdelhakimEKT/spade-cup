@@ -41,12 +41,13 @@ export async function trackFriendlyWars(
     const result = await coc.currentWar(tag);
     if (!result.ok) continue; // journal privé, jeu en maintenance… on essaie l'autre clan
     const war = result.value;
-    // Seulement une guerre TERMINÉE entre deux clans de FW.
-    if (war.state !== 'warEnded' || !war.clan || !war.opponent) return 'nothing';
-    if (!clans.includes(war.clan.tag) || !clans.includes(war.opponent.tag)) return 'nothing';
+    // Seulement une guerre TERMINÉE entre deux clans de FW. Sinon, on regarde
+    // l'autre clan : sa dernière guerre peut être la bonne.
+    if (war.state !== 'warEnded' || !war.clan || !war.opponent) continue;
+    if (!clans.includes(war.clan.tag) || !clans.includes(war.opponent.tag)) continue;
 
     const key = warKey(war);
-    if (!key) return 'nothing';
+    if (!key) continue;
     const known = await db
       .prepare('SELECT 1 FROM friendly_wars WHERE war_key = ?')
       .bind(key)
@@ -60,7 +61,7 @@ export async function trackFriendlyWars(
     const home = { tag: first.tag, name: first.name };
     const away = { tag: second.tag, name: second.name };
     const reading = readFriendlyWar(war, home, away);
-    if (!reading.ok) return 'nothing';
+    if (!reading.ok) continue;
 
     await run(db, recordStatements(key, war, home, away, reading));
     return 'recorded';

@@ -61,11 +61,11 @@ export default {
     const match = (id: string) => t.bracket!.matches.find((m) => m.id === id)!;
     // Comme en vrai, trois moments distincts : un début de guerre, un résultat,
     // puis une égalité parfaite (le seul message du salon des arbitres).
-    await announce(announcer, env.SITE_URL, t, t.bracket, { started: [match('R2-M1')] });
-    await announce(announcer, env.SITE_URL, t, t.bracket, {
+    await announce(announcer, t, t.bracket, { started: [match('R2-M1')] });
+    await announce(announcer, t, t.bracket, {
       finished: [{ matchId: 'R1-M3' }],
     });
-    await announce(announcer, env.SITE_URL, t, t.bracket, { ties: [match('R2-M4')] });
+    await announce(announcer, t, t.bracket, { ties: [match('R2-M4')] });
 
     return Response.json({ envoye: send, salons: configured, plan });
   },
