@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bracketFromSeeds, recordResult } from '../../src/app/core/tournament/bracket';
-import { announce, pack, webhookFor } from '../src/announcements';
+import { announce, pack, roundsCompleted, webhookFor } from '../src/announcements';
 import { CLANS, FAKE_PNG, fakeAnnouncer } from './helpers';
 
 describe('webhookFor : chaque annonce dans son salon', () => {
@@ -60,6 +60,33 @@ describe('announce', () => {
     expect(posted[0].reply.content).toContain('se qualifie pour la finale');
     expect(posted[0].reply.content).toContain('https://site.test/tournois/cup/matchs/R1-M1');
     expect(posted[2].reply.files?.[0].data).toEqual(FAKE_PNG);
+  });
+});
+
+describe('roundsCompleted : fin d’un tour', () => {
+  const eight = bracketFromSeeds([
+    ...CLANS,
+    ...CLANS.slice(0, 3).map((c) => ({ ...c, tag: `${c.tag}2` })),
+  ]);
+  const allQuarters = ['R1-M1', 'R1-M2', 'R1-M3', 'R1-M4'];
+  const played = (ids: string[]) => ids.reduce((b, id) => recordResult(b, id, 'home'), eight);
+
+  it('tant qu’un match du tour reste à jouer : rien', () => {
+    expect(roundsCompleted(played(allQuarters.slice(0, 3)), [{ matchId: 'R1-M3' }])).toBe('');
+  });
+
+  it('le dernier quart vient de finir : place aux demi-finales', () => {
+    expect(roundsCompleted(played(allQuarters), [{ matchId: 'R1-M4' }])).toBe(
+      '\n✅ Les quarts de finale sont terminés : place aux demi-finales !',
+    );
+  });
+
+  it('les demies finies : place à la finale ; la finale elle-même : rien (le champion est annoncé)', () => {
+    const semis = recordResult(recordResult(played(allQuarters), 'R2-M1', 'home'), 'R2-M2', 'home');
+    expect(roundsCompleted(semis, [{ matchId: 'R2-M2' }])).toBe(
+      '\n✅ Les demi-finales sont terminées : place à la finale !',
+    );
+    expect(roundsCompleted(recordResult(semis, 'R3-M1', 'home'), [{ matchId: 'R3-M1' }])).toBe('');
   });
 });
 

@@ -1,6 +1,6 @@
 import { roundLabel } from '../../src/app/core/tournament/bracket';
 import type { Bracket, BracketMatch } from '../../src/app/core/tournament/models';
-import { bracketCaption, resultMessage, versus, type Reply } from './discord/bot';
+import { bracketCaption, nextRoundName, resultMessage, versus, type Reply } from './discord/bot';
 import { postToWebhook } from './discord/payload';
 import { captureScreens, type Shot } from './screens';
 
@@ -131,9 +131,42 @@ export async function announce(
     });
   }
   await announcer.post('bracket', {
-    content: bracketCaption(t.name, bracket),
+    content: bracketCaption(t.name, bracket) + roundsCompleted(bracket, finished),
     files: [{ name: 'arbre.png', data: images.at(-1)! }],
   });
+}
+
+/**
+ * « ✅ Les quarts de finale sont terminés : place aux demi-finales ! » quand un
+ * résultat de ce passage complète son tour (la finale, elle, a sa propre
+ * annonce du champion).
+ */
+export function roundsCompleted(
+  bracket: Bracket,
+  finished: readonly { readonly matchId: string }[],
+): string {
+  const rounds = new Set(
+    finished.map((f) => bracket.matches.find((m) => m.id === f.matchId)!.round),
+  );
+  return [...rounds]
+    .sort((a, b) => a - b)
+    .filter(
+      (round) =>
+        round < bracket.roundCount &&
+        bracket.matches
+          .filter((m) => m.round === round)
+          .every((m) => m.status === 'done' || m.status === 'bye'),
+    )
+    .map((round) => {
+      const label = roundLabel(round, bracket.roundCount).toLowerCase();
+      // « les demi-finales » est féminin ; « les quarts / huitièmes de finale », masculin.
+      const done = label.startsWith('demi') ? 'terminées' : 'terminés';
+      const next = nextRoundName(round + 1, bracket.roundCount)
+        .replace(/^les /, 'aux ')
+        .replace(/^la /, 'à la ');
+      return `\n✅ Les ${label} sont ${done} : place ${next} !`;
+    })
+    .join('');
 }
 
 /** Regroupe des annonces en messages de 2 000 caractères au plus (limite de Discord). */
