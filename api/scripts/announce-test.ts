@@ -26,9 +26,18 @@ export default {
   async fetch(request, env): Promise<Response> {
     const send = new URL(request.url).searchParams.get('envoyer') === '1';
     const channels: Channel[] = ['results', 'bracket', 'referees'];
-    const configured = Object.fromEntries(
-      channels.map((c) => [c, destinationFor(env, c)?.by ?? false]),
-    );
+    // Pour chaque salon : posté par le bot ou par un webhook, et, pour un webhook,
+    // son nom et l'identifiant du salon (lecture seule : rien n'est posté).
+    const configured: Record<string, unknown> = {};
+    for (const c of channels) {
+      const to = destinationFor(env, c);
+      if (to?.by === 'webhook') {
+        const info = (await (await fetch(to.url)).json()) as { name?: string; channel_id?: string };
+        configured[c] = { par: 'webhook', nom: info.name, salon: info.channel_id };
+      } else {
+        configured[c] = to ? { par: 'bot', salon: to.channelId } : false;
+      }
+    }
     const real = createAnnouncer(env);
 
     const t = await getTournament(env.DB, 'demo');
