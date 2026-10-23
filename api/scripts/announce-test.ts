@@ -6,6 +6,7 @@
  *   npx wrangler dev scripts/announce-test.ts --remote --port 8798
  *   http://localhost:8798/            aperçu : rien n'est envoyé
  *   http://localhost:8798/?envoyer=1  envoi réel (une fois)
+ *   …&salons=results,bracket         seulement certains salons
  */
 import {
   announce,
@@ -24,7 +25,10 @@ const BANNER =
 
 export default {
   async fetch(request, env): Promise<Response> {
-    const send = new URL(request.url).searchParams.get('envoyer') === '1';
+    const params = new URL(request.url).searchParams;
+    const send = params.get('envoyer') === '1';
+    // ?salons=results,bracket : n'envoyer que dans ces salons (les autres sont ignorés).
+    const only = params.get('salons')?.split(',') ?? null;
     const channels: Channel[] = ['results', 'bracket', 'referees'];
     // Pour chaque salon : posté par le bot ou par un webhook, et, pour un webhook,
     // son nom et l'identifiant du salon (lecture seule : rien n'est posté).
@@ -48,6 +52,7 @@ export default {
     const bannerDone = new Set<Channel>();
     const announcer: Announcer = {
       async post(channel, reply: Reply) {
+        if (only && !only.includes(channel)) return;
         if (!bannerDone.has(channel)) {
           bannerDone.add(channel);
           plan.push({ channel, content: BANNER, files: [] });
