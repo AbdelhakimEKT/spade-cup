@@ -19,6 +19,11 @@ describe('API HTTP', () => {
     expect(await res.json()).toEqual({ ok: true, service: 'spade-cup-api' });
   });
 
+  it('GET /health?coc : dit si la clé du jeu marche (ici, aucune clé en test)', async () => {
+    const res = await call('/health?coc');
+    expect(await res.json()).toEqual({ ok: true, service: 'spade-cup-api', coc: 'not-configured' });
+  });
+
   it('GET /tournaments : la liste, en JSON, lisible depuis le site (CORS)', async () => {
     const res = await call('/tournaments');
     expect(res.status).toBe(200);

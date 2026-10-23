@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { createCocClient } from '../src/coc';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { cocHealth, createCocClient, forgetCocHealth } from '../src/coc';
 
 /** Faux `fetch` : renvoie la réponse donnée et note l'adresse appelée. */
 function fakeFetch(status: number, body: unknown) {
@@ -72,6 +72,30 @@ describe('client de l’API du jeu', () => {
     const { calls, fetcher } = fakeFetch(200, {});
     const client = createCocClient({ COC_API_BASE: env.COC_API_BASE }, fetcher);
     expect(await client.clan('#2PPP')).toEqual({ ok: false, error: 'not-configured' });
+    expect(calls).toEqual([]);
+  });
+});
+
+describe('cocHealth', () => {
+  beforeEach(() => forgetCocHealth());
+
+  it('« ok » quand la clé est acceptée, sans jamais renvoyer la clé', async () => {
+    const { fetcher } = fakeFetch(200, { tag: '#2CYJPRCG8', name: 'FW-team1' });
+    expect(await cocHealth(env, 0, fetcher)).toBe('ok');
+  });
+
+  it('un seul vrai appel toutes les 5 minutes', async () => {
+    const { calls, fetcher } = fakeFetch(403, { message: 'Invalid authorization' });
+    expect(await cocHealth(env, 0, fetcher)).toBe('unavailable');
+    expect(await cocHealth(env, 4 * 60_000, fetcher)).toBe('unavailable');
+    expect(calls).toHaveLength(1);
+    await cocHealth(env, 6 * 60_000, fetcher);
+    expect(calls).toHaveLength(2);
+  });
+
+  it('sans clé : « not-configured », aucun appel', async () => {
+    const { calls, fetcher } = fakeFetch(200, {});
+    expect(await cocHealth({ COC_API_BASE: env.COC_API_BASE }, 0, fetcher)).toBe('not-configured');
     expect(calls).toEqual([]);
   });
 });

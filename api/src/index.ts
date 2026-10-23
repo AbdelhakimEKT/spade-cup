@@ -1,3 +1,4 @@
+import { cocHealth } from './coc';
 import { handleDiscord } from './discord/route';
 import { CORS_HEADERS, SHORT_CACHE, errorResponse, json } from './http';
 import { getTournament, listTournaments } from './repository';
@@ -7,7 +8,7 @@ import { getClanProfile, getMatchDetail, getPlayerProfile, listPlayers } from '.
  * Point d'entrée du serveur.
  *
  * API publique, en lecture :
- *   GET /health                                le serveur répond-il ?
+ *   GET /health[?coc]                          le serveur (et la clé du jeu) répond-il ?
  *   GET /tournaments                           liste des tournois
  *   GET /tournaments/:slug                     un tournoi complet (clans + arbre)
  *   GET /tournaments/:slug/matches/:id         un match et ses joueurs
@@ -54,7 +55,10 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
   let m: RegExpExecArray | null;
 
   if (pathname === '/health') {
-    return json({ ok: true, service: 'spade-cup-api' }, 200, { 'Cache-Control': 'no-store' });
+    const body: Record<string, unknown> = { ok: true, service: 'spade-cup-api' };
+    // /health?coc : vérifie aussi que la clé de l'API du jeu fonctionne.
+    if (params.has('coc')) body['coc'] = await cocHealth(env);
+    return json(body, 200, { 'Cache-Control': 'no-store' });
   }
   if (pathname === '/tournaments') {
     return json(await listTournaments(env.DB), 200, SHORT_CACHE);

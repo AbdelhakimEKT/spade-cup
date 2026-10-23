@@ -78,3 +78,36 @@ export function createCocClient(
     currentWar: (tag) => get<CocWar>(`/clans/${encode(tag)}/currentwar`),
   };
 }
+
+// ------------------------------------------------------------ diagnostic
+
+export type CocHealth = 'ok' | CocError;
+
+/** Un clan public quelconque, juste pour vérifier que la clé est acceptée. */
+const HEALTH_CLAN = '#2CYJPRCG8';
+const HEALTH_TTL_MS = 5 * 60 * 1000;
+let lastHealth: { at: number; status: CocHealth } | null = null;
+
+/**
+ * La clé du jeu fonctionne-t-elle ? Un seul vrai appel toutes les 5 minutes :
+ * le résultat est gardé en mémoire, pour qu'on ne puisse pas épuiser le
+ * quota de la clé en rafraîchissant /health?coc en boucle. (La mémoire est
+ * celle de l'instance du Worker : c'est une protection, pas une garantie.)
+ * La réponse ne dit que « ok » ou le type d'erreur, jamais la clé.
+ */
+export async function cocHealth(
+  env: { COC_API_TOKEN?: string; COC_API_BASE: string },
+  now = Date.now(),
+  fetcher: typeof fetch = fetch,
+): Promise<CocHealth> {
+  if (lastHealth && now - lastHealth.at < HEALTH_TTL_MS) return lastHealth.status;
+  const result = await createCocClient(env, fetcher).clan(HEALTH_CLAN);
+  const status: CocHealth = result.ok ? 'ok' : result.error;
+  lastHealth = { at: now, status };
+  return status;
+}
+
+/** Pour les tests : oublie le dernier diagnostic. */
+export function forgetCocHealth(): void {
+  lastHealth = null;
+}
