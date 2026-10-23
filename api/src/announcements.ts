@@ -7,7 +7,7 @@ import { captureScreens, type Shot } from './screens';
 /**
  * Les annonces dans les salons du Discord, chacune à sa place :
  *
- *   #résultats   ⚔️ début des guerres, 🏆 victoire (une phrase courte)
+ *   #résultats   ⚔️ début des guerres, 🏆 victoire (une phrase courte), 📊 récap en image
  *   #classement  l'image de l'arbre à jour
  *   arbitres     ⚖️ égalité parfaite : à eux de trancher
  *
@@ -123,18 +123,30 @@ export async function announce(
   ];
   for (const content of pack(alerts)) await announcer.post('referees', { content });
 
-  // 3. L'arbre à jour en image (#classement).
+  // 3. Les images, en une seule session du navigateur : le récap joueur par
+  //    joueur de chaque match terminé (#résultats), puis l'arbre (#classement).
   if (finished.length === 0) return;
-  let image: Uint8Array;
+  const shots: Shot[] = [
+    ...finished.map((f) => ({ kind: 'match' as const, slug: t.slug, matchId: f.matchId })),
+    { kind: 'bracket', slug: t.slug },
+  ];
+  let images: Uint8Array[];
   try {
-    [image] = await announcer.capture([{ kind: 'bracket', slug: t.slug }]);
+    images = await announcer.capture(shots);
   } catch (error) {
-    console.error('Image de l’arbre impossible', error);
+    console.error('Images impossibles', error);
     return;
+  }
+  for (const [i, f] of finished.entries()) {
+    const match = bracket.matches.find((m) => m.id === f.matchId)!;
+    await announcer.post('results', {
+      content: `📊 **${versus(match)}** · le détail joueur par joueur`,
+      files: [{ name: `recap-${f.matchId}.png`, data: images[i] }],
+    });
   }
   await announcer.post('bracket', {
     content: bracketCaption(t.name, bracket) + roundsCompleted(bracket, finished),
-    files: [{ name: 'arbre.png', data: image }],
+    files: [{ name: 'arbre.png', data: images.at(-1)! }],
   });
 }
 

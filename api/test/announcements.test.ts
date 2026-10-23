@@ -64,23 +64,19 @@ describe('announce', () => {
     expect(shots).toEqual([]);
   });
 
-  it('un résultat : la phrase courte dans #résultats, puis l’arbre dans #classement', async () => {
+  it('un résultat : la phrase courte, le récap en image, puis l’arbre dans #classement', async () => {
     const after = recordResult(four, 'R1-M1', 'home');
     const { announcer, posted } = fakeAnnouncer();
     await announce(announcer, t, after, { finished: [{ matchId: 'R1-M1' }] });
-    expect(posted).toEqual([
-      {
-        channel: 'results',
-        reply: { content: `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️` },
-      },
-      {
-        channel: 'bracket',
-        reply: {
-          // L'autre demie reste à jouer : pas encore de « fin de tour ».
-          content: '🏆 **Cup** · Demi-finales',
-          files: [{ name: 'arbre.png', data: FAKE_PNG }],
-        },
-      },
+    expect(posted.map((p) => [p.channel, p.reply.content, p.reply.files?.[0].name])).toEqual([
+      ['results', `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️`, undefined],
+      [
+        'results',
+        `📊 **${CLANS[0].name} contre ${after.matches[0].away!.name}** · le détail joueur par joueur`,
+        'recap-R1-M1.png',
+      ],
+      // L'autre demie reste à jouer : pas encore de « fin de tour ».
+      ['bracket', '🏆 **Cup** · Demi-finales', 'arbre.png'],
     ]);
   });
 });

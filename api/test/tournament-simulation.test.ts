@@ -105,7 +105,13 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     p = await pass(game);
     expect(p.report.finished).toEqual(['R1-M1', 'R1-M2', 'R1-M3']);
     // #résultats : les 3 victoires en un message ; #classement : 1 arbre.
-    expect(p.inChannel('results')).toHaveLength(1); // les 3 victoires en un message
+    // #résultats : les 3 victoires en un message, puis un récap par match.
+    expect(p.inChannel('results').map((r) => r.files?.[0].name ?? 'texte')).toEqual([
+      'texte',
+      'recap-R1-M1.png',
+      'recap-R1-M2.png',
+      'recap-R1-M3.png',
+    ]);
     expect(p.inChannel('results')[0].content.match(/🏆 Victoire de/g)).toHaveLength(3);
     expect(p.inChannel('bracket')).toHaveLength(1);
     expect(p.shots).toHaveLength(1); // une seule session du navigateur
@@ -180,7 +186,7 @@ describe('tournoi à 6 clans : exempts', () => {
 });
 
 describe('gros tournoi : 32 clans, 16 guerres qui finissent en même temps', () => {
-  it('reste sous la limite de 50 requêtes : 15 matchs par passage, le dernier 5 minutes après', async () => {
+  it('reste sous la limite de 50 requêtes : 12 matchs par passage, les 4 autres 5 minutes après', async () => {
     const bracket = await openTournament(makeClans(32));
     const game = new Game();
     const r1 = bracket.matches.filter((m) => m.round === 1);
@@ -190,13 +196,13 @@ describe('gros tournoi : 32 clans, 16 guerres qui finissent en même temps', () 
     }
 
     const first = await pass(game);
-    expect(first.report.finished).toHaveLength(15);
+    expect(first.report.finished).toHaveLength(12);
     expect(first.outgoing).toBeLessThanOrEqual(50);
-    // 1 message de victoires + 1 arbre : sous la limite, grâce au regroupement.
+    // 1 message de victoires + 12 récaps + 1 arbre : sous la limite, grâce au regroupement.
     expect(first.inChannel('bracket')).toHaveLength(1);
 
     const second = await pass(game);
-    expect(second.report.finished).toHaveLength(1);
+    expect(second.report.finished).toHaveLength(4);
     expect(second.outgoing).toBeLessThanOrEqual(50);
   });
 });

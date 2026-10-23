@@ -83,12 +83,14 @@ export interface WatchReport {
 }
 
 /**
- * Plafond de matchs regardés par passage. Chacun coûte jusqu'à 2 appels au
- * jeu, et une exécution gratuite n'a droit qu'à 50 requêtes sortantes. Avec
- * 32 clans, le premier tour a 16 matchs : ceux en trop passent 5 minutes plus
- * tard (on commence par ceux qui attendent depuis le plus longtemps).
+ * Plafond de matchs regardés par passage. Une exécution gratuite n'a droit
+ * qu'à 50 requêtes sortantes. Pire cas pour 12 matchs finis d'un coup :
+ * 24 appels au jeu (journaux privés), 1 message de victoires, 12 récaps,
+ * 1 arbre, 1 navigateur, + 2 appels pour les FW classiques = 41. Avec 32
+ * clans, les matchs en trop passent 5 minutes plus tard (les plus anciens
+ * d'abord).
  */
-const MAX_MATCHES = 15;
+const MAX_MATCHES = 12;
 
 export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
   const report: WatchReport = { checked: 0, started: [], finished: [], ties: [] };
