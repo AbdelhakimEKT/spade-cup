@@ -20,15 +20,17 @@ export type Shot =
   | { readonly kind: 'match'; readonly slug: string; readonly matchId: string };
 
 /** Ce que chaque image doit montrer, et à quelle largeur. */
-function plan(shot: Shot): { path: string; selector: string; width: number } {
+function plan(shot: Shot): { path: string; selector: string; width: number; scale: number } {
   const slug = encodeURIComponent(shot.slug);
   return shot.kind === 'bracket'
     ? // Assez large pour que les noms de clans tiennent dans les cartes de l'arbre.
-      { path: `/tournois/${slug}?capture`, selector: 'sc-tournament-page', width: 1700 }
+      // Résolution ×2 : sur téléphone, on zoome dans l'image et les noms restent nets.
+      { path: `/tournois/${slug}?capture`, selector: 'sc-tournament-page', width: 1700, scale: 2 }
     : {
         path: `/tournois/${slug}/matchs/${encodeURIComponent(shot.matchId)}?capture`,
         selector: 'sc-match-page',
         width: 1300, // les deux équipes côte à côte
+        scale: 1.5,
       };
 }
 
@@ -73,8 +75,8 @@ export async function captureScreens(
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
     const images: Uint8Array[] = [];
     for (const shot of shots) {
-      const { path, selector, width } = plan(shot);
-      await page.setViewport({ width, height: 1000, deviceScaleFactor: 1.5 });
+      const { path, selector, width, scale } = plan(shot);
+      await page.setViewport({ width, height: 1000, deviceScaleFactor: scale });
       await page.goto(`${siteUrl}${path}`, { waitUntil: 'networkidle0', timeout: 20_000 });
       await page.addStyleTag({ content: CAPTURE_CSS });
       // Le contenu est là quand le titre de la page est affiché (données chargées).

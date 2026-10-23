@@ -17,27 +17,30 @@
         <h1>{{ t.name }}</h1>
         <span class="badge">{{ badge() }}</span>
       </div>
-      <ul class="meta">
-        <li>
-          Organisé par <b>{{ t.organizer }}</b>
-        </li>
-        @if (t.referees.length) {
+      <!-- Image Discord : seulement le titre, pour que l'arbre prenne toute la place. -->
+      @if (!capture()) {
+        <ul class="meta">
           <li>
-            Arbitres : <b>{{ t.referees.join(', ') }}</b>
+            Organisé par <b>{{ t.organizer }}</b>
           </li>
-        }
-        <li>
-          <b>{{ rules.teamSize }} contre {{ rules.teamSize }}</b>
-        </li>
-        <li>
-          <b>{{ t.clans.length }} clans</b>
-        </li>
-        <li>
-          Réservé aux <b>HDV {{ rules.townHallLevel }}</b>
-        </li>
-        <li>Tirage au sort</li>
-      </ul>
-      <p class="rules-text">{{ t.rules }}</p>
+          @if (t.referees.length) {
+            <li>
+              Arbitres : <b>{{ t.referees.join(', ') }}</b>
+            </li>
+          }
+          <li>
+            <b>{{ rules.teamSize }} contre {{ rules.teamSize }}</b>
+          </li>
+          <li>
+            <b>{{ t.clans.length }} clans</b>
+          </li>
+          <li>
+            Réservé aux <b>HDV {{ rules.townHallLevel }}</b>
+          </li>
+          <li>Tirage au sort</li>
+        </ul>
+        <p class="rules-text">{{ t.rules }}</p>
+      }
     </div>
     @if (!capture()) {
       <button type="button" class="copy" (click)="copyLink()">

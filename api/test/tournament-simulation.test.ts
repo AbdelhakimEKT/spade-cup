@@ -97,22 +97,23 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     for (const m of qf) game.play(m.home!, m.away!, 'inWar', t(19), t(20));
     let p = await pass(game);
     expect(p.report.started).toEqual(['R1-M1', 'R1-M2', 'R1-M3', 'R1-M4']);
-    expect(p.posted).toHaveLength(1); // les 4 débuts regroupés en UN message
-    expect(p.posted[0].reply.content.match(/⚔️/g)).toHaveLength(4);
+    expect(p.posted).toEqual([]); // les débuts ne sont pas annoncés sur Discord
 
     // 20h00 : trois quarts sont finis, le quatrième a pris du retard.
     for (const m of qf.slice(0, 3)) game.play(m.home!, m.away!, 'warEnded', t(19), t(20));
     p = await pass(game);
     expect(p.report.finished).toEqual(['R1-M1', 'R1-M2', 'R1-M3']);
     // #résultats : les 3 victoires en un message ; #classement : 1 arbre.
-    // #résultats : les 3 victoires en un message, puis un récap par match.
-    expect(p.inChannel('results').map((r) => r.files?.[0].name ?? 'texte')).toEqual([
-      'texte',
-      'recap-R1-M1.png',
-      'recap-R1-M2.png',
-      'recap-R1-M3.png',
+    // #résultats : une victoire par message, chacune avec son récap en image.
+    expect(
+      p
+        .inChannel('results')
+        .map((r) => [r.content.startsWith('🏆 Victoire de'), r.files?.[0].name]),
+    ).toEqual([
+      [true, 'recap-R1-M1.png'],
+      [true, 'recap-R1-M2.png'],
+      [true, 'recap-R1-M3.png'],
     ]);
-    expect(p.inChannel('results')[0].content.match(/🏆 Victoire de/g)).toHaveLength(3);
     expect(p.inChannel('bracket')).toHaveLength(1);
     expect(p.shots).toHaveLength(1); // une seule session du navigateur
 
@@ -198,7 +199,7 @@ describe('gros tournoi : 32 clans, 16 guerres qui finissent en même temps', () 
     const first = await pass(game);
     expect(first.report.finished).toHaveLength(12);
     expect(first.outgoing).toBeLessThanOrEqual(50);
-    // 1 message de victoires + 12 récaps + 1 arbre : sous la limite, grâce au regroupement.
+    // 12 victoires (avec récap) + 1 arbre : sous la limite.
     expect(first.inChannel('bracket')).toHaveLength(1);
 
     const second = await pass(game);

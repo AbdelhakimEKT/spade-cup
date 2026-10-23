@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bracketFromSeeds, recordResult } from '../../src/app/core/tournament/bracket';
 import { announce, destinationFor, pack, roundsCompleted, victoryText } from '../src/announcements';
 import { CLANS, FAKE_PNG, fakeAnnouncer } from './helpers';
@@ -57,26 +57,38 @@ describe('destinationFor : chaque annonce dans son salon', () => {
 });
 
 describe('announce', () => {
-  it('un simple début : un message dans #résultats, aucune image', async () => {
+  it('un simple début de guerre : rien sur Discord (seulement « en cours » sur le site)', async () => {
     const { announcer, posted, shots } = fakeAnnouncer();
     await announce(announcer, t, four, { started: [four.matches[0]] });
-    expect(posted.map((p) => p.channel)).toEqual(['results']);
+    expect(posted).toEqual([]);
     expect(shots).toEqual([]);
   });
 
-  it('un résultat : la phrase courte, le récap en image, puis l’arbre dans #classement', async () => {
+  it('un résultat : la phrase des organisateurs AVEC le récap en image, puis l’arbre', async () => {
     const after = recordResult(four, 'R1-M1', 'home');
     const { announcer, posted } = fakeAnnouncer();
     await announce(announcer, t, after, { finished: [{ matchId: 'R1-M1' }] });
     expect(posted.map((p) => [p.channel, p.reply.content, p.reply.files?.[0].name])).toEqual([
-      ['results', `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️`, undefined],
       [
         'results',
-        `📊 **${CLANS[0].name} contre ${after.matches[0].away!.name}** · le détail joueur par joueur`,
+        `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️`,
         'recap-R1-M1.png',
       ],
       // L'autre demie reste à jouer : pas encore de « fin de tour ».
       ['bracket', '🏆 **Cup** · Demi-finales', 'arbre.png'],
+    ]);
+  });
+
+  it('navigateur en panne : la phrase part quand même, seule ; pas d’arbre', async () => {
+    const after = recordResult(four, 'R1-M1', 'home');
+    const { announcer, posted } = fakeAnnouncer({ failCapture: true });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await announce(announcer, t, after, { finished: [{ matchId: 'R1-M1' }] });
+    expect(posted).toEqual([
+      {
+        channel: 'results',
+        reply: { content: `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️` },
+      },
     ]);
   });
 });

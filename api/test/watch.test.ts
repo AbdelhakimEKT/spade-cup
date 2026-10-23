@@ -107,7 +107,7 @@ describe('runWatch', () => {
     expect((await runWatch(deps({}).watch)).checked).toBe(0);
   });
 
-  it('guerre lancée : le match passe « en cours », annoncé une seule fois dans #résultats', async () => {
+  it('guerre lancée : le match passe « en cours » sur le site, sans message Discord', async () => {
     const final = (await drawn(2)).tournament.bracket!.matches[0];
     const { watch, posted } = deps({
       [final.home!.tag]: ok(fakeWar(final.home!, final.away!, { state: 'inWar' })),
@@ -115,15 +115,7 @@ describe('runWatch', () => {
 
     expect((await runWatch(watch)).started).toEqual(['R1-M1']);
     expect((await getCurrentTournament(db()))!.tournament.bracket!.matches[0].status).toBe('live');
-    await runWatch(watch); // 5 minutes plus tard : rien de nouveau
-    expect(posted).toEqual([
-      {
-        channel: 'results',
-        reply: {
-          content: `⚔️ **${final.home!.name} contre ${final.away!.name}** a commencé (finale). Bonne guerre !`,
-        },
-      },
-    ]);
+    expect(posted).toEqual([]);
   });
 
   it('guerre terminée : victoire et récap (#résultats), puis arbre (#classement)', async () => {
@@ -138,17 +130,11 @@ describe('runWatch', () => {
     expect(championOf(t.bracket!)?.tag).toBe(final.home!.tag);
     expect((await getMatchDetail(db(), 'cup', 'R1-M1'))!.players.home).toHaveLength(5);
 
-    // Dans l'ordre : la victoire (texte), PUIS les images (récap, arbre). Si les
-    // images échouaient, la victoire serait déjà annoncée.
     expect(posted).toEqual([
       {
         channel: 'results',
-        reply: { content: `🏆 Victoire de ${final.home!.name} qui remporte Cup ! 👑` },
-      },
-      {
-        channel: 'results',
         reply: {
-          content: `📊 **${final.home!.name} contre ${final.away!.name}** · le détail joueur par joueur`,
+          content: `🏆 Victoire de ${final.home!.name} qui remporte Cup ! 👑`,
           files: [{ name: 'recap-R1-M1.png', data: FAKE_PNG }],
         },
       },
@@ -175,7 +161,7 @@ describe('runWatch', () => {
     expect(await runWatch(watch)).toMatchObject({ started: [], finished: ['R1-M1'] });
   });
 
-  it('deux résultats dans le même passage : un message de victoires, deux récaps, un seul arbre', async () => {
+  it('deux résultats dans le même passage : une victoire (avec son récap) par message, un seul arbre', async () => {
     const semis = (await drawn(4)).tournament.bracket!.matches.filter((m) => m.round === 1);
     const { watch, inChannel, shots } = deps(
       Object.fromEntries(semis.map((m) => [m.home!.tag, ok(fakeWar(m.home!, m.away!))])),
@@ -183,10 +169,14 @@ describe('runWatch', () => {
 
     expect((await runWatch(watch)).finished).toEqual(['R1-M1', 'R1-M2']);
     const results = inChannel('results');
-    expect(results[0].content.match(/qui se qualifie pour la finale ! ⚔️/g)).toHaveLength(2);
-    expect(results.slice(1).map((r) => r.files?.[0].name)).toEqual([
-      'recap-R1-M1.png',
-      'recap-R1-M2.png',
+    expect(
+      results.map((r) => [
+        r.content.endsWith('qui se qualifie pour la finale ! ⚔️'),
+        r.files?.[0].name,
+      ]),
+    ).toEqual([
+      [true, 'recap-R1-M1.png'],
+      [true, 'recap-R1-M2.png'],
     ]);
     expect(inChannel('bracket')).toHaveLength(1);
     expect(shots).toHaveLength(1);

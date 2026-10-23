@@ -1,13 +1,13 @@
 import { championOf, roundLabel, winnerOf } from '../../src/app/core/tournament/bracket';
 import type { Bracket, BracketMatch } from '../../src/app/core/tournament/models';
-import { bracketCaption, nextRoundName, versus, type Reply } from './discord/bot';
+import { bracketCaption, nextRoundName, type Reply } from './discord/bot';
 import { postAsBot, postToWebhook } from './discord/payload';
 import { captureScreens, type Shot } from './screens';
 
 /**
  * Les annonces dans les salons du Discord, chacune à sa place :
  *
- *   #résultats   ⚔️ début des guerres, 🏆 victoire (une phrase courte), 📊 récap en image
+ *   #résultats   🏆 victoire (la phrase des organisateurs + le récap en image)
  *   #classement  l'image de l'arbre à jour
  *   arbitres     ⚖️ égalité parfaite : à eux de trancher
  *
@@ -98,56 +98,49 @@ export async function announce(
   bracket: Bracket,
   outcome: Outcome,
 ): Promise<void> {
-  const { started = [], finished = [], ties = [] } = outcome;
+  // `outcome.started` n'est pas annoncé : les débuts de guerre restent sur le
+  // site (« en cours »), pas sur Discord (demande des organisateurs).
+  const { finished = [], ties = [] } = outcome;
 
-  // 1. #résultats : débuts et résultats, regroupés (Discord limite un webhook
-  //    à 5 messages toutes les 2 secondes, et le salon reste lisible).
-  const news = [
-    ...started.map(
-      (m) =>
-        `⚔️ **${versus(m)}** a commencé ` +
-        `(${roundLabel(m.round, bracket.roundCount).toLowerCase()}). Bonne guerre !`,
-    ),
-    ...finished.map((f) => victoryText(t, bracket, f.matchId)),
-  ];
-  for (const content of pack(news)) await announcer.post('results', { content });
-
-  // 2. Arbitres : le seul cas que le bot ne peut pas trancher seul. (Le format
+  // 1. Arbitres : le seul cas que le bot ne peut pas trancher seul. (Le format
   //    HDV 18 / 5 contre 5 est la responsabilité des clans : pas d'alerte.)
-  const alerts = [
-    ...ties.map(
-      (m) =>
-        `⚖️ Égalité parfaite entre **${m.home?.name}** et **${m.away?.name}** ` +
-        '(étoiles, pourcentage ET temps) : à vous de trancher avec `/arbitre vainqueur`.',
-    ),
-  ];
+  const alerts = ties.map(
+    (m) =>
+      `⚖️ Égalité parfaite entre **${m.home?.name}** et **${m.away?.name}** ` +
+      '(étoiles, pourcentage ET temps) : à vous de trancher avec `/arbitre vainqueur`.',
+  );
   for (const content of pack(alerts)) await announcer.post('referees', { content });
 
-  // 3. Les images, en une seule session du navigateur : le récap joueur par
-  //    joueur de chaque match terminé (#résultats), puis l'arbre (#classement).
+  // 2. Les victoires. Les images d'abord, en une seule session du navigateur :
+  //    le récap joueur par joueur de chaque match, puis l'arbre.
   if (finished.length === 0) return;
   const shots: Shot[] = [
     ...finished.map((f) => ({ kind: 'match' as const, slug: t.slug, matchId: f.matchId })),
     { kind: 'bracket', slug: t.slug },
   ];
-  let images: Uint8Array[];
+  let images: Uint8Array[] | null = null;
   try {
     images = await announcer.capture(shots);
   } catch (error) {
     console.error('Images impossibles', error);
-    return;
   }
+
+  // #résultats : UN message par victoire, la phrase des organisateurs avec le
+  // récap en pièce jointe. Sans image (navigateur en panne), la phrase seule.
   for (const [i, f] of finished.entries()) {
-    const match = bracket.matches.find((m) => m.id === f.matchId)!;
     await announcer.post('results', {
-      content: `📊 **${versus(match)}** · le détail joueur par joueur`,
-      files: [{ name: `recap-${f.matchId}.png`, data: images[i] }],
+      content: victoryText(t, bracket, f.matchId),
+      ...(images ? { files: [{ name: `recap-${f.matchId}.png`, data: images[i] }] } : {}),
     });
   }
-  await announcer.post('bracket', {
-    content: bracketCaption(t.name, bracket) + roundsCompleted(bracket, finished),
-    files: [{ name: 'arbre.png', data: images.at(-1)! }],
-  });
+
+  // #classement : l'arbre à jour.
+  if (images) {
+    await announcer.post('bracket', {
+      content: bracketCaption(t.name, bracket) + roundsCompleted(bracket, finished),
+      files: [{ name: 'arbre.png', data: images.at(-1)! }],
+    });
+  }
 }
 
 /**
