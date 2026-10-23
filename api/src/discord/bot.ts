@@ -26,6 +26,7 @@ import {
   addReferee,
   addRegistration,
   createTournament,
+  deleteTournament,
   getCurrentTournament,
   registeredBy,
   removeRegistration,
@@ -231,6 +232,7 @@ async function referee(
 
   const active = await getCurrentTournament(ctx.db);
   if (!active) return fail('Aucun tournoi pour le moment. Crée-en un avec `/arbitre creer`.');
+  if (sub === 'annuler') return cancel(ctx, active, String(options.get('nom') ?? ''));
   await addReferee(ctx.db, active.id, refereeName);
 
   if (sub === 'tirage') return draw(ctx, active);
@@ -313,6 +315,22 @@ async function draw(ctx: BotContext, active: StoredTournament): Promise<Reply> {
       `🎲 **Tirage de ${t.name}** : ${clans.length} clans, ` +
       `on commence par les ${roundLabel(1, bracket.roundCount).toLowerCase()}.\n` +
       `${firstRound.join('\n')}\n${tournamentUrl(ctx, t.slug)}`,
+  };
+}
+
+/**
+ * Supprime le tournoi courant (test, erreur de création…). Irréversible :
+ * il faut retaper son nom exact pour confirmer.
+ */
+async function cancel(ctx: BotContext, active: StoredTournament, typed: string): Promise<Reply> {
+  const { name } = active.tournament;
+  const same = (a: string) => a.trim().toLocaleLowerCase('fr');
+  if (same(typed) !== same(name)) {
+    fail(`Pour confirmer, retape le nom exact du tournoi : « ${name} ». Rien n'a été supprimé.`);
+  }
+  await deleteTournament(ctx.db, active.id);
+  return {
+    content: `🗑️ Le tournoi « ${name} » est supprimé, avec ses matchs et ses statistiques.`,
   };
 }
 

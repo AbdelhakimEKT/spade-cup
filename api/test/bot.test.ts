@@ -524,3 +524,41 @@ describe('statistiques après un tournoi joué', () => {
     expect(players[0].clan.tag).toBe(final.home!.tag);
   });
 });
+
+describe('/arbitre annuler', () => {
+  it('nom mal retapé : rien n’est supprimé', async () => {
+    const ctx = botContext(db());
+    await openWith(ctx, 2);
+    const reply = await runCommand(referee('annuler', { nom: 'Coupe' }), ctx);
+    expect(reply).toMatchObject({ ephemeral: true });
+    expect(reply.content).toContain("Rien n'a été supprimé");
+    expect((await active()).clans).toHaveLength(2);
+  });
+
+  it('nom exact (sans tenir compte des majuscules) : tournoi, matchs et stats supprimés', async () => {
+    const ctx = botContext(db());
+    const final = await finalOnly(ctx);
+    await runCommand(
+      referee('resultat', { match: final.id }),
+      botContext(
+        db(),
+        fakeCoc({ [final.home!.tag]: { ok: true, value: fakeWar(final.home!, final.away!) } }),
+      ),
+    );
+    expect(await listPlayers(db())).toHaveLength(10);
+
+    const reply = await runCommand(referee('annuler', { nom: "  coupe d'hiver " }), ctx);
+    expect(reply.content).toContain("« Coupe d'Hiver » est supprimé");
+    expect(await getTournament(db(), 'coupe-d-hiver')).toBeNull();
+    expect(await listPlayers(db())).toEqual([]);
+
+    // La voie est libre pour le vrai tournoi.
+    await runCommand(referee('creer', { nom: 'Le vrai' }), ctx);
+    expect((await active()).name).toBe('Le vrai');
+  });
+
+  it('sans tournoi : message clair', async () => {
+    const reply = await runCommand(referee('annuler', { nom: 'X' }), botContext(db()));
+    expect(reply.content).toContain('Aucun tournoi');
+  });
+});

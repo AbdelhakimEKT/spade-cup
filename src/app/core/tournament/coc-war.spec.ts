@@ -1,3 +1,5 @@
+import { REAL_FRIENDLY_WAR } from '../../../testing/real-friendly-war';
+import { decideWinner } from './war-result';
 import { CocWar, CocWarClan, readFriendlyWar } from './coc-war';
 import { ClanRef } from './models';
 
@@ -165,5 +167,40 @@ describe('readFriendlyWar', () => {
       reason:
         'La dernière guerre trouvée oppose Les Pikachus à Inconnus, pas Les Pikachus à Titans FR.',
     });
+  });
+});
+
+describe('readFriendlyWar sur une VRAIE réponse du jeu', () => {
+  const blue = { tag: '#2JVUP2PGC', name: 'Clan Bleu' };
+  const red = { tag: '#2CYJPRCG8', name: 'Clan Rouge' };
+
+  it('score, vainqueur et 20 joueurs, comme le jeu les affiche', () => {
+    const reading = readFriendlyWar(REAL_FRIENDLY_WAR, blue, red);
+    if (!reading.ok) throw new Error(reading.reason);
+
+    expect(reading.score.home).toEqual({ stars: 13, destruction: 53.4, totalDurationSec: 1053 });
+    expect(reading.score.away).toEqual({ stars: 11, destruction: 46.4, totalDurationSec: 1099 });
+    expect(decideWinner(reading.score.home, reading.score.away)).toBe('home');
+    expect(reading.players).toHaveLength(20);
+    // Joueurs qui n'ont pas attaqué : présents, avec 0 partout.
+    expect(reading.players.filter((p) => p.attacks === 0)).toHaveLength(6);
+  });
+
+  it('cette guerre de test n’était pas au règlement : tout est signalé', () => {
+    const reading = readFriendlyWar(REAL_FRIENDLY_WAR, blue, red);
+    if (!reading.ok) throw new Error(reading.reason);
+    expect(reading.warnings[0]).toBe('Guerre en 10 contre 10 (le règlement impose 5 contre 5).');
+    expect(reading.warnings.filter((w) => w.includes(' est HDV '))).toHaveLength(8);
+  });
+
+  it('même résultat quand on interroge le clan adverse', () => {
+    const swapped = {
+      ...REAL_FRIENDLY_WAR,
+      clan: REAL_FRIENDLY_WAR.opponent,
+      opponent: REAL_FRIENDLY_WAR.clan,
+    };
+    expect(readFriendlyWar(swapped, blue, red)).toEqual(
+      readFriendlyWar(REAL_FRIENDLY_WAR, blue, red),
+    );
   });
 });

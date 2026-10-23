@@ -100,28 +100,48 @@ Les écritures passent **uniquement** par le bot Discord (`POST /discord`).
 | `/arbitre resultat match:` | arbitres | lire le résultat dans le jeu |
 | `/arbitre score match: …` | arbitres | saisir le score à la main (secours) |
 | `/arbitre vainqueur match: clan:` | arbitres | forfait, égalité parfaite, litige |
+| `/arbitre annuler nom:` | arbitres | supprimer le tournoi courant (test, erreur) ; retaper son nom pour confirmer |
+
+**Important pour les arbitres** : l'API du jeu ne garde que la DERNIÈRE guerre
+de chaque clan. Lancer `/arbitre resultat` avant que les deux clans aient
+relancé une autre guerre (le bot essaie les deux clans).
 
 `/arbitre` est réservé par défaut à « Gérer le serveur » ; les admins peuvent
 l'ouvrir à un rôle Arbitre dans *Paramètres du serveur → Intégrations*.
 
-### Mise en route (une seule fois)
+### Mise en route (faite le 23/10/2026)
 
-1. Sur https://discord.com/developers/applications : créer une application,
-   copier sa **Public Key** dans `DISCORD_PUBLIC_KEY` (`api/wrangler.jsonc`),
-   puis `npm run deploy` dans `api/`.
-2. Dans *General Information → Interactions Endpoint URL* :
-   `https://spade-cup-api.popi-coc.workers.dev/discord` (Discord vérifie
-   l'adresse en envoyant une requête signée).
-3. Déclarer les commandes, avec le jeton du bot, **jamais écrit dans un fichier** :
+Application Discord : identifiant `1563155880034177115`. Sa clé publique est
+dans `DISCORD_PUBLIC_KEY` (`api/wrangler.jsonc`) : elle n'est pas secrète.
+
+1. Portail développeur Discord → *Informations générales* → **URL du point de
+   terminaison des interactions** : `https://spade-cup-api.popi-coc.workers.dev/discord`
+   (Discord vérifie l'adresse en envoyant une requête signée).
+2. Déclarer les commandes, **à relancer à chaque changement de
+   `src/discord/commands.ts`**, avec le jeton du bot (onglet *Bot* →
+   *Réinitialiser le token*), passé le temps de la commande et jamais écrit
+   dans un fichier :
    ```bash
-   DISCORD_APPLICATION_ID=… DISCORD_BOT_TOKEN=… npm run register:commands
+   DISCORD_APPLICATION_ID=1563155880034177115 DISCORD_BOT_TOKEN=… npm run register:commands
    ```
-4. Inviter le bot (*OAuth2 → URL Generator*, scope `applications.commands`).
-5. Clé de l'API du jeu : sur https://developer.clashofclans.com, créer une clé
-   avec l'adresse IP **45.79.218.79** (celle du relais RoyaleAPI), puis :
+   Le serveur, lui, n'a jamais besoin de ce jeton.
+3. Inviter le bot sur le serveur du tournoi :
+   https://discord.com/oauth2/authorize?client_id=1563155880034177115&scope=applications.commands
+4. Clé de l'API du jeu (compte développeur dédié à Spade Cup), créée avec
+   l'IP **45.79.218.79** (celle du relais RoyaleAPI), puis :
    ```bash
    npx wrangler secret put COC_API_TOKEN
    ```
+
+### Diagnostics
+
+- https://spade-cup-api.popi-coc.workers.dev/health?coc : `"coc":"ok"` si la
+  clé du jeu fonctionne (au plus un vrai appel toutes les 5 minutes, la clé
+  n'est jamais affichée).
+- Lire une guerre comme le bot, sans rien enregistrer :
+  ```bash
+  COC_API_TOKEN=… npm run check:war -- "#TAGDUCLAN" "#TAGADVERSE"
+  ```
 
 ## Mise en ligne automatique
 

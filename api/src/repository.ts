@@ -303,6 +303,11 @@ export async function addRegistration(
   ]);
 }
 
+/** Supprime un tournoi ; ses inscriptions, matchs et joueurs suivent en cascade. */
+export async function deleteTournament(db: D1Database, tournamentId: number): Promise<void> {
+  await run(db, [{ sql: 'DELETE FROM tournaments WHERE id = ?', params: [tournamentId] }]);
+}
+
 export async function removeRegistration(
   db: D1Database,
   tournamentId: number,

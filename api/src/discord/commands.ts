@@ -110,6 +110,19 @@ export const COMMANDS = [
         type: OptionType.Subcommand,
       },
       {
+        name: 'annuler',
+        description: 'Supprimer le tournoi en cours (test, erreur). Irréversible.',
+        type: OptionType.Subcommand,
+        options: [
+          {
+            name: 'nom',
+            description: 'Retape le nom exact du tournoi pour confirmer',
+            type: OptionType.String,
+            required: true,
+          },
+        ],
+      },
+      {
         name: 'lancer',
         description: 'Signaler qu’une guerre amicale a commencé',
         type: OptionType.Subcommand,
