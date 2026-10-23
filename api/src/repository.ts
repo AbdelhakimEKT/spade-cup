@@ -201,6 +201,37 @@ export function sqliteTime(value: string): number {
   return Date.parse(`${value.replace(' ', 'T')}Z`);
 }
 
+/** Millisecondes → « 2026-10-23 14:05:00 » (le format de CURRENT_TIMESTAMP). */
+export function toSqliteTime(ms: number): string {
+  return new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
+}
+
+type TimedMatchRow = MatchRow & { ready_at: string | null; finished_at: string | null };
+
+/**
+ * Depuis quand chaque match est jouable, pour l'arbitrage automatique.
+ *  - Premier tour : l'heure du tirage (`ready_at`).
+ *  - Tours suivants : la plus tardive des FINS de ses deux matchs d'origine
+ *    (heure de fin donnée par le jeu). Un clan qui enchaîne son match suivant
+ *    avant que le bot ait remarqué sa victoire est ainsi bien pris en compte.
+ * Pure : testable sans base.
+ */
+export function readiness(rows: readonly TimedMatchRow[]): Map<string, number> {
+  const byId = new Map(rows.map((r) => [r.match_id, r]));
+  const ready = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.home_tag || !r.away_tag) continue;
+    const feeders = [2 * r.idx - 1, 2 * r.idx].map((i) => byId.get(`R${r.round - 1}-M${i}`));
+    const ends = feeders.map((f) => (f?.finished_at ? sqliteTime(f.finished_at) : NaN));
+    if (r.round > 1 && ends.every((t) => !Number.isNaN(t))) {
+      ready.set(r.match_id, Math.max(...ends));
+    } else if (r.ready_at) {
+      ready.set(r.match_id, sqliteTime(r.ready_at));
+    }
+  }
+  return ready;
+}
+
 const TOURNAMENT_COLUMNS = 'id, slug, name, status, organizer, referees, rules, is_demo';
 
 export async function getTournament(db: D1Database, slug: string): Promise<Tournament | null> {
@@ -237,10 +268,7 @@ async function load(db: D1Database, t: TournamentRow & { id: number }): Promise<
       )
       .bind(t.id)
       .all<RegistrationRow>(),
-    db
-      .prepare('SELECT * FROM matches WHERE tournament_id = ?')
-      .bind(t.id)
-      .all<MatchRow & { ready_at: string | null }>(),
+    db.prepare('SELECT * FROM matches WHERE tournament_id = ?').bind(t.id).all<TimedMatchRow>(),
   ]);
 
   const clans = registrations.results.map(toClan);
@@ -257,11 +285,7 @@ async function load(db: D1Database, t: TournamentRow & { id: number }): Promise<
       bracket: toBracket(matches.results, clans),
       isDemo: t.is_demo === 1,
     },
-    readyAt: new Map(
-      matches.results
-        .filter((m) => m.ready_at !== null)
-        .map((m) => [m.match_id, sqliteTime(m.ready_at!)]),
-    ),
+    readyAt: readiness(matches.results),
   };
 }
 
@@ -402,6 +426,12 @@ export async function saveDraw(
       params: [i + 1, tournamentId, c.tag],
     })),
     ...bracket.matches.map((m) => upsertMatch(byId(tournamentId), m)),
+    // Un exempt est « fini » dès le tirage : son match suivant en dépend.
+    {
+      sql: `UPDATE matches SET finished_at = CURRENT_TIMESTAMP
+            WHERE tournament_id = ? AND status = 'bye'`,
+      params: [tournamentId],
+    },
     setStatus(tournamentId, 'running'),
   ]);
 }
@@ -417,14 +447,27 @@ export async function saveBracket(
   options: {
     status?: TournamentStatus;
     result?: { matchId: string; source: ResultSource; players: readonly PlayerLine[] };
+    /** Match qui vient de se terminer, et quand (fin de la guerre ; à défaut, maintenant). */
+    finished?: { matchId: string; at?: number };
   } = {},
 ): Promise<void> {
-  const { result, status } = options;
+  const { result, status, finished } = options;
   const key = byId(tournamentId);
   const match = result && bracket.matches.find((m) => m.id === result.matchId);
+  const finishedAt =
+    finished?.at !== undefined && !Number.isNaN(finished.at) ? toSqliteTime(finished.at) : null;
   await run(db, [
     ...bracket.matches.map((m) => upsertMatch(key, m)),
     ...(result && match ? resultStatements(key, match, result.source, result.players) : []),
+    ...(finished
+      ? [
+          {
+            sql: `UPDATE matches SET finished_at = COALESCE(?, CURRENT_TIMESTAMP)
+                  WHERE tournament_id = ? AND match_id = ?`,
+            params: [finishedAt, tournamentId, finished.matchId],
+          },
+        ]
+      : []),
     ...(status ? [setStatus(tournamentId, status)] : []),
   ]);
 }

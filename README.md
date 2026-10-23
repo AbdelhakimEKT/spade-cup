@@ -116,8 +116,16 @@ deux clans :
 - égalité parfaite → rien d'enregistré, alerte aux arbitres (une seule fois).
 
 Ne comptent que les guerres entre les deux clans du match, **lancées après que
-le match est devenu jouable** (`ready_at`) : une vieille guerre entre les deux
-mêmes clans n'est jamais prise. L'API du jeu ne garde que la DERNIÈRE guerre de
+le match est devenu jouable** : au premier tour, l'heure du tirage ; ensuite,
+la plus tardive des FINS (heure du jeu) de ses deux matchs d'origine. Une
+vieille guerre entre les deux mêmes clans n'est jamais prise, et un clan qui
+enchaîne son match suivant avant le passage du bot est bien pris en compte.
+
+Annonces d'un même passage regroupées (Discord limite un webhook à 5 messages
+toutes les 2 s ; un 429 est réessayé une fois), le texte AVANT l'image : si
+l'image échoue, les résultats sont déjà annoncés. Au plus 15 matchs regardés
+par passage (limite de 50 requêtes sortantes du plan gratuit) : testé sur un
+tournoi simulé de 32 clans (`test/tournament-simulation.test.ts`). L'API du jeu ne garde que la DERNIÈRE guerre de
 chaque clan : si les clans relancent une guerre dans les 5 minutes, le résultat
 se saisit à la main (`/arbitre resultat` ou `/arbitre score`).
 

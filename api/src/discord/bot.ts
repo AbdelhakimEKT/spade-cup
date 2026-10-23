@@ -9,7 +9,7 @@ import {
   startMatch,
   winnerOf,
 } from '../../../src/app/core/tournament/bracket';
-import { readFriendlyWar } from '../../../src/app/core/tournament/coc-war';
+import { cocTime, readFriendlyWar } from '../../../src/app/core/tournament/coc-war';
 import { parseDuration, slugify } from '../../../src/app/core/tournament/format';
 import type {
   Bracket,
@@ -362,13 +362,9 @@ async function bracketImage(ctx: BotContext, chosen: string | number | undefined
     );
   }
 
-  const champion = championOf(bracket);
-  const stage = champion
-    ? `👑 Victoire de **${champion.name}**`
-    : roundLabel(currentRound(bracket), bracket.roundCount);
   return {
     // Pas de lien : l'image se suffit à elle-même.
-    content: `🏆 **${t.name}** · ${stage}`,
+    content: bracketCaption(t.name, bracket),
     files: [{ name: 'arbre.png', data: png }],
   };
 }
@@ -438,6 +434,7 @@ async function readResult(
     await saveBracket(ctx.db, active.id, updated, {
       status: championOf(updated) ? 'finished' : undefined,
       result: { matchId: match.id, source: 'game', players: reading.players },
+      finished: { matchId: match.id, at: cocTime(war.value.endTime) },
     });
 
     return {
@@ -476,6 +473,7 @@ async function manualScore(
     status: championOf(updated) ? 'finished' : undefined,
     // Score saisi à la main : pas de lignes de joueurs (les anciennes sont effacées).
     result: { matchId: match.id, source: 'referee', players: [] },
+    finished: { matchId: match.id },
   });
   return { content: resultMessage(ctx.siteUrl, active.tournament, updated, match.id) };
 }
@@ -492,6 +490,7 @@ async function forceWinner(
   const updated = attempt(() => recordResult(bracket, match.id, side as Side, match.score));
   await saveBracket(ctx.db, active.id, updated, {
     status: championOf(updated) ? 'finished' : undefined,
+    finished: { matchId: match.id },
   });
   return {
     content: `🧑‍⚖️ Décision des arbitres. ${resultMessage(ctx.siteUrl, active.tournament, updated, match.id)}`,
@@ -524,9 +523,23 @@ export function resultMessage(
   const champion = championOf(bracket);
   const next = champion
     ? `👑 **${champion.name}** remporte **${t.name}** ! Bravo !`
-    : `➡️ **${winner.name}** se qualifie pour les ${roundLabel(m.round + 1, bracket.roundCount).toLowerCase()}.`;
+    : `➡️ **${winner.name}** se qualifie pour ${nextRoundName(m.round + 1, bracket.roundCount)}.`;
 
   return `${score}\n${next}\n${siteUrl}/tournois/${t.slug}/matchs/${m.id}`;
+}
+
+/** « la finale », « les demi-finales », « les quarts de finale »… */
+export function nextRoundName(round: number, roundCount: number): string {
+  return round === roundCount ? 'la finale' : `les ${roundLabel(round, roundCount).toLowerCase()}`;
+}
+
+/** Légende de l'image de l'arbre : « 🏆 Coupe · Demi-finales » ou le champion. */
+export function bracketCaption(name: string, bracket: Bracket): string {
+  const champion = championOf(bracket);
+  const stage = champion
+    ? `👑 Victoire de **${champion.name}**`
+    : roundLabel(currentRound(bracket), bracket.roundCount);
+  return `🏆 **${name}** · ${stage}`;
 }
 
 /** Les écarts au règlement, présentés aux arbitres (vide s'il n'y en a pas). */

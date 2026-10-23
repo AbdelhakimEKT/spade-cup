@@ -7,7 +7,7 @@ import type { CocResult } from '../src/coc';
 import { runCommand, type Reply } from '../src/discord/bot';
 import { getCurrentTournament, getTournament } from '../src/repository';
 import { getMatchDetail } from '../src/stats-repository';
-import { assessWar, runWatch, type WatchDeps } from '../src/watch';
+import { assessWar, pack, runWatch, type WatchDeps } from '../src/watch';
 import { CLANS, FAKE_PNG, botContext, command, fakeCoc, fakeWar, referee } from './helpers';
 
 const db = () => env.DB;
@@ -121,9 +121,14 @@ describe('runWatch', () => {
     expect(championOf(t.bracket!)?.tag).toBe(final.home!.tag);
     expect((await getMatchDetail(db(), 'cup', 'R1-M1'))!.players.home).toHaveLength(5);
 
-    expect(announced).toHaveLength(1);
+    // D'abord le résultat (texte), PUIS l'image : si l'image échouait, le résultat serait déjà parti.
+    expect(announced).toHaveLength(2);
     expect(announced[0].content).toContain(`👑 **${final.home!.name}** remporte **Cup**`);
-    expect(announced[0].files).toEqual([{ name: 'arbre.png', data: FAKE_PNG }]);
+    expect(announced[0].files).toBeUndefined();
+    expect(announced[1]).toEqual({
+      content: `🏆 **Cup** · 👑 Victoire de **${final.home!.name}**`,
+      files: [{ name: 'arbre.png', data: FAKE_PNG }],
+    });
     expect(captures).toEqual(['cup']);
   });
 
@@ -133,7 +138,7 @@ describe('runWatch', () => {
     expect(await runWatch(watch)).toMatchObject({ started: [], finished: ['R1-M1'] });
   });
 
-  it('deux résultats dans le même passage : deux annonces, une seule image (sur la dernière)', async () => {
+  it('deux résultats dans le même passage : un seul message pour les deux, puis une seule image', async () => {
     const semis = (await drawn(4)).tournament.bracket!.matches.filter((m) => m.round === 1);
     const { watch, announced, captures } = deps(
       Object.fromEntries(semis.map((m) => [m.home!.tag, ok(fakeWar(m.home!, m.away!))])),
@@ -141,6 +146,7 @@ describe('runWatch', () => {
 
     expect((await runWatch(watch)).finished).toEqual(['R1-M1', 'R1-M2']);
     expect(announced.map((a) => Boolean(a.files))).toEqual([false, true]);
+    expect(announced[0].content.match(/se qualifie pour la finale/g)).toHaveLength(2);
     expect(captures).toHaveLength(1);
     // La finale a maintenant ses deux clans : elle sera surveillée au passage suivant.
     const final = (await getCurrentTournament(db()))!.tournament.bracket!.matches[2];
@@ -213,29 +219,56 @@ describe('runWatch', () => {
   });
 });
 
-describe('« jouable depuis » (ready_at)', () => {
+describe('« jouable depuis »', () => {
   const readyOf = async (id: string) => (await getCurrentTournament(db()))!.readyAt.get(id);
+  const setFinished = (id: string, at: string) =>
+    db().prepare('UPDATE matches SET finished_at = ? WHERE match_id = ?').bind(at, id).run();
 
-  it('posé au tirage pour les matchs complets, pas pour ceux qui attendent un vainqueur', async () => {
+  it('premier tour : l’heure du tirage ; match qui attend un vainqueur : pas encore jouable', async () => {
     await drawn(4);
     expect(await readyOf('R1-M1')).toBeTypeOf('number');
     expect(await readyOf('R2-M1')).toBeUndefined();
   });
 
-  it('remis à zéro quand un clan du match change (correction du tour précédent)', async () => {
+  it('tour suivant : la plus TARDIVE des fins de ses deux matchs d’origine', async () => {
+    const t = await drawn(4);
+    const ctx = botContext(db());
+    for (const m of t.tournament.bracket!.matches.filter((x) => x.round === 1)) {
+      await runCommand(referee('vainqueur', { match: m.id, clan: 'home' }), ctx);
+    }
+    await setFinished('R1-M1', '2030-01-01 20:00:00');
+    await setFinished('R1-M2', '2030-01-01 20:40:00');
+    expect(await readyOf('R2-M1')).toBe(Date.UTC(2030, 0, 1, 20, 40));
+  });
+
+  it('un clan qui enchaîne avant que le bot ait vu sa victoire : sa nouvelle guerre compte', async () => {
+    // Demies A–D et B–C. B a gagné il y a longtemps ; A finit sa demie à 20h00,
+    // lance la finale contre B à 20h02, et le bot ne passe qu'à 20h05.
     const t = await drawn(4);
     const [semi1, semi2] = t.tournament.bracket!.matches;
-    const ctx = botContext(db());
-    await runCommand(referee('vainqueur', { match: semi1.id, clan: 'home' }), ctx);
-    await runCommand(referee('vainqueur', { match: semi2.id, clan: 'home' }), ctx);
-    // On vieillit artificiellement la date de la finale…
-    await db()
-      .prepare("UPDATE matches SET ready_at = '2020-01-01 00:00:00' WHERE match_id = 'R2-M1'")
-      .run();
-    expect(await readyOf('R2-M1')).toBe(Date.UTC(2020, 0, 1));
+    await runCommand(referee('vainqueur', { match: semi2.id, clan: 'home' }), botContext(db()));
+    const a = semi1.home!;
+    const b = semi2.home!;
 
-    // …puis on corrige une demie : l'affiche de la finale change, la date repart de maintenant.
-    await runCommand(referee('vainqueur', { match: semi1.id, clan: 'away' }), ctx);
-    expect(await readyOf('R2-M1')).toBeGreaterThan(Date.UTC(2025, 0, 1));
+    const semiWar = fakeWar(a, semi1.away!, { launchedAt: '20300101T190000.000Z' });
+    const finalWar = fakeWar(a, b, { state: 'inWar', launchedAt: '20300101T200200.000Z' });
+    // Le clan A montre déjà la finale ; son adversaire de demie montre encore la demie.
+    const { watch } = deps({
+      [a.tag]: ok(finalWar),
+      [semi1.away!.tag]: ok({ ...semiWar, endTime: '20300101T200000.000Z' }),
+    });
+
+    expect((await runWatch(watch)).finished).toEqual(['R1-M1']); // demie lue chez l'adversaire
+    expect(await readyOf('R2-M1')).toBe(Date.UTC(2030, 0, 1, 20, 0)); // fin de la demie, pas 20h05
+    expect((await runWatch(watch)).started).toEqual(['R2-M1']); // la finale de 20h02 est bien prise
+  });
+});
+
+describe('pack', () => {
+  it('regroupe les annonces sans dépasser 2 000 caractères', () => {
+    expect(pack(['a', 'b'])).toEqual(['a\n\nb']);
+    const long = 'x'.repeat(1500);
+    expect(pack([long, long, 'c'])).toEqual([long, `${long}\n\nc`]);
+    expect(pack([])).toEqual([]);
   });
 });

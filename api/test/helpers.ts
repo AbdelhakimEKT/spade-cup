@@ -40,7 +40,9 @@ export function fakeWar(
   } = {},
 ): CocWar {
   const { homeStars = [3, 3, 2, 2, 2], awayStars = [2, 2, 2, 2, 1], townHall = 18 } = options;
-  const side = (clan: ClanRef, stars: number[], prefix: string) => {
+  // Les joueurs d'un clan sont toujours les mêmes, d'une guerre à l'autre.
+  const side = (clan: ClanRef, stars: number[]) => {
+    const prefix = `${clan.tag.slice(1)}P`;
     const members: CocWarMember[] = stars.map((s, i) => ({
       tag: `#${prefix}${i + 1}`,
       name: `${clan.name} ${i + 1}`,
@@ -70,8 +72,8 @@ export function fakeWar(
     state: options.state ?? 'warEnded',
     teamSize: options.teamSize ?? 5,
     preparationStartTime: options.launchedAt ?? '20300101T120000.000Z',
-    clan: side(home, homeStars, 'H'),
-    opponent: side(away, awayStars, 'A'),
+    clan: side(home, homeStars),
+    opponent: side(away, awayStars),
   };
 }
 

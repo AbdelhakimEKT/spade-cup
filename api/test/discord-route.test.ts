@@ -2,7 +2,7 @@ import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
-import { editBody } from '../src/discord/payload';
+import { editBody, postToWebhook } from '../src/discord/payload';
 import { verifyDiscordSignature } from '../src/discord/verify';
 import { command, referee } from './helpers';
 
@@ -148,5 +148,38 @@ describe('editBody : la réponse envoyée à Discord', () => {
     expect(file.name).toBe('arbre.png');
     expect(file.type).toBe('image/png');
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(png);
+  });
+});
+
+describe('postToWebhook : annonces dans le salon', () => {
+  it('Discord demande d’attendre (429) : on patiente le temps indiqué, puis on réessaie une fois', async () => {
+    const responses = [
+      new Response(JSON.stringify({ retry_after: 1.5 }), { status: 429 }),
+      new Response('{}', { status: 200 }),
+    ];
+    const urls: string[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      urls.push(String(input));
+      return responses.shift()!;
+    });
+    const waits: number[] = [];
+
+    await postToWebhook('https://discord.test/webhook', { content: 'Résultat' }, async (ms) => {
+      waits.push(ms);
+    });
+    expect(urls).toEqual([
+      'https://discord.test/webhook?wait=true',
+      'https://discord.test/webhook?wait=true',
+    ]);
+    expect(waits).toEqual([1500]);
+  });
+
+  it('refus définitif : une seule tentative, sans planter', async () => {
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('nope', { status: 404 }));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await postToWebhook('https://discord.test/webhook', { content: 'x' }, async () => {});
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

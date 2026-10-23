@@ -51,9 +51,22 @@ export function editBody(reply: Reply): { body: BodyInit; headers?: Record<strin
  * `?wait=true` : Discord répond seulement une fois le message publié, ce qui
  * permet de détecter une erreur.
  */
-export async function postToWebhook(webhookUrl: string, reply: Reply): Promise<void> {
-  const response = await fetch(`${webhookUrl}?wait=true`, { method: 'POST', ...editBody(reply) });
-  if (!response.ok) {
+export async function postToWebhook(
+  webhookUrl: string,
+  reply: Reply,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    // Corps reconstruit à chaque essai : un formulaire ne s'envoie qu'une fois.
+    const response = await fetch(`${webhookUrl}?wait=true`, { method: 'POST', ...editBody(reply) });
+    if (response.ok) return;
+    // 429 = « trop de messages, réessaie dans X secondes » : on patiente une fois.
+    if (response.status === 429 && attempt === 1) {
+      const body = (await response.json().catch(() => ({}))) as { retry_after?: number };
+      await wait(Math.min((body.retry_after ?? 1) * 1000, 10_000));
+      continue;
+    }
     console.error('Annonce refusée par Discord', response.status, await response.text());
+    return;
   }
 }

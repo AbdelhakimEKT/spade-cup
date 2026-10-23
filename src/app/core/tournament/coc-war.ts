@@ -45,6 +45,8 @@ export interface CocWar {
   /** Lancement de la guerre, au format du jeu : « 20261020T191758.000Z ». */
   readonly preparationStartTime?: string;
   readonly startTime?: string;
+  /** Fin de la guerre (prévue tant qu'elle se joue, réelle une fois terminée). */
+  readonly endTime?: string;
   readonly clan?: CocWarClan;
   readonly opponent?: CocWarClan;
 }

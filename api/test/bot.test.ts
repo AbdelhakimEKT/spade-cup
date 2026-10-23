@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { championOf } from '../../src/app/core/tournament/bracket';
 import type { Tournament } from '../../src/app/core/tournament/tournament';
 import type { CocClient } from '../src/coc';
-import { autocomplete, needsDefer, runCommand, type BotContext } from '../src/discord/bot';
+import {
+  autocomplete,
+  needsDefer,
+  nextRoundName,
+  runCommand,
+  type BotContext,
+} from '../src/discord/bot';
 import { getCurrentTournament, getTournament, saveTournament } from '../src/repository';
 import { DEMO_TOURNAMENT } from '../../src/app/features/tournaments/data/demo-tournament';
 import { getMatchDetail, listPlayers } from '../src/stats-repository';
@@ -635,5 +641,13 @@ describe('/arbitre arbre', () => {
 
   it('commande différée : le navigateur prend plusieurs secondes', () => {
     expect(needsDefer(referee('arbre'))).toBe(true);
+  });
+});
+
+describe('nextRoundName', () => {
+  it('accorde correctement le tour suivant', () => {
+    expect(nextRoundName(4, 4)).toBe('la finale');
+    expect(nextRoundName(3, 4)).toBe('les demi-finales');
+    expect(nextRoundName(2, 4)).toBe('les quarts de finale');
   });
 });

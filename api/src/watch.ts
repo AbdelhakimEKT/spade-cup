@@ -13,7 +13,7 @@ import {
 import type { BracketMatch } from '../../src/app/core/tournament/models';
 import { decideWinner } from '../../src/app/core/tournament/war-result';
 import type { CocClient } from './coc';
-import { resultMessage, versus, warningsText, type Reply } from './discord/bot';
+import { bracketCaption, resultMessage, versus, warningsText, type Reply } from './discord/bot';
 import { getCurrentTournament, markAnnounced, saveBracket } from './repository';
 
 /**
@@ -38,6 +38,8 @@ export type Assessment =
   | {
       readonly kind: 'ended';
       readonly warKey: string;
+      /** Fin de la guerre selon le jeu (ms), `NaN` si inconnue. */
+      readonly endedAt: number;
       readonly reading: Extract<WarReading, { ok: true }>;
     };
 
@@ -62,7 +64,9 @@ export function assessWar(war: CocWar, match: BracketMatch, readySince: number):
 
   if (war.state !== 'warEnded') return { kind: 'started', warKey };
   const reading = readFriendlyWar(war, home, away);
-  return reading.ok ? { kind: 'ended', warKey, reading } : { kind: 'nothing' };
+  return reading.ok
+    ? { kind: 'ended', warKey, endedAt: cocTime(war.endTime), reading }
+    : { kind: 'nothing' };
 }
 
 // ------------------------------------------------------------ surveillance
@@ -144,6 +148,7 @@ export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
       await saveBracket(deps.db, id, bracket, {
         status: championOf(bracket) ? 'finished' : undefined,
         result: { matchId: match.id, source: 'game', players },
+        finished: { matchId: match.id, at: assessment.endedAt },
       });
       report.finished.push(match.id);
       messages.push({
@@ -154,20 +159,42 @@ export async function runWatch(deps: WatchDeps): Promise<WatchReport> {
   }
 
   if (deps.announce) {
-    // Une seule image par passage, jointe à la dernière annonce de résultat :
-    // l'arbre est alors à jour de TOUS les résultats du passage.
+    // 1. Le texte D'ABORD : si l'image échoue (ou si l'exécution est coupée
+    //    pendant la capture), les résultats sont quand même annoncés. Au
+    //    passage suivant, ces matchs sont joués : ce serait trop tard.
+    //    Les annonces sont regroupées : Discord limite chaque webhook à
+    //    5 messages toutes les 2 secondes, et le salon reste lisible.
+    for (const content of pack(messages.map((m) => m.content))) {
+      await deps.announce({ content });
+    }
+    // 2. Puis UNE image de l'arbre, à jour de tous les résultats du passage.
     if (report.finished.length) {
-      const last = messages.findLastIndex((m) => !m.content.startsWith('⚔️'));
       try {
         const png = await deps.captureBracket(tournament.slug);
-        messages[last] = { ...messages[last], files: [{ name: 'arbre.png', data: png }] };
+        await deps.announce({
+          content: bracketCaption(tournament.name, bracket),
+          files: [{ name: 'arbre.png', data: png }],
+        });
       } catch (error) {
         console.error('Image de l’arbre impossible', error);
       }
     }
-    for (const message of messages) await deps.announce(message);
   }
   return report;
+}
+
+/** Regroupe des annonces en messages de 2 000 caractères au plus (limite de Discord). */
+export function pack(contents: readonly string[], limit = 2000): string[] {
+  const packed: string[] = [];
+  for (const content of contents) {
+    const last = packed.at(-1);
+    if (last !== undefined && last.length + 2 + content.length <= limit) {
+      packed[packed.length - 1] = `${last}\n\n${content}`;
+    } else {
+      packed.push(content.slice(0, limit));
+    }
+  }
+  return packed;
 }
 
 /**
