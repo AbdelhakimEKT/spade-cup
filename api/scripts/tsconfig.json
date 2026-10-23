@@ -3,6 +3,16 @@
   // ils ont besoin des types de Node (process, etc.).
   "extends": "../tsconfig.json",
   "compilerOptions": { "types": ["node"] },
-  "include": [".", "../src", "../../src/app/core/tournament/*.ts", "../../src/app/features/tournaments/data/*.ts", "../worker-configuration.d.ts"],
+  // Liste précise des fichiers du site : surtout pas le service Angular du même
+  // dossier, qui a besoin d'Angular (absent du serveur, notamment en CI).
+  "include": [
+    ".",
+    "../src",
+    "../worker-configuration.d.ts",
+    "../../src/app/core/tournament/*.ts",
+    "../../src/app/features/tournaments/data/demo-tournament.ts",
+    "../../src/app/features/tournaments/data/demo-players.ts",
+    "../../src/app/features/tournaments/data/tournament.ts"
+  ],
   "exclude": ["../../src/**/*.spec.ts"]
 }
