@@ -13,5 +13,6 @@ beforeEach(async () => {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM tournaments'),
     env.DB.prepare('DELETE FROM friendly_wars'),
+    env.DB.prepare('DELETE FROM live_cache'),
   ]);
 });

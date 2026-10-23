@@ -204,6 +204,15 @@ suivies à chaque passage (`src/fw-tracker.ts`) : aucune annonce, seulement
 les stats des joueurs, dans un classement séparé (`/joueurs?type=fw` sur le
 site, `GET /fw/players` et `GET /fw/wars` sur l'API).
 
+### En direct
+
+La page `/direct` du site montre les guerres en train de se jouer (matchs de
+Spade Cup « en cours » et FW classique) : score, attaques faites, joueur par
+joueur, compte à rebours. Elle se recharge toute seule toutes les 30 s. Côté
+serveur (`GET /live`, `src/live.ts`), la réponse du jeu est gardée 30 s par
+clan (table `live_cache`) : le jeu n'est jamais interrogé plus souvent, quel
+que soit le nombre de spectateurs.
+
 ### Image de l'arbre
 
 `/arbitre arbre` fait ouvrir la page du tournoi (`?capture`) par un vrai

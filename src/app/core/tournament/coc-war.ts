@@ -42,6 +42,7 @@ export interface CocWarClan {
 export interface CocWar {
   readonly state: 'notInWar' | 'preparation' | 'inWar' | 'warEnded';
   readonly teamSize?: number;
+  readonly attacksPerMember?: number;
   /** Lancement de la guerre, au format du jeu : « 20261020T191758.000Z ». */
   readonly preparationStartTime?: string;
   readonly startTime?: string;
@@ -92,6 +93,22 @@ const STATE_LABEL: Record<CocWar['state'], string> = {
  * servi à interroger le jeu : chaque camp est retrouvé par son tag.
  */
 export function readFriendlyWar(war: CocWar, home: ClanRef, away: ClanRef): WarReading {
+  const snapshot = readWarSnapshot(war, home, away);
+  if (!snapshot.ok) return snapshot;
+  if (war.state !== 'warEnded') {
+    return {
+      ok: false,
+      reason: `La guerre n'est pas finie (${STATE_LABEL[war.state]}). Relance la commande à la fin.`,
+    };
+  }
+  return snapshot;
+}
+
+/**
+ * La guerre telle qu'elle est À CET INSTANT, finie ou non : score actuel et
+ * attaques déjà faites. C'est ce qu'affiche la page « En direct ».
+ */
+export function readWarSnapshot(war: CocWar, home: ClanRef, away: ClanRef): WarReading {
   if (war.state === 'notInWar' || !war.clan || !war.opponent) {
     return { ok: false, reason: `Le jeu n'indique aucune guerre récente pour ${home.name}.` };
   }
@@ -106,13 +123,6 @@ export function readFriendlyWar(war: CocWar, home: ClanRef, away: ClanRef): WarR
     return {
       ok: false,
       reason: `La dernière guerre trouvée oppose ${war.clan.name} à ${war.opponent.name}, pas ${home.name} à ${away.name}.`,
-    };
-  }
-
-  if (war.state !== 'warEnded') {
-    return {
-      ok: false,
-      reason: `La guerre n'est pas finie (${STATE_LABEL[war.state]}). Relance la commande à la fin.`,
     };
   }
 

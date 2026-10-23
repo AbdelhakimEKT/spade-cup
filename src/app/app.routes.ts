@@ -69,6 +69,11 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'direct',
+    title: 'En direct',
+    loadComponent: () => import('./features/live/live-page/live-page').then((m) => m.LivePage),
+  },
+  {
     path: 'a-propos',
     title: 'Comment ça marche',
     loadComponent: () => import('./features/about/about-page/about-page').then((m) => m.AboutPage),

@@ -60,6 +60,7 @@ describe('MatchPage', () => {
     const { el, reply } = await open('R2-M1');
     await reply('/tournaments/demo/matches/R2-M1', matchDetail('R2-M1'));
     expect(el.querySelector('.verdict--live')?.textContent).toContain('Guerre amicale en cours');
+    expect(el.querySelector('a[href="/direct"]')?.textContent).toContain('Suivre en direct');
     expect(el.querySelector('.team__score')).toBeNull();
     expect(el.querySelector('.lineups')).toBeNull();
   });

@@ -19,6 +19,8 @@
 }
 
 .brand {
+  // Le logo ne rétrécit jamais, même quand le menu manque de place.
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -61,6 +63,27 @@
   }
 }
 
+.nav__link--live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// Point rouge qui pulse : « il se passe quelque chose en direct ».
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4d6d;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
 .nav__link--active {
   color: var(--color-text);
   box-shadow: inset 0 -2px 0 var(--color-accent-strong);
@@ -99,8 +122,26 @@
     gap: 0;
   }
 
+  .header__inner {
+    gap: var(--space-2);
+  }
+
   .nav__link {
-    padding-inline: var(--space-2);
-    font-size: 0.95rem;
+    padding-inline: 5px;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+// Très petits téléphones (iPhone SE de 1re génération…).
+@media (max-width: 359px) {
+  .nav__link {
+    padding-inline: 3px;
+    font-size: 0.78rem;
+  }
+
+  .theme-toggle {
+    width: 32px;
+    height: 32px;
   }
 }

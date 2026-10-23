@@ -12,6 +12,7 @@ import {
   listPlayers,
 } from './stats-repository';
 import { fwClans, trackFriendlyWars } from './fw-tracker';
+import { getLiveWars } from './live';
 import { runWatch, type WatchDeps } from './watch';
 
 /**
@@ -26,6 +27,7 @@ import { runWatch, type WatchDeps } from './watch';
  *   GET /players/:tag                          fiche d'un joueur (tag sans « # »)
  *   GET /clans/:tag                            fiche d'un clan (tag sans « # »)
  *   GET /fw/players · GET /fw/wars             FW classiques : classement, dernières guerres
+ *   GET /live                                  guerres en train de se jouer (en direct)
  *
  * Écritures : uniquement par le bot Discord (POST /discord, requêtes signées).
  */
@@ -134,6 +136,17 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
       200,
       SHORT_CACHE,
     );
+  }
+  // Les guerres en train de se jouer (page « En direct »). Jamais mis en cache
+  // par le navigateur : la mémoire de 30 secondes est côté serveur.
+  if (pathname === '/live') {
+    const wars = await getLiveWars({
+      db: env.DB,
+      coc: createCocClient(env),
+      fwClans: fwClans(env.FW_CLANS),
+      now: Date.now(),
+    });
+    return json(wars, 200, { 'Cache-Control': 'no-store' });
   }
   // FW classiques (hors tournoi) : classement et dernières guerres.
   if (pathname === '/fw/players') {

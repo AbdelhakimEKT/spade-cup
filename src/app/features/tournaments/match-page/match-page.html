@@ -55,6 +55,9 @@
 
   <p class="verdict" [class.verdict--live]="d.match.status === 'live'">
     {{ verdict() }}
+    @if (d.match.status === 'live' && !capture()) {
+      <a routerLink="/direct">Suivre en direct →</a>
+    }
     @if (d.source === 'game') {
       <span class="muted">Résultat lu directement dans le jeu.</span>
     } @else if (d.source === 'referee') {

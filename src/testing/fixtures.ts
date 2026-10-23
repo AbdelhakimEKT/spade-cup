@@ -5,6 +5,7 @@ import {
   PlayerProfile,
   PlayerTotals,
 } from '../app/core/tournament/stats';
+import { LiveWar } from '../app/core/tournament/live';
 import { DEMO_MATCH_PLAYERS } from '../app/features/tournaments/data/demo-players';
 import { DEMO_TOURNAMENT } from '../app/features/tournaments/data/demo-tournament';
 
@@ -129,5 +130,42 @@ export function clanProfile(): ClanProfile {
     ],
     record: { played: 1, won: 1, lost: 0 },
     players: [player(1, { stars: 3, triples: 1 }), player(2)],
+  };
+}
+
+/** Une FW classique en cours : FW-team2 mène 7★ à 5★, fin dans 10 minutes. */
+export function liveWar(now = Date.now(), overrides: Partial<LiveWar> = {}): LiveWar {
+  const lines = DEMO_MATCH_PLAYERS.get('R1-M1')!;
+  return {
+    id: 'fw/1',
+    kind: 'fw',
+    state: 'inWar',
+    startTime: new Date(now - 5 * 60_000).toISOString(),
+    endTime: new Date(now + 10 * 60_000).toISOString(),
+    teamSize: 5,
+    home: {
+      tag: '#2JVUP2PGC',
+      name: 'FW-team2',
+      stars: 7,
+      destruction: 61.2,
+      attacksUsed: 3,
+      attacksTotal: 5,
+    },
+    away: {
+      tag: '#2CYJPRCG8',
+      name: 'FW-team1',
+      stars: 5,
+      destruction: 48,
+      attacksUsed: 3,
+      attacksTotal: 5,
+    },
+    players: {
+      home: lines.filter((l) => l.side === 'home'),
+      away: lines
+        .filter((l) => l.side === 'away')
+        .map((l, i) => (i < 2 ? { ...l, attacks: 0, stars: 0, destruction: 0 } : l)),
+    },
+    fetchedAt: new Date(now).toISOString(),
+    ...overrides,
   };
 }

@@ -1,4 +1,5 @@
 import { Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { BracketMatch } from '../../../core/tournament/models';
 import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
 
@@ -7,7 +8,7 @@ import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
  */
 @Component({
   selector: 'sc-featured-match',
-  imports: [ClanAvatar],
+  imports: [ClanAvatar, RouterLink],
   template: `
     <section class="featured" aria-labelledby="featured-title">
       <h2 id="featured-title" class="visually-hidden">Match en cours</h2>
@@ -34,6 +35,7 @@ import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
           ><span class="live__dot" aria-hidden="true"></span>Guerre amicale en train de se
           jouer</span
         >
+        <a class="follow" routerLink="/direct">Suivre en direct →</a>
       </div>
     </section>
   `,

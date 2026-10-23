@@ -1,0 +1,103 @@
+<header class="page-head">
+  <p class="eyebrow"><span class="dot" aria-hidden="true"></span> En direct</p>
+  <h1 class="page-title">Guerres en cours</h1>
+  <p class="lead">
+    Matchs de Spade Cup et FW classiques, tels que le jeu les voit. La page se met à jour toute
+    seule toutes les 30 secondes.
+  </p>
+</header>
+
+@if (wars(); as list) {
+  @for (war of list; track war.id) {
+    <article class="war" [class.war--ended]="war.state === 'warEnded'">
+      <header class="war__head">
+        @if (war.match; as m) {
+          <a class="chip" [routerLink]="['/tournois', m.slug, 'matchs', m.matchId]"
+            >{{ m.tournament }} · {{ m.round }}</a
+          >
+        } @else {
+          <span class="chip chip--muted">FW classique</span>
+        }
+        <span class="status" [class.status--live]="war.state === 'inWar'">{{ status(war) }}</span>
+      </header>
+
+      <div class="score">
+        @for (side of ['home', 'away']; track side) {
+          @let s = side === 'home' ? war.home : war.away;
+          <div
+            class="side"
+            [class.side--lead]="leader(war) === side"
+            [class.side--away]="side === 'away'"
+          >
+            <sc-clan-avatar [clan]="s" size="lg" />
+            <p class="side__name">{{ s.name }}</p>
+            <p class="side__stars"><span class="star" aria-hidden="true">★</span> {{ s.stars }}</p>
+            <p class="muted">
+              {{ s.destruction | number: '1.1-1' }} % · {{ s.attacksUsed }}/{{
+                s.attacksTotal
+              }}
+              attaques
+            </p>
+          </div>
+          @if (side === 'home') {
+            <p class="vs" aria-hidden="true">VS</p>
+          }
+        }
+      </div>
+
+      <div class="lineups">
+        @for (side of ['home', 'away']; track side) {
+          @let s = side === 'home' ? war.home : war.away;
+          @let lines = side === 'home' ? war.players.home : war.players.away;
+          <div class="table-wrap">
+            <table class="data-table">
+              <caption class="visually-hidden">
+                Joueurs de
+                {{
+                  s.name
+                }}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Pos.</th>
+                  <th scope="col" class="cell-text">{{ s.name }}</th>
+                  <th scope="col">HDV</th>
+                  <th scope="col">Étoiles</th>
+                  <th scope="col">Destr.</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of lines; track p.tag) {
+                  <tr [class.waiting]="!p.attacks">
+                    <td class="muted">{{ p.mapPosition }}</td>
+                    <td class="cell-text">
+                      <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
+                    </td>
+                    <td>{{ p.townHall }}</td>
+                    <td>
+                      @if (p.attacks) {
+                        <span class="star" aria-hidden="true">★</span> {{ p.stars }}
+                      } @else {
+                        <span class="muted">pas encore attaqué</span>
+                      }
+                    </td>
+                    <td>{{ p.attacks ? (p.destruction | number: '1.1-1') + ' %' : '–' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <p class="updated muted">Vu dans le jeu à {{ war.fetchedAt | date: 'HH:mm:ss' }}</p>
+    </article>
+  } @empty {
+    <div class="panel empty">
+      <p>Aucune guerre en cours pour l'instant.</p>
+      <p class="muted">Cette page se met à jour toute seule : laisse-la ouverte.</p>
+    </div>
+  }
+} @else {
+  <sc-request-state [resource]="request" />
+}

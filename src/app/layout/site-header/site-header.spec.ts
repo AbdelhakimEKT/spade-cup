@@ -11,7 +11,7 @@ describe('SiteHeader', () => {
     });
   });
 
-  it('propose les liens vers les tournois, les joueurs et les règles', async () => {
+  it('propose les liens vers le direct, les tournois, les joueurs et les règles', async () => {
     const fixture = TestBed.createComponent(SiteHeader);
     await fixture.whenStable();
     const nav = (fixture.nativeElement as HTMLElement).querySelector('nav')!;
@@ -21,6 +21,7 @@ describe('SiteHeader', () => {
     ]);
 
     expect(links).toEqual([
+      ['/direct', 'Direct'],
       ['/tournois', 'Tournois'],
       ['/joueurs', 'Joueurs'],
       ['/a-propos', 'Règles'],
