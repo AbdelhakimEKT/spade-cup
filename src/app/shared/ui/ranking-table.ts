@@ -35,7 +35,6 @@ const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
         </caption>
         <thead>
           <tr>
-            <th scope="col">#</th>
             <th scope="col" class="cell-text pinned">Joueur</th>
             @if (showClan()) {
               <th scope="col" class="cell-text">Clan</th>
@@ -56,10 +55,16 @@ const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
           </tr>
         </thead>
         <tbody>
-          @for (p of sorted(); track p.tag; let i = $index) {
+          @for (row of ranked(); track row.player.tag) {
+            @let p = row.player;
             <tr>
-              <td class="muted">{{ i + 1 }}</td>
+              <!-- Le rang juste à gauche du nom : il reste visible quand on fait
+                   défiler le tableau sur téléphone (cellule épinglée). -->
               <td class="cell-text pinned">
+                <span class="rank" [class.rank--podium]="row.rank <= 3">
+                  {{ medal(row.rank)
+                  }}<span [class.visually-hidden]="row.rank <= 3">{{ row.rank }}</span>
+                </span>
                 <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
               </td>
               @if (showClan()) {
@@ -110,6 +115,18 @@ const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
       background: var(--color-panel-2);
     }
 
+    .rank {
+      display: inline-block;
+      min-width: 2.2em;
+      color: var(--color-text);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rank--podium {
+      font-size: 1.15em;
+    }
+
     .data-table a.clan {
       color: var(--color-muted);
       font-weight: 400;
@@ -128,18 +145,30 @@ export class RankingTable {
     COLUMNS.find((c) => c.key === this.sort())!.title.toLowerCase(),
   );
 
-  protected readonly sorted = computed(() => {
+  /**
+   * Les joueurs triés, avec leur rang. À égalité sur la colonne choisie : le
+   * plus d'étoiles, puis la meilleure destruction, puis le moins de guerres
+   * (plus efficace). Égalité parfaite sur tout ça : même rang (1, 1, 3…), et
+   * l'ordre alphabétique ne sert qu'à l'affichage, jamais au classement.
+   */
+  protected readonly ranked = computed(() => {
     const key = this.sort();
     const value = (p: PlayerTotals) => (key === 'average' ? this.average(p) : p[key]);
-    // À égalité : le plus d'étoiles, puis le moins de guerres (plus efficace), puis le nom.
-    return [...this.players()].sort(
-      (a, b) =>
-        value(b) - value(a) ||
-        b.stars - a.stars ||
-        a.wars - b.wars ||
-        a.name.localeCompare(b.name, 'fr'),
+    const merit = (a: PlayerTotals, b: PlayerTotals) =>
+      value(b) - value(a) || b.stars - a.stars || b.destruction - a.destruction || a.wars - b.wars;
+    const sorted = [...this.players()].sort(
+      (a, b) => merit(a, b) || a.name.localeCompare(b.name, 'fr'),
     );
+    let rank = 0;
+    return sorted.map((player, i) => {
+      if (i === 0 || merit(sorted[i - 1], player) !== 0) rank = i + 1;
+      return { player, rank };
+    });
   });
+
+  protected medal(rank: number): string {
+    return ['🥇', '🥈', '🥉'][rank - 1] ?? '';
+  }
 
   protected average(p: PlayerTotals): number {
     return starsPerAttack(p.stars, p.attacks);

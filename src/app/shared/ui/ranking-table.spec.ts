@@ -16,14 +16,16 @@ async function render(players: PlayerTotals[], showClan = true) {
   await fixture.whenStable();
   const el = fixture.nativeElement as HTMLElement;
   const names = () =>
-    [...el.querySelectorAll('tbody tr')].map((r) => r.children[1].textContent?.trim());
+    [...el.querySelectorAll('tbody tr a[href^="/joueurs/"]')].map((a) => a.textContent?.trim());
+  const ranks = () =>
+    [...el.querySelectorAll('tbody .rank')].map((r) => r.textContent?.replace(/\s+/g, ''));
   const sortBy = async (label: string) => {
     [...el.querySelectorAll<HTMLButtonElement>('button.sort')]
       .find((b) => b.textContent?.trim() === label)!
       .click();
     await fixture.whenStable();
   };
-  return { el, names, sortBy };
+  return { el, names, ranks, sortBy };
 }
 
 const PLAYERS = [
@@ -63,5 +65,35 @@ describe('RankingTable', () => {
   it('colonne « Clan » masquable', async () => {
     const { el } = await render(PLAYERS, false);
     expect(el.querySelector('thead')?.textContent).not.toContain('Clan');
+  });
+
+  it('le rang à gauche du nom : médailles pour le podium, puis 4, 5…', async () => {
+    const five = [
+      ...PLAYERS,
+      player(4, { name: 'Ace', stars: 1, destruction: 50 }),
+      player(5, { name: 'Bolt', stars: 0, destruction: 0 }),
+    ];
+    const { ranks, names } = await render(five);
+    expect(names()).toEqual(['Zen', 'Volt', 'Nyx', 'Ace', 'Bolt']);
+    expect(ranks()).toEqual(['🥇1', '🥈2', '🥉3', '4', '5']);
+  });
+
+  it('à égalité d’étoiles, la destruction départage ; jamais l’ordre alphabétique', async () => {
+    const tied = [
+      player(1, { name: 'Maxou', stars: 2, destruction: 73 }),
+      player(2, { name: 'Syfy', stars: 2, destruction: 77 }),
+    ];
+    const { names } = await render(tied);
+    expect(names()).toEqual(['Syfy', 'Maxou']);
+  });
+
+  it('égalité parfaite : même rang (1, 1, 3)', async () => {
+    const same = { stars: 2, destruction: 80, wars: 1, attacks: 1 };
+    const { ranks } = await render([
+      player(1, { name: 'B', ...same }),
+      player(2, { name: 'A', ...same }),
+      player(3, { name: 'C', stars: 1 }),
+    ]);
+    expect(ranks()).toEqual(['🥇1', '🥇1', '🥉3']);
   });
 });
