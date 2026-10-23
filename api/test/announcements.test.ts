@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { bracketFromSeeds, recordResult } from '../../src/app/core/tournament/bracket';
-import { announce, destinationFor, pack, roundsCompleted, victoryText } from '../src/announcements';
+import { announce, destinationFor, pack, victoryText } from '../src/announcements';
 import { CLANS, FAKE_PNG, fakeAnnouncer } from './helpers';
 
 /** Un tournoi de 4 clans : deux demies, puis la finale. */
@@ -71,11 +71,10 @@ describe('announce', () => {
     expect(posted.map((p) => [p.channel, p.reply.content, p.reply.files?.[0].name])).toEqual([
       [
         'results',
-        `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️`,
+        `🏆 Victoire de **${CLANS[0].name}** qui se qualifie pour la finale ! ⚔️`,
         'recap-R1-M1.png',
       ],
-      // L'autre demie reste à jouer : pas encore de « fin de tour ».
-      ['bracket', '🏆 **Cup** · Demi-finales', 'arbre.png'],
+      ['bracket', '', 'arbre.png'], // juste l'arbre, sans texte
     ]);
   });
 
@@ -87,7 +86,9 @@ describe('announce', () => {
     expect(posted).toEqual([
       {
         channel: 'results',
-        reply: { content: `🏆 Victoire de ${CLANS[0].name} qui se qualifie pour la finale ! ⚔️` },
+        reply: {
+          content: `🏆 Victoire de **${CLANS[0].name}** qui se qualifie pour la finale ! ⚔️`,
+        },
       },
     ]);
   });
@@ -97,7 +98,7 @@ describe('victoryText : la phrase demandée par les organisateurs', () => {
   it('qualification pour le tour suivant', () => {
     const after = recordResult(four, 'R1-M2', 'away');
     expect(victoryText(t, after, 'R1-M2')).toBe(
-      `🏆 Victoire de ${after.matches[1].away!.name} qui se qualifie pour la finale ! ⚔️`,
+      `🏆 Victoire de **${after.matches[1].away!.name}** qui se qualifie pour la finale ! ⚔️`,
     );
   });
 
@@ -106,35 +107,8 @@ describe('victoryText : la phrase demandée par les organisateurs', () => {
     b = recordResult(b, 'R1-M2', 'home');
     b = recordResult(b, 'R2-M1', 'away');
     expect(victoryText(t, b, 'R2-M1')).toBe(
-      `🏆 Victoire de ${b.matches[2].away!.name} qui remporte Cup ! 👑`,
+      `🏆 Victoire de **${b.matches[2].away!.name}** qui remporte Cup ! 👑`,
     );
-  });
-});
-
-describe('roundsCompleted : fin d’un tour', () => {
-  const eight = bracketFromSeeds([
-    ...CLANS,
-    ...CLANS.slice(0, 3).map((c) => ({ ...c, tag: `${c.tag}2` })),
-  ]);
-  const allQuarters = ['R1-M1', 'R1-M2', 'R1-M3', 'R1-M4'];
-  const played = (ids: string[]) => ids.reduce((b, id) => recordResult(b, id, 'home'), eight);
-
-  it('tant qu’un match du tour reste à jouer : rien', () => {
-    expect(roundsCompleted(played(allQuarters.slice(0, 3)), [{ matchId: 'R1-M3' }])).toBe('');
-  });
-
-  it('le dernier quart vient de finir : place aux demi-finales', () => {
-    expect(roundsCompleted(played(allQuarters), [{ matchId: 'R1-M4' }])).toBe(
-      '\n✅ Les quarts de finale sont terminés : place aux demi-finales !',
-    );
-  });
-
-  it('les demies finies : place à la finale ; la finale elle-même : rien (le champion est annoncé)', () => {
-    const semis = recordResult(recordResult(played(allQuarters), 'R2-M1', 'home'), 'R2-M2', 'home');
-    expect(roundsCompleted(semis, [{ matchId: 'R2-M2' }])).toBe(
-      '\n✅ Les demi-finales sont terminées : place à la finale !',
-    );
-    expect(roundsCompleted(recordResult(semis, 'R3-M1', 'home'), [{ matchId: 'R3-M1' }])).toBe('');
   });
 });
 

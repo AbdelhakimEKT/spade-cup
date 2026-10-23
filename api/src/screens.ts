@@ -19,16 +19,33 @@ export type Shot =
   | { readonly kind: 'bracket'; readonly slug: string }
   | { readonly kind: 'match'; readonly slug: string; readonly matchId: string };
 
-/** Ce que chaque image doit montrer, et à quelle largeur. */
-function plan(shot: Shot): { path: string; selector: string; width: number; scale: number } {
+/**
+ * Ce que chaque image doit montrer : l'élément photographié, celui dont on
+ * attend l'apparition (données chargées), la largeur et la résolution.
+ */
+function plan(shot: Shot): {
+  path: string;
+  selector: string;
+  ready: string;
+  width: number;
+  scale: number;
+} {
   const slug = encodeURIComponent(shot.slug);
   return shot.kind === 'bracket'
-    ? // Assez large pour que les noms de clans tiennent dans les cartes de l'arbre.
-      // Résolution ×2 : sur téléphone, on zoome dans l'image et les noms restent nets.
-      { path: `/tournois/${slug}?capture`, selector: 'sc-tournament-page', width: 1700, scale: 2 }
+    ? {
+        path: `/tournois/${slug}?capture`,
+        // Seulement l'arbre : ni titre, ni bandeau, ni adresse du site.
+        selector: 'sc-bracket-view .panel',
+        ready: 'sc-bracket-view .panel',
+        // Assez large pour que les noms de clans tiennent dans les cartes ;
+        // résolution ×2 : sur téléphone, on zoome et les noms restent nets.
+        width: 1700,
+        scale: 2,
+      }
     : {
         path: `/tournois/${slug}/matchs/${encodeURIComponent(shot.matchId)}?capture`,
         selector: 'sc-match-page',
+        ready: 'sc-match-page h1',
         width: 1300, // les deux équipes côte à côte
         scale: 1.5,
       };
@@ -75,12 +92,12 @@ export async function captureScreens(
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
     const images: Uint8Array[] = [];
     for (const shot of shots) {
-      const { path, selector, width, scale } = plan(shot);
+      const { path, selector, ready, width, scale } = plan(shot);
       await page.setViewport({ width, height: 1000, deviceScaleFactor: scale });
       await page.goto(`${siteUrl}${path}`, { waitUntil: 'networkidle0', timeout: 20_000 });
       await page.addStyleTag({ content: CAPTURE_CSS });
-      // Le contenu est là quand le titre de la page est affiché (données chargées).
-      await page.waitForSelector(`${selector} h1`, { timeout: 10_000 });
+      // Le contenu est là quand l'élément attendu est affiché (données chargées).
+      await page.waitForSelector(ready, { timeout: 10_000 });
       // Code exécuté DANS le navigateur : on attend que les polices soient chargées.
       await page.evaluate('document.fonts.ready');
       const area = await page.$(selector);

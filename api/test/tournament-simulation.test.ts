@@ -148,11 +148,9 @@ describe('tournoi complet à 8 clans, sans aucune commande d’arbitre', () => {
     p = await pass(game);
     expect(p.report.finished).toEqual(['R3-M1']);
     expect(p.inChannel('results')[0].content).toBe(
-      `🏆 Victoire de ${final.home!.name} qui remporte Spade Cup ! 👑`,
+      `🏆 Victoire de **${final.home!.name}** qui remporte Spade Cup ! 👑`,
     );
-    expect(p.inChannel('bracket')[0].content).toBe(
-      `🏆 **Spade Cup** · 👑 Victoire de **${final.home!.name}**`,
-    );
+    expect(p.inChannel('bracket')[0]).toEqual({ content: '', files: [expect.anything()] });
 
     // Le tournoi est terminé, les stats sont complètes, le bot se tait.
     const done = (await getTournament(db(), 'spade-cup'))!;

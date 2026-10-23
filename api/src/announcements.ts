@@ -1,6 +1,6 @@
-import { championOf, roundLabel, winnerOf } from '../../src/app/core/tournament/bracket';
+import { championOf, winnerOf } from '../../src/app/core/tournament/bracket';
 import type { Bracket, BracketMatch } from '../../src/app/core/tournament/models';
-import { bracketCaption, nextRoundName, type Reply } from './discord/bot';
+import { nextRoundName, type Reply } from './discord/bot';
 import { postAsBot, postToWebhook } from './discord/payload';
 import { captureScreens, type Shot } from './screens';
 
@@ -8,7 +8,7 @@ import { captureScreens, type Shot } from './screens';
  * Les annonces dans les salons du Discord, chacune à sa place :
  *
  *   #résultats   🏆 victoire (la phrase des organisateurs + le récap en image)
- *   #classement  l'image de l'arbre à jour
+ *   #classement  l'image de l'arbre à jour, sans texte
  *   arbitres     ⚖️ égalité parfaite : à eux de trancher
  *
  * Utilisé par l'arbitre automatique (toutes les 5 minutes) ET par les
@@ -137,7 +137,7 @@ export async function announce(
   // #classement : l'arbre à jour.
   if (images) {
     await announcer.post('bracket', {
-      content: bracketCaption(t.name, bracket) + roundsCompleted(bracket, finished),
+      content: '', // juste l'arbre (demande des organisateurs)
       files: [{ name: 'arbre.png', data: images.at(-1)! }],
     });
   }
@@ -145,7 +145,7 @@ export async function announce(
 
 /**
  * L'annonce d'un résultat dans #résultats, volontairement courte (demande des
- * organisateurs) : « 🏆 Victoire de Vega qui se qualifie pour les quarts de
+ * organisateurs) : « 🏆 Victoire de **Vega** qui se qualifie pour les quarts de
  * finale ! ⚔️ ». Le détail du score reste sur le site.
  */
 export function victoryText(
@@ -156,41 +156,8 @@ export function victoryText(
   const match = bracket.matches.find((m) => m.id === matchId)!;
   const winner = winnerOf(match)!;
   return championOf(bracket)
-    ? `🏆 Victoire de ${winner.name} qui remporte ${t.name} ! 👑`
-    : `🏆 Victoire de ${winner.name} qui se qualifie pour ${nextRoundName(match.round + 1, bracket.roundCount)} ! ⚔️`;
-}
-
-/**
- * « ✅ Les quarts de finale sont terminés : place aux demi-finales ! » quand un
- * résultat de ce passage complète son tour (la finale, elle, a sa propre
- * annonce du champion).
- */
-export function roundsCompleted(
-  bracket: Bracket,
-  finished: readonly { readonly matchId: string }[],
-): string {
-  const rounds = new Set(
-    finished.map((f) => bracket.matches.find((m) => m.id === f.matchId)!.round),
-  );
-  return [...rounds]
-    .sort((a, b) => a - b)
-    .filter(
-      (round) =>
-        round < bracket.roundCount &&
-        bracket.matches
-          .filter((m) => m.round === round)
-          .every((m) => m.status === 'done' || m.status === 'bye'),
-    )
-    .map((round) => {
-      const label = roundLabel(round, bracket.roundCount).toLowerCase();
-      // « les demi-finales » est féminin ; « les quarts / huitièmes de finale », masculin.
-      const done = label.startsWith('demi') ? 'terminées' : 'terminés';
-      const next = nextRoundName(round + 1, bracket.roundCount)
-        .replace(/^les /, 'aux ')
-        .replace(/^la /, 'à la ');
-      return `\n✅ Les ${label} sont ${done} : place ${next} !`;
-    })
-    .join('');
+    ? `🏆 Victoire de **${winner.name}** qui remporte ${t.name} ! 👑`
+    : `🏆 Victoire de **${winner.name}** qui se qualifie pour ${nextRoundName(match.round + 1, bracket.roundCount)} ! ⚔️`;
 }
 
 /** Regroupe des annonces en messages de 2 000 caractères au plus (limite de Discord). */

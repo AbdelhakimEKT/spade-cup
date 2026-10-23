@@ -135,8 +135,8 @@ secret :
 
 | Salon | Ce qui y est posté | Secret |
 |---|---|---|
-| #statistique (ex-#résultats) | « 🏆 Victoire de X qui se qualifie pour les quarts de finale ! ⚔️ », avec le récap joueur par joueur en image (un message par victoire ; pas d'annonce de début de guerre) | `DISCORD_WEBHOOK_RESULTATS` |
-| #classement | l'image de l'arbre à jour | `DISCORD_WEBHOOK_CLASSEMENT` |
+| #statistique (ex-#résultats) | « 🏆 Victoire de **X** qui se qualifie pour les quarts de finale ! ⚔️ », avec le récap joueur par joueur en image (un message par victoire ; pas d'annonce de début de guerre) | `DISCORD_WEBHOOK_RESULTATS` |
+| #classement | l'image de l'arbre à jour, seule (ni titre, ni texte) | `DISCORD_WEBHOOK_CLASSEMENT` |
 | salon des arbitres | ⚖️ égalité parfaite (à trancher avec `/arbitre vainqueur`) | `DISCORD_WEBHOOK_ARBITRES` |
 
 ```bash

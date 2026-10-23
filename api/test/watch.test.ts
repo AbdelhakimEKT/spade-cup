@@ -134,16 +134,13 @@ describe('runWatch', () => {
       {
         channel: 'results',
         reply: {
-          content: `🏆 Victoire de ${final.home!.name} qui remporte Cup ! 👑`,
+          content: `🏆 Victoire de **${final.home!.name}** qui remporte Cup ! 👑`,
           files: [{ name: 'recap-R1-M1.png', data: FAKE_PNG }],
         },
       },
       {
         channel: 'bracket',
-        reply: {
-          content: `🏆 **Cup** · 👑 Victoire de **${final.home!.name}**`,
-          files: [{ name: 'arbre.png', data: FAKE_PNG }],
-        },
+        reply: { content: '', files: [{ name: 'arbre.png', data: FAKE_PNG }] },
       },
     ]);
     // Toutes les images dans UNE session du navigateur.
