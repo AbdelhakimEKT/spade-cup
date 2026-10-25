@@ -2,8 +2,8 @@
   <p class="eyebrow">Statistiques</p>
   <h1 class="page-title">Classement des joueurs</h1>
   <p class="lead">
-    Chaque guerre lue dans le jeu ajoute une ligne par joueur. Clique sur une colonne pour changer
-    le tri.
+    Chaque guerre lue dans le jeu ajoute une ligne par joueur. Clique sur une colonne pour trier,
+    reclique pour inverser l'ordre.
   </p>
 </header>
 
@@ -28,14 +28,16 @@
 @if (isFw()) {
   <p class="muted">
     Les FW de tous les jours entre les clans du serveur, hors tournoi. Elles ne comptent pas dans le
-    classement de la Spade Cup.
+    classement de la Spade Cup. Les comptes qui servent juste à lancer les FW (0 étoile) n'y
+    figurent pas.
   </p>
 
   @if (fwPlayers.hasValue()) {
     @if (fwPlayers.value().length) {
       <sc-ranking-table
         [players]="fwPlayers.value()"
-        [clanColors]="fwColors"
+        [showClan]="false"
+        [limit]="15"
         caption="Classement des FW classiques"
       />
     } @else {
@@ -63,7 +65,7 @@
 
   @if (players.hasValue()) {
     @if (players.value().length) {
-      <sc-ranking-table [players]="players.value()" />
+      <sc-ranking-table [players]="players.value()" [limit]="15" />
     } @else if (!slug()) {
       <div class="panel">
         <p>

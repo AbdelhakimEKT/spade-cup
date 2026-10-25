@@ -42,7 +42,7 @@ describe('RankingPage', () => {
     );
   });
 
-  it('?type=fw : classement des FW (équipe en couleur) et dernières FW ; rien de la Spade Cup', async () => {
+  it('?type=fw : classement des FW (sans colonne clan) et dernières FW ; rien de la Spade Cup', async () => {
     const { el, answer, reply, http } = await openPage(RankingPage, { type: 'fw' });
     answer('/fw/players', [
       player(1, { clan: { tag: '#2CYJPRCG8', name: 'FW-team1' } }),
@@ -53,11 +53,9 @@ describe('RankingPage', () => {
 
     expect(el.querySelector('.tab--active')?.textContent?.trim()).toBe('FW classiques');
     expect(el.querySelectorAll('sc-ranking-table tbody tr')).toHaveLength(2);
-    // Colonne « Clan » : l'équipe en couleur, sans lien (pas de fiche pour les clans de FW).
-    const table = el.querySelector('sc-ranking-table')!;
-    expect(table.querySelector('.team--green')?.textContent).toBe('FW-team2');
-    expect(table.querySelector('.team--violet')?.textContent).toBe('FW-team1');
-    expect(table.querySelector('a[href^="/clans/"]')).toBeNull();
+    // Pas de colonne « Clan » : un joueur change de team d'une FW à l'autre.
+    expect(el.querySelector('sc-ranking-table thead')?.textContent).not.toContain('Clan');
+    expect(el.querySelector('sc-ranking-table a[href^="/clans/"]')).toBeNull();
     expect(el.querySelector('sc-fw-war-list .war')).not.toBeNull();
   });
 

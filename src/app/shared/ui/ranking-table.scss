@@ -1,0 +1,141 @@
+:host {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.sort--active {
+  color: var(--color-text);
+  box-shadow: inset 0 -2px 0 var(--color-accent-strong);
+}
+
+.arrow {
+  margin-left: 0.3em;
+  font-size: 0.75em;
+
+  sup {
+    margin-left: 0.1em;
+    color: var(--color-accent);
+  }
+}
+
+// ---- Critères de tri choisis, au-dessus du tableau
+.criteria {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+}
+
+.criterion {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2em; // même hauteur avec ou sans bouton ✕ : rien ne bouge
+  padding: 2px 4px 2px var(--space-2);
+  border: 1px solid var(--color-accent-strong);
+  border-radius: 999px;
+  background: var(--color-panel);
+  font-weight: 600;
+}
+
+.criterion--default {
+  padding-right: var(--space-2);
+  border-color: var(--color-line);
+  color: var(--color-muted);
+}
+
+.criterion__order {
+  color: var(--color-accent);
+  font-size: 0.8em;
+}
+
+.criterion__remove,
+.reset,
+.more {
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.criterion__remove {
+  padding: 0 6px;
+  border-radius: 999px;
+  line-height: 1.4;
+
+  &:hover {
+    background: var(--color-panel-2);
+  }
+}
+
+.reset {
+  padding: 2px var(--space-2);
+  text-decoration: underline;
+}
+
+.hint {
+  font-size: 0.85rem;
+}
+
+.more {
+  justify-self: center;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-weight: 600;
+
+  &:hover {
+    border-color: var(--color-accent-strong);
+  }
+}
+
+// Le nom du joueur reste visible quand on fait défiler le tableau sur téléphone.
+.pinned {
+  position: sticky;
+  left: 0;
+  background: var(--color-panel);
+}
+
+tr:hover .pinned {
+  background: var(--color-panel-2);
+}
+
+.rank {
+  display: inline-block;
+  min-width: 2.2em;
+  color: var(--color-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank--podium {
+  font-size: 1.15em;
+}
+
+.data-table a.clan {
+  color: var(--color-muted);
+  font-weight: 400;
+}

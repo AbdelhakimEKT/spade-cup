@@ -62,7 +62,9 @@ describe('trackFriendlyWars', () => {
       winner: 'home',
     });
     expect(war.endedAt).toBe('2026-10-20T19:32:58Z'); // heure de fin donnée par le jeu
-    expect(await listFwPlayers(db())).toHaveLength(20);
+    // 20 joueurs dans la guerre, mais 6 n'ont pas attaqué (comptes de lancement) :
+    // 14 au classement.
+    expect(await listFwPlayers(db())).toHaveLength(14);
   });
 
   it('vue depuis l’autre clan : même guerre, même ordre des camps, rien en double', async () => {
@@ -107,14 +109,15 @@ describe('trackFriendlyWars', () => {
 });
 
 describe('stats des FW classiques', () => {
-  it('classement : les joueurs, leur clan de FW, leurs étoiles', async () => {
+  it('classement : les joueurs, leur clan de FW, leurs étoiles ; pas les comptes à 0 étoile', async () => {
     await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(REAL_FRIENDLY_WAR) }), CLANS);
     const players = await listFwPlayers(db());
     // 25, et non 13 + 11 = 24 : les étoiles d'un CLAN ne comptent que la meilleure
     // attaque sur chaque base. Ici, deux joueurs ont attaqué la même base : le
     // second a gagné une étoile qui compte pour LUI, mais pas pour son clan.
     expect(players.reduce((sum, p) => sum + p.stars, 0)).toBe(25);
-    expect(players.filter((p) => p.attacks === 0)).toHaveLength(6);
+    // Les comptes de lancement (0 étoile, aucune attaque) ne sont pas au classement.
+    expect(players.filter((p) => p.stars === 0)).toEqual([]);
     expect(new Set(players.map((p) => p.clan.name))).toEqual(new Set(['Clan Bleu', 'Clan Rouge']));
   });
 
@@ -199,7 +202,7 @@ describe('filet de sécurité : une FW relancée aussitôt la précédente finie
 
     const [war] = await listFriendlyWars(db());
     expect(war).toMatchObject({ partial: true, home: { stars: 13 }, away: { stars: 11 } });
-    expect(await listFwPlayers(db())).toHaveLength(20);
+    expect(await listFwPlayers(db())).toHaveLength(14);
     expect(await snapshots()).toBe(0);
   });
 

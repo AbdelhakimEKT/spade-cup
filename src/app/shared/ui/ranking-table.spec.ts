@@ -5,7 +5,7 @@ import { PlayerTotals } from '../../core/tournament/stats';
 import { FRENCH_LOCALE } from '../../../testing/french-locale';
 import { RankingTable } from './ranking-table';
 
-async function render(players: PlayerTotals[], showClan = true) {
+async function render(players: PlayerTotals[], showClan = true, limit: number | null = null) {
   TestBed.configureTestingModule({
     imports: [RankingTable],
     providers: [provideRouter([]), FRENCH_LOCALE],
@@ -13,6 +13,7 @@ async function render(players: PlayerTotals[], showClan = true) {
   const fixture = TestBed.createComponent(RankingTable);
   fixture.componentRef.setInput('players', players);
   fixture.componentRef.setInput('showClan', showClan);
+  fixture.componentRef.setInput('limit', limit);
   await fixture.whenStable();
   const el = fixture.nativeElement as HTMLElement;
   const names = () =>
@@ -21,11 +22,11 @@ async function render(players: PlayerTotals[], showClan = true) {
     [...el.querySelectorAll('tbody .rank')].map((r) => r.textContent?.replace(/\s+/g, ''));
   const sortBy = async (label: string) => {
     [...el.querySelectorAll<HTMLButtonElement>('button.sort')]
-      .find((b) => b.textContent?.trim() === label)!
+      .find((b) => b.textContent?.replace(/\s+/g, ' ').trim() === label)!
       .click();
     await fixture.whenStable();
   };
-  return { el, names, ranks, sortBy };
+  return { el, names, ranks, sortBy, fixture };
 }
 
 const PLAYERS = [
@@ -41,16 +42,73 @@ describe('RankingTable', () => {
     expect(el.querySelector('th[aria-sort="descending"]')?.textContent).toContain('Étoiles');
   });
 
-  it('cliquer sur une colonne change le tri (et l’annonce aux lecteurs d’écran)', async () => {
-    const { names, sortBy, el } = await render(PLAYERS);
+  it('un clic trie une colonne (du plus grand au plus petit), un second inverse l’ordre', async () => {
+    const { names, sortBy, el, ranks } = await render(PLAYERS);
     await sortBy('Guerres');
     expect(names()).toEqual(['Volt', 'Zen', 'Nyx']);
+    expect(el.querySelector('th[aria-sort="descending"]')?.textContent).toContain('Guerres ▼');
+
+    await sortBy('Guerres ▼');
+    expect(names()).toEqual(['Nyx', 'Zen', 'Volt']);
+    expect(el.querySelector('th[aria-sort="ascending"]')?.textContent).toContain('Guerres ▲');
+    // Chacun garde son rang : seul l'ordre d'affichage s'inverse.
+    expect(ranks()).toEqual(['🥉3', '🥈2', '🥇1']);
+    expect(el.querySelector('caption')?.textContent).toContain('guerres jouées (croissant)');
+  });
+
+  it('deux critères : le 2e départage les ex aequo du 1er', async () => {
+    const four = [
+      player(1, { name: 'A', wars: 2, attacks: 2, stars: 4 }), // 2 ★/att.
+      player(2, { name: 'B', wars: 2, attacks: 2, stars: 6 }), // 3 ★/att.
+      player(3, { name: 'C', wars: 3, attacks: 3, stars: 3 }), // 1 ★/att.
+      player(4, { name: 'D', wars: 1, attacks: 1, stars: 3 }),
+    ];
+    const { names, sortBy, el } = await render(four);
+    await sortBy('Guerres');
     await sortBy('★ / att.');
-    // Nyx et Zen sont à 3 étoiles par attaque : Zen passe devant, il en a plus au total.
-    expect(names()).toEqual(['Zen', 'Nyx', 'Volt']);
+    expect(names()).toEqual(['C', 'B', 'A', 'D']);
+    // Numéro du critère sur chaque colonne, et rappel au-dessus du tableau.
+    expect(el.querySelectorAll('th sup')).toHaveLength(2);
+    expect(el.querySelector('.criteria')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      '1 Guerres ▼',
+    );
+    expect(el.querySelector('.criteria')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      '2 ★ / att. ▼',
+    );
+  });
+
+  it('✕ retire un critère ; « Réinitialiser » revient au tri par étoiles', async () => {
+    const { names, sortBy, el, fixture } = await render(PLAYERS);
+    await sortBy('Guerres');
     await sortBy('Destr.');
-    expect(names()[0]).toBe('Nyx');
-    expect(el.querySelector('caption')?.textContent).toContain('destruction moyenne');
+    el.querySelector<HTMLButtonElement>('.criterion__remove')!.click(); // retire « Guerres »
+    await fixture.whenStable();
+    expect(names()[0]).toBe('Nyx'); // trié par destruction seule
+    expect(el.querySelectorAll('.criterion')).toHaveLength(1);
+
+    el.querySelector<HTMLButtonElement>('.reset')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('.criteria')?.textContent).toContain('Étoiles ▼');
+    expect(el.querySelector('.reset')).toBeNull();
+    expect(names()).toEqual(['Zen', 'Volt', 'Nyx']);
+  });
+
+  it('limité à N joueurs, avec « Voir toute la liste » et retour', async () => {
+    const many = Array.from({ length: 20 }, (_, i) => player(i + 1, { stars: 20 - i }));
+    const { el, fixture } = await render(many, true, 15);
+    const rows = () => el.querySelectorAll('tbody tr').length;
+    const more = () => el.querySelector<HTMLButtonElement>('.more')!;
+    expect(rows()).toBe(15);
+    expect(more().textContent).toContain('Voir toute la liste (20 joueurs)');
+    more().click();
+    await fixture.whenStable();
+    expect(rows()).toBe(20);
+    expect(more().textContent).toContain('Voir seulement les 15 premiers');
+  });
+
+  it('pas de bouton quand tout tient dans la limite', async () => {
+    const { el } = await render(PLAYERS, true, 15);
+    expect(el.querySelector('.more')).toBeNull();
   });
 
   it('chiffres au format français, liens vers joueur et clan', async () => {

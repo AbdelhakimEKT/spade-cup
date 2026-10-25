@@ -55,10 +55,22 @@ export class FwWarPage {
     } as Record<Side, TableTeam>;
   });
 
+  /**
+   * Les joueurs qui ont attaqué. Les autres sont les comptes qui complètent
+   * les équipes pour lancer la FW : ils ne sont pas affichés.
+   */
+  private readonly attackers = computed(() =>
+    (this.detail()?.players ?? []).filter((p) => p.attacks > 0),
+  );
+  /** Nombre de comptes de lancement masqués. */
+  protected readonly launchers = computed(
+    () => (this.detail()?.players.length ?? 0) - this.attackers().length,
+  );
+
   /** Filtre du tableau : tous les joueurs, ou ceux d'une seule équipe. */
   protected readonly only = signal<Side | null>(null);
   protected readonly shown = computed(() => {
-    const players = this.detail()?.players ?? [];
+    const players = this.attackers();
     const side = this.only();
     return side ? players.filter((p) => p.side === side) : players;
   });

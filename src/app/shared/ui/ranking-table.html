@@ -1,0 +1,106 @@
+<!-- Toujours affichée (même sans tri choisi) : le tableau ne saute pas
+     quand on clique sur une première colonne. -->
+<div class="criteria" role="group" aria-label="Tri choisi">
+  <span class="muted">Trié par</span>
+  @for (c of criteria(); track c.key; let i = $index) {
+    <span class="criterion">
+      <span class="criterion__order">{{ i + 1 }}</span>
+      {{ label(c.key) }} {{ c.dir === 'desc' ? '▼' : '▲' }}
+      <button
+        type="button"
+        class="criterion__remove"
+        [attr.aria-label]="'Retirer le tri par ' + label(c.key, 'title').toLowerCase()"
+        (click)="remove(c.key)"
+      >
+        ✕
+      </button>
+    </span>
+  } @empty {
+    <span class="criterion criterion--default">Étoiles ▼</span>
+  }
+  @if (criteria().length) {
+    <button type="button" class="reset" (click)="reset()">↺ Réinitialiser</button>
+  }
+  @if (criteria().length < 2) {
+    <span class="muted hint">· Clique sur plusieurs colonnes pour combiner les tris.</span>
+  }
+</div>
+
+<div class="table-wrap">
+  <table class="data-table">
+    <caption class="visually-hidden">
+      {{
+        caption()
+      }}, trié par
+      {{
+        sortDescription()
+      }}
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col" class="cell-text pinned">Joueur</th>
+        @if (showClan()) {
+          <th scope="col" class="cell-text">Clan</th>
+        }
+        @for (col of columns; track col.key) {
+          @let c = criterionOf(col.key);
+          <th scope="col" [attr.aria-sort]="ariaSort(col.key)">
+            <button
+              type="button"
+              class="sort"
+              [class.sort--active]="c"
+              [title]="'Trier par ' + col.title.toLowerCase()"
+              (click)="sortBy(col.key)"
+            >
+              {{ col.label }}
+              @if (c) {
+                <span class="arrow" aria-hidden="true"
+                  >{{ c.dir === 'desc' ? '▼' : '▲' }}
+                  @if (criteria().length > 1) {
+                    <sup>{{ c.order }}</sup>
+                  }
+                </span>
+              }
+            </button>
+          </th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of shown(); track row.player.tag) {
+        @let p = row.player;
+        <tr>
+          <!-- Le rang juste à gauche du nom : il reste visible quand on fait
+               défiler le tableau sur téléphone (cellule épinglée). -->
+          <td class="cell-text pinned">
+            <span class="rank" [class.rank--podium]="row.rank <= 3">
+              {{ medal(row.rank)
+              }}<span [class.visually-hidden]="row.rank <= 3">{{ row.rank }}</span>
+            </span>
+            <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
+          </td>
+          @if (showClan()) {
+            <td class="cell-text">
+              <a class="clan" [routerLink]="['/clans', url(p.clan.tag)]">{{ p.clan.name }}</a>
+            </td>
+          }
+          <td>{{ p.wars }}</td>
+          <td><span class="star" aria-hidden="true">★</span> {{ p.stars }}</td>
+          <td>{{ average(p) | number: '1.2-2' }}</td>
+          <td>{{ p.triples }}</td>
+          <td>{{ p.destruction | number: '1.1-1' }} %</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+@if (hidden() > 0 || expanded()) {
+  <button type="button" class="more" (click)="expanded.set(!expanded())">
+    {{
+      expanded()
+        ? 'Voir seulement les ' + limit() + ' premiers'
+        : 'Voir toute la liste (' + players().length + ' joueurs)'
+    }}
+  </button>
+}

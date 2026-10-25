@@ -6,6 +6,13 @@ import { PlayerTotals } from '../../core/tournament/stats';
 import { starsPerAttack } from './labels';
 
 type SortKey = 'stars' | 'wars' | 'triples' | 'average' | 'destruction';
+type SortDir = 'asc' | 'desc';
+
+/** Un critère de tri : une colonne et son sens. */
+interface Criterion {
+  readonly key: SortKey;
+  readonly dir: SortDir;
+}
 
 const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
   { key: 'wars', label: 'Guerres', title: 'Guerres jouées' },
@@ -15,163 +22,129 @@ const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
   { key: 'destruction', label: 'Destr.', title: 'Destruction moyenne par attaque' },
 ];
 
+/** Au-delà, un nouveau critère remplace le dernier. */
+const MAX_CRITERIA = 3;
+
 /**
- * Classement des joueurs, triable en cliquant sur les en-têtes.
+ * Classement des joueurs, triable sur PLUSIEURS colonnes à la fois.
+ * - 1er clic sur une colonne : elle trie, du plus grand au plus petit ;
+ * - clic sur une autre colonne : elle s'ajoute comme 2e critère (pour
+ *   départager les ex aequo du 1er), puis 3e ;
+ * - reclic sur une colonne déjà choisie : son sens s'inverse (▼ / ▲) ;
+ * - ✕ sur un critère le retire, « Réinitialiser » revient au tri par étoiles.
  * Le tri se fait dans le navigateur : le serveur renvoie déjà toutes les lignes.
  */
 @Component({
   selector: 'sc-ranking-table',
   imports: [DecimalPipe, RouterLink],
-  template: `
-    <div class="table-wrap">
-      <table class="data-table">
-        <caption class="visually-hidden">
-          {{
-            caption()
-          }}, trié par
-          {{
-            sortTitle()
-          }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col" class="cell-text pinned">Joueur</th>
-            @if (showClan()) {
-              <th scope="col" class="cell-text">Clan</th>
-            }
-            @for (col of columns; track col.key) {
-              <th scope="col" [attr.aria-sort]="sort() === col.key ? 'descending' : null">
-                <button
-                  type="button"
-                  class="sort"
-                  [class.sort--active]="sort() === col.key"
-                  [title]="'Trier par ' + col.title.toLowerCase()"
-                  (click)="sort.set(col.key)"
-                >
-                  {{ col.label }}
-                </button>
-              </th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of ranked(); track row.player.tag) {
-            @let p = row.player;
-            <tr>
-              <!-- Le rang juste à gauche du nom : il reste visible quand on fait
-                   défiler le tableau sur téléphone (cellule épinglée). -->
-              <td class="cell-text pinned">
-                <span class="rank" [class.rank--podium]="row.rank <= 3">
-                  {{ medal(row.rank)
-                  }}<span [class.visually-hidden]="row.rank <= 3">{{ row.rank }}</span>
-                </span>
-                <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
-              </td>
-              @if (showClan()) {
-                <td class="cell-text">
-                  @if (clanColors(); as colors) {
-                    <!-- Clans de FW : pas de fiche de clan, mais leur couleur d'équipe. -->
-                    <span [class]="'team--' + colors[p.clan.tag]">{{ p.clan.name }}</span>
-                  } @else {
-                    <a class="clan" [routerLink]="['/clans', url(p.clan.tag)]">{{ p.clan.name }}</a>
-                  }
-                </td>
-              }
-              <td>{{ p.wars }}</td>
-              <td><span class="star" aria-hidden="true">★</span> {{ p.stars }}</td>
-              <td>{{ average(p) | number: '1.2-2' }}</td>
-              <td>{{ p.triples }}</td>
-              <td>{{ p.destruction | number: '1.1-1' }} %</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  `,
-  styles: `
-    .sort {
-      padding: 0;
-      border: 0;
-      background: none;
-      color: inherit;
-      font: inherit;
-      letter-spacing: inherit;
-      text-transform: inherit;
-      cursor: pointer;
-
-      &:hover {
-        color: var(--color-text);
-      }
-    }
-
-    .sort--active {
-      color: var(--color-text);
-      box-shadow: inset 0 -2px 0 var(--color-accent-strong);
-    }
-
-    // Le nom du joueur reste visible quand on fait défiler le tableau sur téléphone.
-    .pinned {
-      position: sticky;
-      left: 0;
-      background: var(--color-panel);
-    }
-
-    tr:hover .pinned {
-      background: var(--color-panel-2);
-    }
-
-    .rank {
-      display: inline-block;
-      min-width: 2.2em;
-      color: var(--color-text);
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .rank--podium {
-      font-size: 1.15em;
-    }
-
-    .data-table a.clan {
-      color: var(--color-muted);
-      font-weight: 400;
-    }
-  `,
+  templateUrl: './ranking-table.html',
+  styleUrl: './ranking-table.scss',
 })
 export class RankingTable {
   readonly players = input.required<readonly PlayerTotals[]>();
-  /** Masqué sur la page d'un clan : tous les joueurs sont du même clan. */
+  /** Masqué sur la page d'un clan (tous du même clan) et en FW (les joueurs changent de team). */
   readonly showClan = input(true);
   readonly caption = input('Classement des joueurs');
-  /** Clans de FW : couleur d'équipe par tag, à la place du lien vers la fiche du clan. */
-  readonly clanColors = input<Readonly<Record<string, string>> | null>(null);
+  /** Nombre de lignes affichées avant « Voir toute la liste » (`null` : toutes). */
+  readonly limit = input<number | null>(null);
 
   protected readonly columns = COLUMNS;
-  protected readonly sort = signal<SortKey>('stars');
-  protected readonly sortTitle = computed(() =>
-    COLUMNS.find((c) => c.key === this.sort())!.title.toLowerCase(),
+  /** Les critères choisis, dans l'ordre. Vide : tri par défaut (étoiles). */
+  protected readonly criteria = signal<readonly Criterion[]>([]);
+  protected readonly expanded = signal(false);
+
+  /** Les critères réellement appliqués (le tri par défaut si aucun n'est choisi). */
+  private readonly applied = computed<readonly Criterion[]>(() =>
+    this.criteria().length ? this.criteria() : [{ key: 'stars', dir: 'desc' }],
+  );
+
+  protected readonly sortDescription = computed(() =>
+    this.applied()
+      .map(
+        (c) =>
+          `${this.label(c.key, 'title').toLowerCase()} (${c.dir === 'desc' ? 'décroissant' : 'croissant'})`,
+      )
+      .join(', puis '),
   );
 
   /**
-   * Les joueurs triés, avec leur rang. À égalité sur la colonne choisie : le
-   * plus d'étoiles, puis la meilleure destruction, puis le moins de guerres
-   * (plus efficace). Égalité parfaite sur tout ça : même rang (1, 1, 3…), et
-   * l'ordre alphabétique ne sert qu'à l'affichage, jamais au classement.
+   * Les joueurs triés, avec leur rang.
+   * Le RANG suit les critères choisis, du meilleur au moins bon ; à égalité :
+   * le plus d'étoiles, la meilleure destruction, le moins de guerres. Égalité
+   * parfaite sur tout ça : même rang (1, 1, 3…). Le SENS (▼ / ▲) ne change que
+   * l'ordre d'affichage : chacun garde son rang.
    */
   protected readonly ranked = computed(() => {
-    const key = this.sort();
-    const value = (p: PlayerTotals) => (key === 'average' ? this.average(p) : p[key]);
-    const merit = (a: PlayerTotals, b: PlayerTotals) =>
-      value(b) - value(a) || b.stars - a.stars || b.destruction - a.destruction || a.wars - b.wars;
+    const criteria = this.applied();
+    const merit = (a: PlayerTotals, b: PlayerTotals) => {
+      for (const c of criteria) {
+        const diff = this.value(b, c.key) - this.value(a, c.key);
+        if (diff) return diff;
+      }
+      return b.stars - a.stars || b.destruction - a.destruction || a.wars - b.wars;
+    };
     const sorted = [...this.players()].sort(
       (a, b) => merit(a, b) || a.name.localeCompare(b.name, 'fr'),
     );
     let rank = 0;
-    return sorted.map((player, i) => {
+    const rows = sorted.map((player, i) => {
       if (i === 0 || merit(sorted[i - 1], player) !== 0) rank = i + 1;
       return { player, rank };
     });
+    if (criteria.every((c) => c.dir === 'desc')) return rows;
+    // Affichage dans les sens choisis ; à égalité, l'ordre du classement.
+    return rows.sort((a, b) => {
+      for (const c of criteria) {
+        const diff = this.value(a.player, c.key) - this.value(b.player, c.key);
+        if (diff) return c.dir === 'asc' ? diff : -diff;
+      }
+      return a.rank - b.rank;
+    });
   });
+
+  /** Les lignes affichées : les `limit` premières, ou toutes une fois la liste dépliée. */
+  protected readonly shown = computed(() => {
+    const limit = this.limit();
+    return limit === null || this.expanded() ? this.ranked() : this.ranked().slice(0, limit);
+  });
+  protected readonly hidden = computed(() => this.ranked().length - this.shown().length);
+
+  /** Colonne déjà choisie : on inverse son sens. Sinon : un critère de plus. */
+  protected sortBy(key: SortKey): void {
+    this.criteria.update((list) => {
+      const i = list.findIndex((c) => c.key === key);
+      if (i !== -1) {
+        return list.map((c, j) => (j === i ? { key, dir: c.dir === 'desc' ? 'asc' : 'desc' } : c));
+      }
+      const added: Criterion = { key, dir: 'desc' };
+      return list.length < MAX_CRITERIA ? [...list, added] : [...list.slice(0, -1), added];
+    });
+  }
+
+  protected remove(key: SortKey): void {
+    this.criteria.update((list) => list.filter((c) => c.key !== key));
+  }
+
+  protected reset(): void {
+    this.criteria.set([]);
+  }
+
+  /** Le critère d'une colonne et sa place (1, 2, 3), ou `null` si elle ne trie pas. */
+  protected criterionOf(key: SortKey): { dir: SortDir; order: number } | null {
+    const list = this.applied();
+    const i = list.findIndex((c) => c.key === key);
+    return i === -1 ? null : { dir: list[i].dir, order: i + 1 };
+  }
+
+  protected ariaSort(key: SortKey): string | null {
+    const first = this.applied()[0];
+    if (first.key !== key) return null;
+    return first.dir === 'desc' ? 'descending' : 'ascending';
+  }
+
+  protected label(key: SortKey, field: 'label' | 'title' = 'label'): string {
+    return COLUMNS.find((c) => c.key === key)![field];
+  }
 
   protected medal(rank: number): string {
     return ['🥇', '🥈', '🥉'][rank - 1] ?? '';
@@ -183,5 +156,9 @@ export class RankingTable {
 
   protected url(tag: string): string {
     return tagToUrl(tag);
+  }
+
+  private value(p: PlayerTotals, key: SortKey): number {
+    return key === 'average' ? this.average(p) : p[key];
   }
 }

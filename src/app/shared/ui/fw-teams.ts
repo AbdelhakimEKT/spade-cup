@@ -8,11 +8,6 @@ export function fwTeamColor(tag: string): TeamColor | null {
   return (SITE_CONFIG.fwTeams.find((t) => t.tag === tag)?.color as TeamColor) ?? null;
 }
 
-/** Les couleurs de tous les clans de FW, par tag (pour le tableau de classement). */
-export const FW_TEAM_COLORS: Readonly<Record<string, TeamColor>> = Object.fromEntries(
-  SITE_CONFIG.fwTeams.map((t) => [t.tag, t.color as TeamColor]),
-);
-
 export interface FwRowSide extends FwSide {
   readonly color: TeamColor | null;
   readonly won: boolean;

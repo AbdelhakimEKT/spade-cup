@@ -265,7 +265,11 @@ export async function getFriendlyWar(db: D1Database, id: number): Promise<FwWarD
   };
 }
 
-/** Classement des joueurs en FW classiques (séparé de la Spade Cup). */
+/**
+ * Classement des joueurs en FW classiques (séparé de la Spade Cup).
+ * Les joueurs à 0 étoile en sont exclus : ce sont les comptes qui complètent
+ * les équipes pour lancer la FW, ils n'attaquent pas.
+ */
 export async function listFwPlayers(db: D1Database): Promise<PlayerTotals[]> {
   const { results } = await db
     .prepare(
@@ -282,6 +286,8 @@ export async function listFwPlayers(db: D1Database): Promise<PlayerTotals[]> {
               COUNT(*) AS wars, SUM(attacks) AS attacks, SUM(stars) AS stars,
               SUM(triples) AS triples, SUM(destruction_sum) AS destruction_sum
        FROM lines GROUP BY player_tag
+       -- Sans aucune étoile : les comptes qui servent à lancer les FW, pas des joueurs.
+       HAVING SUM(stars) > 0
        ORDER BY stars DESC, wars DESC, name
        LIMIT 500`,
     )

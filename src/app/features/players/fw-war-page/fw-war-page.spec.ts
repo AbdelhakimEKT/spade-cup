@@ -25,12 +25,16 @@ describe('FwWarPage', () => {
     expect(TestBed.inject(Title).getTitle()).toBe('FW-team1 – FW-team2 · Spade Cup FR');
   });
 
-  it('tous les joueurs, triés par étoiles ; le filtre n’affiche qu’une équipe', async () => {
+  it('les joueurs qui ont attaqué, triés par étoiles ; pas les comptes de lancement', async () => {
     const { el, reply, fixture } = await openPage(FwWarPage, { id: '1' });
-    await reply('/fw/wars/1', fwWarDetail());
+    await reply('/fw/wars/1', fwWarDetail()); // 10 joueurs, dont 2 sans attaque
 
     const rows = () => el.querySelectorAll('sc-war-players-table tbody tr');
-    expect(rows()).toHaveLength(10);
+    expect(rows()).toHaveLength(8);
+    expect(el.textContent).not.toContain('Pas attaqué');
+    expect(el.querySelector('.hint')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      '2 comptes sans attaque (lancement de la FW) ne sont pas affichés',
+    );
     expect(el.querySelector('th[aria-sort="descending"]')?.textContent).toContain('Étoiles');
 
     const button = (label: string) =>
@@ -39,13 +43,13 @@ describe('FwWarPage', () => {
       )!;
     button('FW-team1').click();
     await fixture.whenStable();
-    expect(rows()).toHaveLength(5);
+    expect(rows()).toHaveLength(3);
     expect(button('FW-team1').getAttribute('aria-pressed')).toBe('true');
     expect(el.querySelectorAll('sc-war-players-table tbody .team--green')).toHaveLength(0);
 
     button('Tous').click();
     await fixture.whenStable();
-    expect(rows()).toHaveLength(10);
+    expect(rows()).toHaveLength(8);
   });
 
   it('relevé partiel : le dit clairement', async () => {
