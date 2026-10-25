@@ -11,7 +11,7 @@ import { captureScreens, type Shot } from './screens';
  *   #classement  l'image de l'arbre à jour, sans texte
  *   arbitres     ⚖️ égalité parfaite : à eux de trancher
  *
- * Utilisé par l'arbitre automatique (toutes les 5 minutes) ET par les
+ * Utilisé par l'arbitre automatique (toutes les minutes) ET par les
  * commandes d'arbitre : un résultat saisi à la main est annoncé pareil.
  */
 

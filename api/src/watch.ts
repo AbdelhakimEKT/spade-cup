@@ -12,7 +12,7 @@ import { announce, type Announcer } from './announcements';
 import { getCurrentTournament, markAnnounced, saveBracket } from './repository';
 
 /**
- * L'arbitre automatique. Lancé par Cloudflare toutes les 5 minutes (voir
+ * L'arbitre automatique. Lancé par Cloudflare toutes les minutes (voir
  * `scheduled` dans index.ts), il regarde chaque match jouable du tournoi en
  * cours et demande au jeu la dernière guerre des deux clans :
  *
@@ -87,7 +87,7 @@ export interface WatchReport {
  * qu'à 50 requêtes sortantes. Pire cas pour 12 matchs finis d'un coup :
  * 24 appels au jeu (journaux privés), 1 message de victoires, 12 récaps,
  * 1 arbre, 1 navigateur, + 2 appels pour les FW classiques = 41. Avec 32
- * clans, les matchs en trop passent 5 minutes plus tard (les plus anciens
+ * clans, les matchs en trop passent une minute plus tard (les plus anciens
  * d'abord).
  */
 const MAX_MATCHES = 12;

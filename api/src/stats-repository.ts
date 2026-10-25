@@ -204,6 +204,7 @@ interface FwRow {
   away_stars: number;
   away_destruction: number;
   winner: 'home' | 'away' | null;
+  complete: number;
 }
 
 function toFwSummary(r: FwRow): FriendlyWarSummary {
@@ -224,6 +225,7 @@ function toFwSummary(r: FwRow): FriendlyWarSummary {
       destruction: r.away_destruction,
     },
     winner: r.winner,
+    partial: r.complete === 0,
   };
 }
 

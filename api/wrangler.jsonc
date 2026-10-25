@@ -10,8 +10,10 @@
   "compatibility_flags": ["nodejs_compat"],
   // Un vrai navigateur dans le cloud, pour l'image de l'arbre (voir src/bracket-image.ts).
   "browser": { "binding": "BROWSER" },
-  // L'arbitre automatique (src/watch.ts) passe toutes les 5 minutes.
-  "triggers": { "crons": ["*/5 * * * *"] },
+  // Toutes les minutes : arbitre automatique (src/watch.ts) et suivi des FW
+  // (src/fw-tracker.ts). Toutes les 5 minutes, une FW relancée aussitôt la
+  // précédente finie pouvait passer entre deux passages et être perdue.
+  "triggers": { "crons": ["* * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",

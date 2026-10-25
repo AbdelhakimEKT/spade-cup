@@ -93,6 +93,7 @@ export function friendlyWar(id = 1): FriendlyWarSummary {
     home: { tag: '#2JVUP2PGC', name: 'FW-team2', stars: 13, destruction: 53.4 },
     away: { tag: '#2CYJPRCG8', name: 'FW-team1', stars: 11, destruction: 46.4 },
     winner: 'home',
+    partial: false,
   };
 }
 

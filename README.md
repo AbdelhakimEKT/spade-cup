@@ -105,7 +105,7 @@ Les écritures passent **uniquement** par le bot Discord (`POST /discord`).
 
 ### Arbitrage automatique
 
-Toutes les 5 minutes (tâche planifiée du Worker, `src/watch.ts`), le bot
+Toutes les minutes (tâche planifiée du Worker, `src/watch.ts`), le bot
 regarde les matchs jouables du tournoi en cours et la dernière guerre de leurs
 deux clans :
 
@@ -126,7 +126,7 @@ toutes les 2 s ; un 429 est réessayé une fois), le texte AVANT l'image : si
 l'image échoue, les résultats sont déjà annoncés. Au plus 15 matchs regardés
 par passage (limite de 50 requêtes sortantes du plan gratuit) : testé sur un
 tournoi simulé de 32 clans (`test/tournament-simulation.test.ts`). L'API du jeu ne garde que la DERNIÈRE guerre de
-chaque clan : si les clans relancent une guerre dans les 5 minutes, le résultat
+chaque clan : si les DEUX clans relancent une guerre dans la minute, le résultat
 se saisit à la main (`/arbitre resultat` ou `/arbitre score`).
 
 Chaque annonce va dans son salon (`src/announcements.ts`), par un **webhook**

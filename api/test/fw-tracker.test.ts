@@ -46,8 +46,8 @@ describe('fwClans et warKey', () => {
 describe('trackFriendlyWars', () => {
   it('enregistre une FW terminée UNE fois, avec ses 20 joueurs', async () => {
     const game = coc({ '#2JVUP2PGC': ok(REAL_FRIENDLY_WAR) });
-    expect(await trackFriendlyWars(db(), game, CLANS)).toBe('recorded');
-    expect(await trackFriendlyWars(db(), game, CLANS)).toBe('known'); // 5 minutes plus tard
+    expect((await trackFriendlyWars(db(), game, CLANS)).current).toBe('recorded');
+    expect((await trackFriendlyWars(db(), game, CLANS)).current).toBe('known'); // 5 minutes plus tard
 
     const [war] = await listFriendlyWars(db());
     expect(war).toMatchObject({
@@ -62,21 +62,26 @@ describe('trackFriendlyWars', () => {
 
   it('vue depuis l’autre clan : même guerre, même ordre des camps, rien en double', async () => {
     await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(REAL_FRIENDLY_WAR) }), CLANS);
-    expect(await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(swapped) }), CLANS)).toBe('known');
+    expect((await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(swapped) }), CLANS)).current).toBe(
+      'known',
+    );
     expect(await listFriendlyWars(db())).toHaveLength(1);
   });
 
-  it('guerre en cours, ou contre un clan extérieur : rien', async () => {
+  it('guerre en cours, ou contre un clan extérieur : rien d’enregistré', async () => {
+    const during = Date.UTC(2026, 9, 20, 19, 25); // pendant la FW du 20/10
     const live = { ...REAL_FRIENDLY_WAR, state: 'inWar' as const };
-    expect(await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(live) }), CLANS)).toBe('nothing');
+    expect(
+      (await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(live) }), CLANS, during)).current,
+    ).toBe('nothing');
 
     const outsider = {
       ...REAL_FRIENDLY_WAR,
       opponent: { ...REAL_FRIENDLY_WAR.opponent!, tag: '#2YYYYY' },
     };
-    expect(await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(outsider) }), CLANS)).toBe(
-      'nothing',
-    );
+    expect(
+      (await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(outsider) }), CLANS, during)).current,
+    ).toBe('nothing');
     expect(await listFriendlyWars(db())).toEqual([]);
   });
 
@@ -85,13 +90,13 @@ describe('trackFriendlyWars', () => {
       '#2JVUP2PGC': { ok: false, error: 'private' },
       '#2CYJPRCG8': ok(swapped),
     });
-    expect(await trackFriendlyWars(db(), game, CLANS)).toBe('recorded');
+    expect((await trackFriendlyWars(db(), game, CLANS)).current).toBe('recorded');
     expect(game.calls).toEqual(['#2JVUP2PGC', '#2CYJPRCG8']);
   });
 
   it('pas de clans de FW configurés : ne fait rien', async () => {
     const game = coc({});
-    expect(await trackFriendlyWars(db(), game, [])).toBe('nothing');
+    expect((await trackFriendlyWars(db(), game, [])).current).toBe('nothing');
     expect(game.calls).toEqual([]);
   });
 });
@@ -121,5 +126,91 @@ describe('stats des FW classiques', () => {
 
   it('joueur inconnu partout : null', async () => {
     expect(await getPlayerProfile(db(), '#INCONNU')).toBeNull();
+  });
+});
+
+describe('filet de sécurité : une FW relancée aussitôt la précédente finie', () => {
+  // La vraie FW du 20/10 : combat de 19h17:58 à 19h32:58.
+  const END = Date.UTC(2026, 9, 20, 19, 32, 58);
+  const inWar: CocWar = { ...REAL_FRIENDLY_WAR, state: 'inWar' };
+  // La FW suivante, lancée 1 minute après la fin de la précédente.
+  const next: CocWar = {
+    ...REAL_FRIENDLY_WAR,
+    state: 'preparation',
+    preparationStartTime: '20261020T193358.000Z',
+    startTime: '20261020T193858.000Z',
+    endTime: '20261020T195358.000Z',
+  };
+  const snapshots = async () =>
+    (await db().prepare('SELECT COUNT(*) AS n FROM fw_snapshots').first<{ n: number }>())!.n;
+
+  it('pendant la guerre, le bot garde son dernier état ; à la fin, il l’efface', async () => {
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(inWar) }), CLANS, END - 60_000);
+    expect(await snapshots()).toBe(1);
+    await trackFriendlyWars(
+      db(),
+      coc({ '#2JVUP2PGC': ok(REAL_FRIENDLY_WAR) }),
+      CLANS,
+      END + 30_000,
+    );
+    expect(await snapshots()).toBe(0);
+    const [war] = await listFriendlyWars(db());
+    expect(war.partial).toBe(false);
+  });
+
+  it('la FW a disparu sans être vue finie : reconstituée d’après son dernier état, marquée partielle', async () => {
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(inWar) }), CLANS, END - 60_000);
+    // 3 minutes après la fin, le jeu montre déjà la FW suivante.
+    const later = await trackFriendlyWars(
+      db(),
+      coc({ '#2JVUP2PGC': ok(next) }),
+      CLANS,
+      END + 3 * 60_000,
+    );
+    expect(later).toEqual({ current: 'nothing', recovered: 1 });
+
+    const [war] = await listFriendlyWars(db());
+    expect(war).toMatchObject({ partial: true, home: { stars: 13 }, away: { stars: 11 } });
+    expect(await listFwPlayers(db())).toHaveLength(20);
+    expect(await snapshots()).toBe(0);
+  });
+
+  it('pas avant 2 minutes après la fin prévue (le jeu peut encore la montrer finie)', async () => {
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(inWar) }), CLANS, END - 60_000);
+    const soon = await trackFriendlyWars(
+      db(),
+      coc({ '#2JVUP2PGC': ok(next) }),
+      CLANS,
+      END + 60_000,
+    );
+    expect(soon.recovered).toBe(0);
+    expect(await listFriendlyWars(db())).toEqual([]);
+  });
+
+  it('jeu injoignable : on patiente (jusqu’à 30 min) au lieu de reconstituer trop tôt', async () => {
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(inWar) }), CLANS, END - 60_000);
+    const down = coc({
+      '#2JVUP2PGC': { ok: false, error: 'unavailable' },
+      '#2CYJPRCG8': { ok: false, error: 'unavailable' },
+    });
+    expect((await trackFriendlyWars(db(), down, CLANS, END + 10 * 60_000)).recovered).toBe(0);
+    expect((await trackFriendlyWars(db(), down, CLANS, END + 31 * 60_000)).recovered).toBe(1);
+  });
+
+  it('reconstituée puis vue finie : la version complète remplace la partielle', async () => {
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(inWar) }), CLANS, END - 60_000);
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(next) }), CLANS, END + 3 * 60_000);
+    expect((await listFriendlyWars(db()))[0].partial).toBe(true);
+
+    const final = await trackFriendlyWars(
+      db(),
+      coc({ '#2CYJPRCG8': ok(REAL_FRIENDLY_WAR) }),
+      CLANS,
+      END + 4 * 60_000,
+    );
+    expect(final.current).toBe('recorded');
+    const wars = await listFriendlyWars(db());
+    expect(wars).toHaveLength(1);
+    expect(wars[0].partial).toBe(false);
   });
 });

@@ -58,15 +58,18 @@ export default {
   },
 
   /**
-   * Toutes les 5 minutes (wrangler.jsonc → triggers.crons) : l'arbitre
-   * automatique regarde les guerres des matchs en cours.
+   * Toutes les minutes (wrangler.jsonc → triggers.crons) : l'arbitre
+   * automatique regarde les guerres des matchs en cours, et les FW classiques
+   * sont suivies.
    */
   async scheduled(_event, env, ctx): Promise<void> {
     // FW classiques : seulement des stats, aucune annonce.
     ctx.waitUntil(
       trackFriendlyWars(env.DB, createCocClient(env), fwClans(env.FW_CLANS))
-        .then((result) => {
-          if (result === 'recorded') console.log('FW classique enregistrée');
+        .then(({ current, recovered }) => {
+          if (current === 'recorded') console.log('FW classique enregistrée');
+          if (recovered)
+            console.log(`FW reconstituée(s) d'après le dernier état vu : ${recovered}`);
         })
         .catch((error) => console.error('Suivi des FW en échec', error)),
     );

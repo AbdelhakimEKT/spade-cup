@@ -62,6 +62,8 @@ export interface FriendlyWarSummary {
   readonly away: FwSide;
   /** `null` = égalité parfaite. */
   readonly winner: 'home' | 'away' | null;
+  /** Reconstituée d'après le dernier état vu (les dernières attaques peuvent manquer). */
+  readonly partial: boolean;
 }
 
 /** Une FW classique dans l'historique d'un joueur. */
