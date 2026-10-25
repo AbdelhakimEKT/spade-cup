@@ -69,6 +69,21 @@ export interface PlayerLine {
   /** Attaques à 3 étoiles. */
   readonly triples: number;
   readonly durationSec: number;
+  /**
+   * Les bases attaquées, dans l'ordre des attaques. Absent pour les guerres
+   * enregistrées avant qu'on garde cette information.
+   */
+  readonly targets?: readonly AttackTarget[];
+}
+
+/** Une attaque d'un joueur : la base visée (chez l'adversaire) et son résultat. */
+export interface AttackTarget {
+  /** Place de la base visée sur la carte adverse (1 = en haut). */
+  readonly position: number;
+  readonly name: string;
+  readonly stars: number;
+  readonly destruction: number;
+  readonly durationSec: number;
 }
 
 export type WarReading =
@@ -134,8 +149,8 @@ export function readWarSnapshot(war: CocWar, home: ClanRef, away: ClanRef): WarR
   }
 
   const players = [
-    ...playerLines(homeWar, 'home', warnings),
-    ...playerLines(awayWar, 'away', warnings),
+    ...playerLines(homeWar, awayWar, 'home', warnings),
+    ...playerLines(awayWar, homeWar, 'away', warnings),
   ];
 
   return {
@@ -157,7 +172,14 @@ function sideScore(clan: CocWarClan): SideScore {
   };
 }
 
-function playerLines(clan: CocWarClan, side: Side, warnings: string[]): PlayerLine[] {
+function playerLines(
+  clan: CocWarClan,
+  opponent: CocWarClan,
+  side: Side,
+  warnings: string[],
+): PlayerLine[] {
+  // Les bases adverses par tag : une attaque ne donne que le tag de sa cible.
+  const defenders = new Map((opponent.members ?? []).map((m) => [m.tag, m]));
   return [...(clan.members ?? [])]
     .sort((a, b) => a.mapPosition - b.mapPosition)
     .map((m) => {
@@ -177,6 +199,16 @@ function playerLines(clan: CocWarClan, side: Side, warnings: string[]): PlayerLi
         destruction: attacks.length ? round1(destructionSum / attacks.length) : 0,
         triples: attacks.filter((a) => a.stars === 3).length,
         durationSec: attacks.reduce((sum, a) => sum + a.duration, 0),
+        targets: attacks.map((a) => {
+          const target = defenders.get(a.defenderTag);
+          return {
+            position: target?.mapPosition ?? 0,
+            name: target?.name ?? a.defenderTag,
+            stars: a.stars,
+            destruction: round1(a.destructionPercentage),
+            durationSec: a.duration,
+          };
+        }),
       };
     });
 }

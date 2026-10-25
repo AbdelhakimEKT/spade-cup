@@ -33,6 +33,71 @@
   }
 }
 
+// ---- Totaux / Par guerre, et le « i » qui l'explique
+.mode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-panel);
+
+  button {
+    padding: var(--space-1) var(--space-3);
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button[aria-pressed='true'] {
+    background: var(--color-accent-strong);
+    color: #fff;
+  }
+}
+
+.info {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.6em;
+  padding: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+  background: var(--color-panel);
+  color: var(--color-muted);
+  font: inherit;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    border-color: var(--color-accent-strong);
+    color: var(--color-text);
+  }
+}
+
+.help {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 70ch;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-accent-strong);
+  background: var(--color-panel);
+  font-size: 0.9rem;
+}
+
 // ---- Critères de tri choisis, au-dessus du tableau
 .criteria {
   display: flex;

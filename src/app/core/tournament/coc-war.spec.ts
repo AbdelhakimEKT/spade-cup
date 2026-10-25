@@ -186,6 +186,17 @@ describe('readFriendlyWar sur une VRAIE réponse du jeu', () => {
     expect(reading.players.filter((p) => p.attacks === 0)).toHaveLength(6);
   });
 
+  it('chaque attaque garde sa cible : place sur la carte adverse, pseudo, résultat', () => {
+    const reading = readFriendlyWar(REAL_FRIENDLY_WAR, blue, red);
+    if (!reading.ok) throw new Error(reading.reason);
+    const b1 = reading.players.find((p) => p.tag === '#B1')!;
+    // B1 a attaqué #R4, qui est n°1 sur la carte du clan rouge.
+    expect(b1.targets).toEqual([
+      { position: 1, name: 'Joueur R4', stars: 2, destruction: 52, durationSec: 125 },
+    ]);
+    expect(reading.players.find((p) => p.attacks === 0)!.targets).toEqual([]);
+  });
+
   it('cette guerre de test n’était pas au règlement : tout est signalé', () => {
     const reading = readFriendlyWar(REAL_FRIENDLY_WAR, blue, red);
     if (!reading.ok) throw new Error(reading.reason);

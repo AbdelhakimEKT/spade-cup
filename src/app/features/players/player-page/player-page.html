@@ -35,7 +35,11 @@
 </ng-template>
 
 @if (profile(); as p) {
-  <a class="crumb" routerLink="/joueurs">← Classement des joueurs</a>
+  <!-- Un joueur de FW seulement : sans page précédente, on mène au classement FW. -->
+  <sc-back-link
+    [fallback]="p.history.length ? '/joueurs' : '/joueurs?type=fw'"
+    [fallbackLabel]="p.history.length ? 'Classement des joueurs' : 'Classement des FW classiques'"
+  />
 
   <header class="page-head">
     <p class="eyebrow">Joueur · {{ p.totals.tag }}</p>

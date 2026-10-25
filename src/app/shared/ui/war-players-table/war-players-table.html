@@ -51,6 +51,17 @@
           <td [class.off-rules]="townHallRule() !== null && p.townHall < townHallRule()!">
             {{ p.townHall }}
           </td>
+          @if (hasTargets()) {
+            <td class="cell-text">
+              @for (t of p.targets ?? []; track $index) {
+                <span class="target"
+                  ><b>n°{{ t.position }}</b>&nbsp;<span class="muted">{{ t.name }}</span></span
+                >
+              } @empty {
+                <span class="muted">–</span>
+              }
+            </td>
+          }
           <td>
             @if (p.attacks) {
               <span class="star" aria-hidden="true">★</span> {{ p.stars }}

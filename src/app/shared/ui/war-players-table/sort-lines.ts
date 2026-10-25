@@ -1,20 +1,20 @@
 import { PlayerLine } from '../../../core/tournament/coc-war';
 
 export type LineSortKey =
-  'position' | 'name' | 'team' | 'townHall' | 'stars' | 'destruction' | 'duration';
+  'position' | 'name' | 'team' | 'townHall' | 'target' | 'stars' | 'destruction' | 'duration';
 export type SortDir = 'asc' | 'desc';
 
 /**
  * Le sens du premier clic sur une colonne : les meilleurs d'abord pour les
- * étoiles, le % et l'HDV ; le haut de la carte, l'ordre alphabétique et les
- * attaques les plus rapides d'abord pour les autres.
+ * étoiles, le % et l'HDV ; le haut de la carte (place, cible), l'ordre
+ * alphabétique et les attaques les plus rapides d'abord pour les autres.
  */
 export function firstDir(key: LineSortKey): SortDir {
   return key === 'stars' || key === 'destruction' || key === 'townHall' ? 'desc' : 'asc';
 }
 
 /** Colonnes qui n'ont de sens que pour un joueur qui a attaqué. */
-const ATTACK_KEYS: readonly LineSortKey[] = ['stars', 'destruction', 'duration'];
+const ATTACK_KEYS: readonly LineSortKey[] = ['target', 'stars', 'destruction', 'duration'];
 
 /**
  * Trie les joueurs d'une guerre sur une colonne, dans un sens.
@@ -40,6 +40,8 @@ export function sortLines(
         return teamName(a).localeCompare(teamName(b), 'fr');
       case 'townHall':
         return a.townHall - b.townHall;
+      case 'target':
+        return (a.targets?.[0]?.position ?? 0) - (b.targets?.[0]?.position ?? 0);
       case 'stars':
         return a.stars - b.stars;
       case 'destruction':

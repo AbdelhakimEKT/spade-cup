@@ -194,8 +194,8 @@ function recordStatements(
     },
     ...reading.players.map((p) => ({
       sql: `INSERT INTO fw_players (war_id, side, clan_tag, player_tag, player_name, town_hall,
-              map_position, attacks, stars, destruction_sum, triples, duration)
-            VALUES (${warId}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              map_position, attacks, stars, destruction_sum, triples, duration, targets)
+            VALUES (${warId}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         key,
         p.side,
@@ -209,6 +209,7 @@ function recordStatements(
         p.destruction * p.attacks,
         p.triples,
         p.durationSec,
+        p.targets?.length ? JSON.stringify(p.targets) : null,
       ],
     })),
   ];

@@ -80,6 +80,21 @@ describe('WarPlayersTable', () => {
     expect(without.el.querySelector('thead')?.textContent).not.toContain('Équipe');
   });
 
+  it('colonne « Cible » (n° sur la carte + pseudo) seulement si la guerre la connaît', async () => {
+    const [first, second, ...rest] = byPosition('home');
+    const target = { position: 3, name: 'Zozio', stars: 2, destruction: 80, durationSec: 120 };
+    const withTargets = await render({
+      players: [{ ...first, targets: [target] }, { ...second, targets: [] }, ...rest],
+    });
+    expect(withTargets.header('Cible')).toBeDefined();
+    expect(withTargets.el.querySelector('.target')?.textContent?.replace(/\s+/g, ' ')).toBe(
+      'n°3 Zozio', // \s couvre aussi l'espace insécable
+    );
+    TestBed.resetTestingModule();
+    const old = await render({ players: byPosition('home') });
+    expect(old.el.querySelector('thead')?.textContent).not.toContain('Cible');
+  });
+
   it('HDV sous la règle du tournoi : signalé en rouge', async () => {
     const [first, ...rest] = byPosition('home');
     const { el } = await render({

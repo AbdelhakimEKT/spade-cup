@@ -1,6 +1,6 @@
 @if (detail(); as d) {
   @let v = view()!;
-  <a class="crumb" routerLink="/joueurs" [queryParams]="{ type: 'fw' }">← FW classiques</a>
+  <sc-back-link fallback="/joueurs?type=fw" fallbackLabel="Classement des FW classiques" />
 
   <header class="page-head">
     <p class="eyebrow">

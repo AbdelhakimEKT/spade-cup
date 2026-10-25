@@ -1,4 +1,4 @@
-import type { PlayerLine } from '../../src/app/core/tournament/coc-war';
+import type { AttackTarget, PlayerLine } from '../../src/app/core/tournament/coc-war';
 import type { ClanRef, Side } from '../../src/app/core/tournament/models';
 import {
   clanRecord,
@@ -32,10 +32,12 @@ interface PlayerRow {
   destruction_sum: number;
   triples: number;
   duration: number;
+  /** FW classiques seulement : les bases attaquées, en JSON. */
+  targets?: string | null;
 }
 
 function toLine(r: PlayerRow): PlayerLine {
-  return {
+  const line: PlayerLine = {
     tag: r.player_tag,
     name: r.player_name,
     side: r.side,
@@ -47,6 +49,7 @@ function toLine(r: PlayerRow): PlayerLine {
     triples: r.triples,
     durationSec: r.duration,
   };
+  return r.targets ? { ...line, targets: JSON.parse(r.targets) as AttackTarget[] } : line;
 }
 
 const clanOf = (tag: string, name: string | null, badge: string | null): ClanRef =>

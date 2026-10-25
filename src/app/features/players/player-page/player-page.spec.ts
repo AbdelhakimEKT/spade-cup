@@ -62,6 +62,8 @@ describe('PlayerPage', () => {
 
     const titles = [...el.querySelectorAll('h2')].map((h) => h.textContent);
     expect(titles).toEqual(['En FW classiques']);
+    // Ouverte directement : « ← » mène au classement des FW, pas au menu principal.
+    expect(el.querySelector('.crumb')?.getAttribute('href')).toBe('/joueurs?type=fw');
     expect(el.querySelector('a.clan')).toBeNull(); // FW-team2 n'a pas de fiche de clan
     expect(el.querySelector('span.clan')?.textContent).toContain('FW-team2');
     expect(el.querySelector('span.clan')?.classList).toContain('team--green');

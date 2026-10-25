@@ -6,6 +6,7 @@ import { fullTitle } from '../../../core/page-title';
 import { roundLabel } from '../../../core/tournament/bracket';
 import { PlayerTotals } from '../../../core/tournament/stats';
 import { tagToUrl } from '../../../core/tournament/tags';
+import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
 import { fwTeamColor, orderFw } from '../../../shared/ui/fw-teams';
 import { starsPerAttack } from '../../../shared/ui/labels';
@@ -15,7 +16,15 @@ import { Players } from '../data/players';
 /** Fiche d'un joueur : son bilan, puis chacune de ses guerres. */
 @Component({
   selector: 'sc-player-page',
-  imports: [ClanAvatar, DatePipe, DecimalPipe, NgTemplateOutlet, RequestState, RouterLink],
+  imports: [
+    BackLink,
+    ClanAvatar,
+    DatePipe,
+    DecimalPipe,
+    NgTemplateOutlet,
+    RequestState,
+    RouterLink,
+  ],
   templateUrl: './player-page.html',
   styleUrl: './player-page.scss',
 })

@@ -34,6 +34,11 @@ tr:hover .pinned {
   background: var(--color-panel-2);
 }
 
+// Deux attaques : une cible par ligne.
+.target {
+  display: block;
+}
+
 .off-rules {
   color: var(--color-lose);
   font-weight: 700;

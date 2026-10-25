@@ -1,12 +1,15 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { ViewMemory } from '../../core/navigation/view-memory';
 import { tagToUrl } from '../../core/tournament/tags';
 import { PlayerTotals } from '../../core/tournament/stats';
 import { starsPerAttack } from './labels';
 
 type SortKey = 'stars' | 'wars' | 'triples' | 'average' | 'destruction';
 type SortDir = 'asc' | 'desc';
+/** Totaux, ou chiffres ramenés à une guerre (pour comparer à nombre de guerres égal). */
+type Mode = 'total' | 'perWar';
 
 /** Un critère de tri : une colonne et son sens. */
 interface Criterion {
@@ -14,13 +17,35 @@ interface Criterion {
   readonly dir: SortDir;
 }
 
-const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
+interface Column {
+  readonly key: SortKey;
+  readonly label: string;
+  readonly title: string;
+}
+
+const COLUMNS: readonly Column[] = [
   { key: 'wars', label: 'Guerres', title: 'Guerres jouées' },
   { key: 'stars', label: 'Étoiles', title: 'Étoiles au total' },
   { key: 'average', label: '★ / att.', title: 'Étoiles par attaque' },
   { key: 'triples', label: 'Triples', title: 'Attaques à 3 étoiles' },
   { key: 'destruction', label: 'Destr.', title: 'Destruction moyenne par attaque' },
 ];
+
+/** En mode « par guerre », les totaux deviennent des moyennes par guerre. */
+const PER_WAR_COLUMNS: readonly Column[] = COLUMNS.map((c) =>
+  c.key === 'stars'
+    ? { ...c, label: 'Étoiles / guerre', title: 'Étoiles par guerre' }
+    : c.key === 'triples'
+      ? { ...c, label: 'Triples / guerre', title: 'Triples par guerre' }
+      : c,
+);
+
+/** Ce que la page retient d'une visite à l'autre (retour en arrière). */
+interface SavedView {
+  readonly criteria: readonly Criterion[];
+  readonly expanded: boolean;
+  readonly mode: Mode;
+}
 
 /** Au-delà, un nouveau critère remplace le dernier. */
 const MAX_CRITERIA = 3;
@@ -48,10 +73,29 @@ export class RankingTable {
   /** Nombre de lignes affichées avant « Voir toute la liste » (`null` : toutes). */
   readonly limit = input<number | null>(null);
 
-  protected readonly columns = COLUMNS;
+  private readonly memory = inject(ViewMemory);
+  /** Une mémoire par adresse : le classement FW et celui de la Spade Cup ont chacun la leur. */
+  private readonly memoryKey = `ranking:${inject(Router).url}`;
+  private readonly saved = this.memory.get<SavedView>(this.memoryKey);
+
   /** Les critères choisis, dans l'ordre. Vide : tri par défaut (étoiles). */
-  protected readonly criteria = signal<readonly Criterion[]>([]);
-  protected readonly expanded = signal(false);
+  protected readonly criteria = signal<readonly Criterion[]>(this.saved?.criteria ?? []);
+  protected readonly expanded = signal(this.saved?.expanded ?? false);
+  protected readonly mode = signal<Mode>(this.saved?.mode ?? 'total');
+  protected readonly showHelp = signal(false);
+  protected readonly columns = computed(() =>
+    this.mode() === 'perWar' ? PER_WAR_COLUMNS : COLUMNS,
+  );
+
+  constructor() {
+    effect(() =>
+      this.memory.set(this.memoryKey, {
+        criteria: this.criteria(),
+        expanded: this.expanded(),
+        mode: this.mode(),
+      } satisfies SavedView),
+    );
+  }
 
   /** Les critères réellement appliqués (le tri par défaut si aucun n'est choisi). */
   private readonly applied = computed<readonly Criterion[]>(() =>
@@ -81,7 +125,11 @@ export class RankingTable {
         const diff = this.value(b, c.key) - this.value(a, c.key);
         if (diff) return diff;
       }
-      return b.stars - a.stars || b.destruction - a.destruction || a.wars - b.wars;
+      return (
+        this.value(b, 'stars') - this.value(a, 'stars') ||
+        b.destruction - a.destruction ||
+        a.wars - b.wars
+      );
     };
     const sorted = [...this.players()].sort(
       (a, b) => merit(a, b) || a.name.localeCompare(b.name, 'fr'),
@@ -143,7 +191,12 @@ export class RankingTable {
   }
 
   protected label(key: SortKey, field: 'label' | 'title' = 'label'): string {
-    return COLUMNS.find((c) => c.key === key)![field];
+    return this.columns().find((c) => c.key === key)![field];
+  }
+
+  /** Une stat totale, ou ramenée à une guerre en mode « par guerre ». */
+  protected perWar(p: PlayerTotals, total: number): number {
+    return this.mode() === 'perWar' && p.wars ? total / p.wars : total;
   }
 
   protected medal(rank: number): string {
@@ -159,6 +212,8 @@ export class RankingTable {
   }
 
   private value(p: PlayerTotals, key: SortKey): number {
-    return key === 'average' ? this.average(p) : p[key];
+    if (key === 'average') return this.average(p);
+    if (key === 'stars' || key === 'triples') return this.perWar(p, p[key]);
+    return p[key];
   }
 }

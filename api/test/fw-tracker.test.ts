@@ -149,6 +149,13 @@ describe('stats des FW classiques', () => {
     const attacker = detail.players.find((p) => p.attacks > 0)!;
     expect(attacker.durationSec).toBeGreaterThan(0);
     expect(attacker.destruction).toBeGreaterThan(0);
+    // La cible est enregistrée (place sur la carte adverse et pseudo).
+    const b1 = detail.players.find((p) => p.tag === '#B1')!;
+    expect(b1.targets).toEqual([
+      { position: 1, name: 'Joueur R4', stars: 2, destruction: 52, durationSec: 125 },
+    ]);
+    // Qui n'a pas attaqué n'a pas de cible.
+    expect(detail.players.find((p) => p.attacks === 0)!.targets).toBeUndefined();
   });
 
   it('FW inconnue : null', async () => {

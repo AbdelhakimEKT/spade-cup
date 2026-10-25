@@ -26,6 +26,7 @@ const COLUMNS: readonly Column[] = [
   { key: 'name', label: 'Joueur', title: 'pseudo', text: true },
   { key: 'team', label: 'Équipe', title: 'équipe', text: true },
   { key: 'townHall', label: 'HDV', title: 'hôtel de ville' },
+  { key: 'target', label: 'Cible', title: 'base attaquée', text: true },
   { key: 'stars', label: 'Étoiles', title: 'étoiles' },
   { key: 'destruction', label: 'Destr.', title: 'pourcentage de destruction' },
   { key: 'duration', label: 'Temps', title: "temps d'attaque" },
@@ -59,8 +60,13 @@ export class WarPlayersTable {
     dir: firstDir(this.initialSort()),
   }));
 
+  /** « Cible » seulement si la guerre la connaît (FW enregistrées depuis le 25/10). */
+  protected readonly hasTargets = computed(() => this.players().some((p) => p.targets));
+
   protected readonly columns = computed(() =>
-    this.teams() ? COLUMNS : COLUMNS.filter((c) => c.key !== 'team'),
+    COLUMNS.filter(
+      (c) => (c.key !== 'team' || this.teams()) && (c.key !== 'target' || this.hasTargets()),
+    ),
   );
 
   protected readonly sorted = computed(() => {

@@ -1,3 +1,45 @@
+<div class="mode">
+  <div class="switch" role="group" aria-label="Chiffres affichés">
+    <button type="button" [attr.aria-pressed]="mode() === 'total'" (click)="mode.set('total')">
+      Totaux
+    </button>
+    <button type="button" [attr.aria-pressed]="mode() === 'perWar'" (click)="mode.set('perWar')">
+      Par guerre
+    </button>
+  </div>
+  <button
+    type="button"
+    class="info"
+    aria-label="Qu'est-ce que « par guerre » ?"
+    aria-controls="ranking-help"
+    [attr.aria-expanded]="showHelp()"
+    (click)="showHelp.set(!showHelp())"
+  >
+    i
+  </button>
+</div>
+@if (showHelp()) {
+  <div class="help" id="ranking-help">
+    <p>
+      <b>Totaux</b> : tout ce que le joueur a fait, additionné. Celui qui a joué 5 guerres a
+      forcément plus d'étoiles que celui qui en a joué 2.
+    </p>
+    <p>
+      <b>Par guerre</b> : chaque total est divisé par le nombre de guerres jouées, pour comparer
+      tout le monde à égalité. Exemple : 10 étoiles en 5 guerres = 2,00 par guerre ; 6 étoiles en 2
+      guerres = 3,00 par guerre, donc le second passe devant.
+    </p>
+    <p>
+      Différence avec « ★ / att. » : celle-ci ne compte que les attaques faites, alors que « par
+      guerre » compte aussi les guerres où le joueur n'a pas attaqué.
+    </p>
+    <p class="muted">
+      À savoir : avec très peu de guerres, une seule bonne guerre suffit pour être tout en haut.
+      Regarde aussi la colonne « Guerres ».
+    </p>
+  </div>
+}
+
 <!-- Toujours affichée (même sans tri choisi) : le tableau ne saute pas
      quand on clique sur une première colonne. -->
 <div class="criteria" role="group" aria-label="Tri choisi">
@@ -42,7 +84,7 @@
         @if (showClan()) {
           <th scope="col" class="cell-text">Clan</th>
         }
-        @for (col of columns; track col.key) {
+        @for (col of columns(); track col.key) {
           @let c = criterionOf(col.key);
           <th scope="col" [attr.aria-sort]="ariaSort(col.key)">
             <button
@@ -85,9 +127,18 @@
             </td>
           }
           <td>{{ p.wars }}</td>
-          <td><span class="star" aria-hidden="true">★</span> {{ p.stars }}</td>
-          <td>{{ average(p) | number: '1.2-2' }}</td>
-          <td>{{ p.triples }}</td>
+          @if (mode() === 'perWar') {
+            <td>
+              <span class="star" aria-hidden="true">★</span>
+              {{ perWar(p, p.stars) | number: '1.2-2' }}
+            </td>
+            <td>{{ average(p) | number: '1.2-2' }}</td>
+            <td>{{ perWar(p, p.triples) | number: '1.2-2' }}</td>
+          } @else {
+            <td><span class="star" aria-hidden="true">★</span> {{ p.stars }}</td>
+            <td>{{ average(p) | number: '1.2-2' }}</td>
+            <td>{{ p.triples }}</td>
+          }
           <td>{{ p.destruction | number: '1.1-1' }} %</td>
         </tr>
       }

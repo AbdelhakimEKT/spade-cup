@@ -6,6 +6,7 @@ import { fullTitle } from '../../../core/page-title';
 import { formatDuration } from '../../../core/tournament/format';
 import { Side } from '../../../core/tournament/models';
 import { RequestState } from '../../../shared/request-state/request-state';
+import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { orderFw } from '../../../shared/ui/fw-teams';
 import { TableTeam, WarPlayersTable } from '../../../shared/ui/war-players-table/war-players-table';
 import { Players } from '../data/players';
@@ -16,7 +17,7 @@ import { Players } from '../data/players';
  */
 @Component({
   selector: 'sc-fw-war-page',
-  imports: [DatePipe, DecimalPipe, RequestState, RouterLink, WarPlayersTable],
+  imports: [BackLink, DatePipe, DecimalPipe, RequestState, RouterLink, WarPlayersTable],
   templateUrl: './fw-war-page.html',
   styleUrl: './fw-war-page.scss',
 })

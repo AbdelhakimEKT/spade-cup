@@ -111,6 +111,68 @@ describe('RankingTable', () => {
     expect(el.querySelector('.more')).toBeNull();
   });
 
+  it('« Par guerre » : étoiles et triples divisés par le nombre de guerres, et le classement suit', async () => {
+    const two = [
+      player(1, { name: 'Gros total', wars: 5, attacks: 5, stars: 10, triples: 2 }),
+      player(2, { name: 'Efficace', wars: 2, attacks: 2, stars: 6, triples: 2 }),
+    ];
+    const { names, el, fixture } = await render(two);
+    expect(names()).toEqual(['Gros total', 'Efficace']);
+
+    const pressed = () => el.querySelector('.switch [aria-pressed="true"]')?.textContent?.trim();
+    expect(pressed()).toBe('Totaux');
+    [...el.querySelectorAll<HTMLButtonElement>('.switch button')][1].click();
+    await fixture.whenStable();
+    expect(pressed()).toBe('Par guerre');
+    expect(names()).toEqual(['Efficace', 'Gros total']); // 3,00 contre 2,00 par guerre
+    expect(el.querySelector('thead')?.textContent).toContain('Étoiles / guerre');
+    const cells = [...el.querySelectorAll('tbody tr')[0].children].map((c) =>
+      c.textContent?.trim(),
+    );
+    expect(cells).toContain('★ 3,00');
+    expect(cells).toContain('1,00'); // 2 triples en 2 guerres
+  });
+
+  it('le « i » ouvre et ferme l’explication', async () => {
+    const { el, fixture } = await render(PLAYERS);
+    const info = el.querySelector<HTMLButtonElement>('.info')!;
+    expect(el.querySelector('.help')).toBeNull();
+    info.click();
+    await fixture.whenStable();
+    expect(info.getAttribute('aria-expanded')).toBe('true');
+    expect(el.querySelector('.help')?.textContent).toContain('divisé par le nombre de guerres');
+    info.click();
+    await fixture.whenStable();
+    expect(el.querySelector('.help')).toBeNull();
+  });
+
+  it('retour sur la page : le tri, le mode et la liste dépliée sont retrouvés', async () => {
+    const many = Array.from({ length: 20 }, (_, i) =>
+      player(i + 1, { stars: 20 - i, wars: 1 + (i % 3) }),
+    );
+    const first = await render(many, true, 15);
+    await first.sortBy('Guerres');
+    first.el.querySelector<HTMLButtonElement>('.more')!.click();
+    [...first.el.querySelectorAll<HTMLButtonElement>('.switch button')][1].click();
+    await first.fixture.whenStable();
+    const before = first.names();
+
+    // La page est recréée (comme après un retour en arrière), même adresse.
+    const fixture = TestBed.createComponent(RankingTable);
+    fixture.componentRef.setInput('players', many);
+    fixture.componentRef.setInput('limit', 15);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(20);
+    expect(el.querySelector('.switch [aria-pressed="true"]')?.textContent?.trim()).toBe(
+      'Par guerre',
+    );
+    expect(el.querySelector('.criteria')?.textContent).toContain('Guerres');
+    expect(
+      [...el.querySelectorAll('tbody tr a[href^="/joueurs/"]')].map((a) => a.textContent?.trim()),
+    ).toEqual(before);
+  });
+
   it('chiffres au format français, liens vers joueur et clan', async () => {
     const { el } = await render([PLAYERS[0]]);
     const cells = [...el.querySelectorAll('tbody td')].map((c) => c.textContent?.trim());
