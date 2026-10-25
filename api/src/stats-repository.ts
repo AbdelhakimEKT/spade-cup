@@ -6,6 +6,7 @@ import {
   totalsOf,
   type ClanProfile,
   type FriendlyWarSummary,
+  type FwWarDetail,
   type MatchDetail,
   type PlayerFwWar,
   type PlayerProfile,
@@ -242,6 +243,26 @@ export async function listFriendlyWars(db: D1Database, limit = 30): Promise<Frie
     .bind(limit)
     .all<FwRow>();
   return results.map(toFwSummary);
+}
+
+/** Une FW classique et ses joueurs, ou `null` si elle n'existe pas. */
+export async function getFriendlyWar(db: D1Database, id: number): Promise<FwWarDetail | null> {
+  const [war, lines] = await Promise.all([
+    db
+      .prepare('SELECT * FROM friendly_wars WHERE id = ?')
+      .bind(id)
+      .first<FwRow & { home_duration: number; away_duration: number }>(),
+    db
+      .prepare('SELECT * FROM fw_players WHERE war_id = ? ORDER BY side DESC, map_position')
+      .bind(id)
+      .all<PlayerRow>(),
+  ]);
+  if (!war) return null;
+  return {
+    war: toFwSummary(war),
+    duration: { home: war.home_duration, away: war.away_duration },
+    players: lines.results.map(toLine),
+  };
 }
 
 /** Classement des joueurs en FW classiques (séparé de la Spade Cup). */

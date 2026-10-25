@@ -1,11 +1,15 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { friendlyWar } from '../../../../testing/fixtures';
 import { FRENCH_LOCALE } from '../../../../testing/french-locale';
 import { FriendlyWarSummary } from '../../../core/tournament/stats';
 import { FwWarList } from './fw-war-list';
 
 async function render(wars: FriendlyWarSummary[]) {
-  TestBed.configureTestingModule({ imports: [FwWarList], providers: [FRENCH_LOCALE] });
+  TestBed.configureTestingModule({
+    imports: [FwWarList],
+    providers: [provideRouter([]), FRENCH_LOCALE],
+  });
   const fixture = TestBed.createComponent(FwWarList);
   fixture.componentRef.setInput('wars', wars);
   await fixture.whenStable();
@@ -21,6 +25,11 @@ const team1Wins: FriendlyWarSummary = {
 };
 
 describe('FwWarList', () => {
+  it('chaque FW mène à son détail', async () => {
+    const el = await render([friendlyWar(7)]);
+    expect(el.querySelector('a.war')?.getAttribute('href')).toBe('/fw/7');
+  });
+
   it('team 1 (violet) toujours à gauche, team 2 (vert) à droite', async () => {
     const el = await render([friendlyWar()]);
     const sides = el.querySelectorAll('.side');

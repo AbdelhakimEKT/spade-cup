@@ -15,53 +15,55 @@
 
 <ul class="wars">
   @for (row of rows(); track row.war.id) {
-    <li class="war">
-      <span class="war__date muted">{{
-        row.war.endedAt ? (row.war.endedAt | date: 'EEE d MMM, HH:mm') : ''
-      }}</span>
+    <li>
+      <a class="war" [routerLink]="['/fw', row.war.id]" title="Voir le détail de la FW">
+        <span class="war__date muted">{{
+          row.war.endedAt ? (row.war.endedAt | date: 'EEE d MMM, HH:mm') : ''
+        }}</span>
 
-      <span
-        class="side"
-        [class]="'team--' + row.left.color"
-        [class.side--lost]="row.winner && !row.left.won"
-      >
-        @if (row.left.won) {
-          <span aria-hidden="true">🏆</span>
-        }
-        <b>{{ row.left.name }}</b>
-        <span class="side__score">{{ row.left.stars }}★</span>
-        <span class="side__pct">{{ row.left.destruction | number: '1.1-1' }} %</span>
-      </span>
+        <span
+          class="side"
+          [class]="'team--' + row.left.color"
+          [class.side--lost]="row.winner && !row.left.won"
+        >
+          @if (row.left.won) {
+            <span aria-hidden="true">🏆</span>
+          }
+          <b>{{ row.left.name }}</b>
+          <span class="side__score">{{ row.left.stars }}★</span>
+          <span class="side__pct">{{ row.left.destruction | number: '1.1-1' }} %</span>
+        </span>
 
-      <span class="vs" aria-hidden="true">VS</span>
+        <span class="vs" aria-hidden="true">VS</span>
 
-      <span
-        class="side side--right"
-        [class]="'team--' + row.right.color"
-        [class.side--lost]="row.winner && !row.right.won"
-      >
-        <span class="side__pct">{{ row.right.destruction | number: '1.1-1' }} %</span>
-        <span class="side__score">{{ row.right.stars }}★</span>
-        <b>{{ row.right.name }}</b>
-        @if (row.right.won) {
-          <span aria-hidden="true">🏆</span>
-        }
-      </span>
+        <span
+          class="side side--right"
+          [class]="'team--' + row.right.color"
+          [class.side--lost]="row.winner && !row.right.won"
+        >
+          <span class="side__pct">{{ row.right.destruction | number: '1.1-1' }} %</span>
+          <span class="side__score">{{ row.right.stars }}★</span>
+          <b>{{ row.right.name }}</b>
+          @if (row.right.won) {
+            <span aria-hidden="true">🏆</span>
+          }
+        </span>
 
-      <span class="war__result">
-        @if (row.winner; as w) {
-          <span class="chip" [class]="'chip chip--' + w.color">Victoire {{ w.name }}</span>
-        } @else {
-          <span class="chip chip--muted">Égalité parfaite</span>
-        }
-        @if (row.war.partial) {
-          <span
-            class="chip chip--muted"
-            title="FW relancée juste après : enregistrée d'après le dernier état vu, les toutes dernières attaques peuvent manquer."
-            >relevé partiel</span
-          >
-        }
-      </span>
+        <span class="war__result">
+          @if (row.winner; as w) {
+            <span class="chip" [class]="'chip chip--' + w.color">Victoire {{ w.name }}</span>
+          } @else {
+            <span class="chip chip--muted">Égalité parfaite</span>
+          }
+          @if (row.war.partial) {
+            <span
+              class="chip chip--muted"
+              title="FW relancée juste après : enregistrée d'après le dernier état vu, les toutes dernières attaques peuvent manquer."
+              >relevé partiel</span
+            >
+          }
+        </span>
+      </a>
     </li>
   }
 </ul>

@@ -72,6 +72,7 @@ describe('PlayerPage', () => {
     expect(row.querySelector('.team--green')?.textContent).toContain('FW-team2');
     expect(row.textContent).toContain('20 oct. 2026');
     expect(row.querySelector('.result--win')).not.toBeNull();
+    expect(row.querySelector('a.fw-link')?.getAttribute('href')).toBe('/fw/1');
   });
 
   it('joueur des deux : une section par type de guerre', async () => {

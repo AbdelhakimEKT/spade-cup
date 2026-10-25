@@ -1,6 +1,7 @@
 import {
   ClanProfile,
   FriendlyWarSummary,
+  FwWarDetail,
   MatchDetail,
   PlayerProfile,
   PlayerTotals,
@@ -94,6 +95,24 @@ export function friendlyWar(id = 1): FriendlyWarSummary {
     away: { tag: '#2CYJPRCG8', name: 'FW-team1', stars: 11, destruction: 46.4 },
     winner: 'home',
     partial: false,
+  };
+}
+
+/**
+ * Le détail de friendlyWar() : 5 joueurs par camp (FW-team2 « domicile »),
+ * dont deux de FW-team1 qui n'ont pas attaqué.
+ */
+export function fwWarDetail(): FwWarDetail {
+  const lines = DEMO_MATCH_PLAYERS.get('R1-M1')!;
+  const players = lines.map((l) =>
+    l.side === 'away' && l.mapPosition <= 2
+      ? { ...l, attacks: 0, stars: 0, destruction: 0, triples: 0, durationSec: 0 }
+      : l,
+  );
+  return {
+    war: friendlyWar(),
+    duration: { home: 812, away: 655 },
+    players,
   };
 }
 

@@ -86,11 +86,6 @@
   gap: var(--space-5);
 }
 
-.off-rules {
-  color: var(--color-lose);
-  font-weight: 700;
-}
-
 @media (max-width: 640px) {
   .scoreboard {
     grid-template-columns: 1fr;

@@ -1,0 +1,67 @@
+<div class="table-wrap">
+  <table class="data-table">
+    <caption class="visually-hidden">
+      {{
+        caption()
+      }}, trié par
+      {{
+        sortLabel()
+      }}
+    </caption>
+    <thead>
+      <tr>
+        @for (col of columns(); track col.key) {
+          <th
+            scope="col"
+            [class.cell-text]="col.text"
+            [class.pinned]="col.key === 'name'"
+            [attr.aria-sort]="ariaSort(col.key)"
+          >
+            <button
+              type="button"
+              class="sort"
+              [class.sort--active]="sort().key === col.key"
+              [title]="'Trier par ' + col.title"
+              (click)="sortBy(col.key)"
+            >
+              {{ col.label
+              }}<span class="arrow" aria-hidden="true">{{
+                sort().key === col.key ? (sort().dir === 'asc' ? '▲' : '▼') : ''
+              }}</span>
+            </button>
+          </th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (p of sorted(); track p.tag) {
+        <tr>
+          <td class="muted">{{ p.mapPosition }}</td>
+          <!-- Le pseudo reste visible quand on fait défiler le tableau sur téléphone. -->
+          <td class="cell-text pinned">
+            <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
+          </td>
+          @if (teams(); as t) {
+            <td class="cell-text">
+              <span [class]="t[p.side].color ? 'team--' + t[p.side].color : ''">{{
+                t[p.side].name
+              }}</span>
+            </td>
+          }
+          <td [class.off-rules]="townHallRule() !== null && p.townHall < townHallRule()!">
+            {{ p.townHall }}
+          </td>
+          <td>
+            @if (p.attacks) {
+              <span class="star" aria-hidden="true">★</span> {{ p.stars }}
+            } @else {
+              <span class="muted">Pas attaqué</span>
+            }
+          </td>
+          <td>{{ p.attacks ? (p.destruction | number: '1.1-1') + ' %' : '–' }}</td>
+          <td>{{ p.attacks ? duration(p.durationSec) : '–' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

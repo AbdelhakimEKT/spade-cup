@@ -4,7 +4,12 @@ import type { CocWar } from '../../src/app/core/tournament/coc-war';
 import { REAL_FRIENDLY_WAR } from '../../src/testing/real-friendly-war';
 import type { CocClient, CocResult } from '../src/coc';
 import { fwClans, trackFriendlyWars, warKey } from '../src/fw-tracker';
-import { getPlayerProfile, listFriendlyWars, listFwPlayers } from '../src/stats-repository';
+import {
+  getFriendlyWar,
+  getPlayerProfile,
+  listFriendlyWars,
+  listFwPlayers,
+} from '../src/stats-repository';
 
 /**
  * Suivi des FW classiques, sur la VRAIE réponse du jeu du 20/10 (FW-team2
@@ -122,6 +127,29 @@ describe('stats des FW classiques', () => {
     expect(profile.fw!.totals).toMatchObject({ wars: 1, stars: best.stars });
     expect(profile.fw!.history[0].war.home.name).toBe('Clan Bleu');
     expect(profile.fw!.history[0].won).toBe(best.clan.name === 'Clan Bleu');
+  });
+
+  it('détail d’une FW : score, temps de chaque camp, et chaque joueur (étoiles, %, temps)', async () => {
+    await trackFriendlyWars(db(), coc({ '#2JVUP2PGC': ok(REAL_FRIENDLY_WAR) }), CLANS);
+    const [{ id }] = await listFriendlyWars(db());
+    const detail = (await getFriendlyWar(db(), id))!;
+
+    expect(detail.war).toMatchObject({ id, home: { stars: 13 }, away: { stars: 11 } });
+    const sum = (side: string) =>
+      detail.players.filter((p) => p.side === side).reduce((t, p) => t + p.durationSec, 0);
+    expect(detail.duration).toEqual({ home: sum('home'), away: sum('away') });
+    expect(detail.players).toHaveLength(20);
+    // Camp « home » d'abord, chacun dans l'ordre de la carte.
+    expect(detail.players.slice(0, 10).map((p) => p.mapPosition)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+    const attacker = detail.players.find((p) => p.attacks > 0)!;
+    expect(attacker.durationSec).toBeGreaterThan(0);
+    expect(attacker.destruction).toBeGreaterThan(0);
+  });
+
+  it('FW inconnue : null', async () => {
+    expect(await getFriendlyWar(db(), 999)).toBeNull();
   });
 
   it('joueur inconnu partout : null', async () => {

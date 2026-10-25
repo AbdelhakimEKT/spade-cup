@@ -69,6 +69,12 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'fw/:id',
+    title: 'FW classique',
+    loadComponent: () =>
+      import('./features/players/fw-war-page/fw-war-page').then((m) => m.FwWarPage),
+  },
+  {
     path: 'direct',
     title: 'En direct',
     loadComponent: () => import('./features/live/live-page/live-page').then((m) => m.LivePage),

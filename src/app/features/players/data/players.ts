@@ -1,7 +1,12 @@
 import { HttpResourceRef, httpResource } from '@angular/common/http';
 import { Service } from '@angular/core';
 import { SITE_CONFIG } from '../../../core/site-config';
-import { FriendlyWarSummary, PlayerProfile, PlayerTotals } from '../../../core/tournament/stats';
+import {
+  FriendlyWarSummary,
+  FwWarDetail,
+  PlayerProfile,
+  PlayerTotals,
+} from '../../../core/tournament/stats';
 
 /** Statistiques des joueurs, lues sur le serveur. Même principe que `Tournaments`. */
 @Service()
@@ -36,6 +41,11 @@ export class Players {
     return httpResource<readonly FriendlyWarSummary[]>(() =>
       active() ? `${this.api}/fw/wars` : undefined,
     );
+  }
+
+  /** Une FW classique et ses joueurs (`id` tel qu'il apparaît dans l'URL du site). */
+  fwWar(id: () => string): HttpResourceRef<FwWarDetail | undefined> {
+    return httpResource<FwWarDetail>(() => `${this.api}/fw/wars/${encodeURIComponent(id())}`);
   }
 
   /** `tag` sans le « # », tel qu'il apparaît dans l'URL du site. */

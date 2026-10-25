@@ -1,0 +1,127 @@
+:host {
+  display: grid;
+  // Sans minmax(0, …), le tableau élargirait la page sur téléphone.
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.team {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+}
+
+// Le gagnant est encadré de sa couleur d'équipe, le perdant estompé.
+.team--won.team--card-violet {
+  border-color: var(--team-violet);
+}
+
+.team--won.team--card-green {
+  border-color: var(--team-green);
+}
+
+.team--lost {
+  opacity: 0.55;
+}
+
+.team__name {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.team__score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+
+  dt {
+    color: var(--color-muted);
+    font-size: 0.8rem;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.note {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-accent-strong);
+  background: var(--color-panel);
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  button {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: none;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      border-color: currentColor;
+    }
+  }
+
+  // Les boutons d'équipe gardent leur couleur ; celui choisi est encadré.
+  .team--violet {
+    color: var(--team-violet);
+  }
+
+  .team--green {
+    color: var(--team-green);
+  }
+
+  button[aria-pressed='true'] {
+    border-color: currentColor;
+    background: var(--color-panel-2);
+  }
+
+  button:not([class])[aria-pressed='true'] {
+    color: var(--color-text);
+  }
+}
+
+.hint {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .scoreboard {
+    grid-template-columns: 1fr;
+  }
+}

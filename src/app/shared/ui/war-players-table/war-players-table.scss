@@ -1,0 +1,45 @@
+// Mêmes en-têtes cliquables que le classement des joueurs.
+.sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.sort--active {
+  color: var(--color-text);
+  box-shadow: inset 0 -2px 0 var(--color-accent-strong);
+}
+
+.arrow {
+  margin-left: 0.3em;
+  font-size: 0.75em;
+}
+
+.pinned {
+  position: sticky;
+  left: 0;
+  background: var(--color-panel);
+}
+
+tr:hover .pinned {
+  background: var(--color-panel-2);
+}
+
+.off-rules {
+  color: var(--color-lose);
+  font-weight: 700;
+}
+
+// Récap image pour Discord : pas de flèche de tri sur l'image.
+:host-context(.capture) .arrow {
+  display: none;
+}

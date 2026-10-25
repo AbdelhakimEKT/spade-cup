@@ -92,6 +92,13 @@ describe('API HTTP', () => {
     expect(await (await call('/fw/wars')).json()).toEqual([]);
   });
 
+  it('GET /fw/wars/:id : 404 pour une FW inconnue, 404 aussi pour un identifiant invalide', async () => {
+    const missing = await call('/fw/wars/42');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'FW introuvable.' });
+    expect((await call('/fw/wars/abc')).status).toBe(404);
+  });
+
   it('GET /discord : 405 (seul Discord y écrit, en POST)', async () => {
     expect((await call('/discord')).status).toBe(405);
   });

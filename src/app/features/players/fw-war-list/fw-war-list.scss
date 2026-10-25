@@ -30,7 +30,15 @@
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-panel);
+  color: inherit;
   font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: border-color 0.15s;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--color-accent-strong);
+  }
 }
 
 .war__date {

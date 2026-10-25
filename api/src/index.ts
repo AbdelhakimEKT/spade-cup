@@ -5,6 +5,7 @@ import { CORS_HEADERS, SHORT_CACHE, errorResponse, json } from './http';
 import { getTournament, listTournaments } from './repository';
 import {
   getClanProfile,
+  getFriendlyWar,
   getMatchDetail,
   getPlayerProfile,
   listFriendlyWars,
@@ -27,6 +28,7 @@ import { runWatch, type WatchDeps } from './watch';
  *   GET /players/:tag                          fiche d'un joueur (tag sans « # »)
  *   GET /clans/:tag                            fiche d'un clan (tag sans « # »)
  *   GET /fw/players · GET /fw/wars             FW classiques : classement, dernières guerres
+ *   GET /fw/wars/:id                           une FW classique et ses joueurs
  *   GET /live                                  guerres en train de se jouer (en direct)
  *
  * Écritures : uniquement par le bot Discord (POST /discord, requêtes signées).
@@ -157,6 +159,9 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
   }
   if (pathname === '/fw/wars') {
     return json(await listFriendlyWars(env.DB), 200, SHORT_CACHE);
+  }
+  if ((m = /^\/fw\/wars\/(\d{1,9})$/.exec(pathname))) {
+    return found(await getFriendlyWar(env.DB, Number(m[1])), 'FW introuvable.');
   }
   if ((m = new RegExp(`^/players/${TAG}$`).exec(pathname))) {
     return found(await getPlayerProfile(env.DB, `#${m[1]}`), 'Joueur introuvable.');

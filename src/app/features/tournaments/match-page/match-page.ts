@@ -11,12 +11,13 @@ import { tagToUrl } from '../../../core/tournament/tags';
 import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
 import { verdict } from '../../../shared/ui/labels';
 import { RequestState } from '../../../shared/request-state/request-state';
+import { WarPlayersTable } from '../../../shared/ui/war-players-table/war-players-table';
 import { Tournaments } from '../data/tournaments';
 
 /** Détail d'un match : les deux clans, le score, comment il a été décidé, les joueurs. */
 @Component({
   selector: 'sc-match-page',
-  imports: [ClanAvatar, DecimalPipe, RequestState, RouterLink],
+  imports: [ClanAvatar, DecimalPipe, RequestState, RouterLink, WarPlayersTable],
   templateUrl: './match-page.html',
   styleUrl: './match-page.scss',
   host: { '[class.capture]': 'capture()' },

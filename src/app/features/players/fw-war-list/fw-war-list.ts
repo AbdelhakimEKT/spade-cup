@@ -1,16 +1,17 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FriendlyWarSummary } from '../../../core/tournament/stats';
 import { orderFw } from '../../../shared/ui/fw-teams';
 
 /**
  * Les dernières FW classiques, avec un bilan des victoires en tête.
  * Team 1 (violet) toujours à gauche, team 2 (vert) à droite ; le gagnant a
- * son trophée, le perdant est estompé.
+ * son trophée, le perdant est estompé. Un clic ouvre le détail de la FW.
  */
 @Component({
   selector: 'sc-fw-war-list',
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe, DecimalPipe, RouterLink],
   templateUrl: './fw-war-list.html',
   styleUrl: './fw-war-list.scss',
 })

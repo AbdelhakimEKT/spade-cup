@@ -1,0 +1,101 @@
+@if (detail(); as d) {
+  @let v = view()!;
+  <a class="crumb" routerLink="/joueurs" [queryParams]="{ type: 'fw' }">← FW classiques</a>
+
+  <header class="page-head">
+    <p class="eyebrow">
+      FW classique
+      @if (d.war.endedAt) {
+        · {{ d.war.endedAt | date: 'EEEE d MMMM, HH:mm' }}
+      }
+    </p>
+    <h1 class="page-title">
+      <span [class]="'team--' + v.left.color">{{ v.left.name }}</span> contre
+      <span [class]="'team--' + v.right.color">{{ v.right.name }}</span>
+    </h1>
+  </header>
+
+  <section class="scoreboard" aria-label="Score">
+    @for (s of [v.left, v.right]; track s.tag) {
+      <div
+        [class]="'team team--card-' + s.color"
+        [class.team--won]="s.won"
+        [class.team--lost]="v.winner && !s.won"
+      >
+        <p [class]="'team__name team--' + s.color">
+          @if (s.won) {
+            <span aria-hidden="true">🏆</span>
+          }
+          {{ s.name }}
+        </p>
+        <dl class="team__score">
+          <div>
+            <dt>Étoiles</dt>
+            <dd><span class="star" aria-hidden="true">★</span> {{ s.stars }}</dd>
+          </div>
+          <div>
+            <dt>Destruction</dt>
+            <dd>{{ s.destruction | number: '1.1-1' }} %</dd>
+          </div>
+          <div>
+            <dt>Temps</dt>
+            <dd>{{ duration(s.durationSec) }}</dd>
+          </div>
+        </dl>
+        @if (s.won) {
+          <span [class]="'chip chip--' + s.color">Victoire {{ s.name }}</span>
+        }
+      </div>
+    }
+  </section>
+
+  @if (!v.winner) {
+    <p class="note">Égalité parfaite : mêmes étoiles, même pourcentage, même temps.</p>
+  }
+  @if (d.war.partial) {
+    <p class="note">
+      Relevé partiel : la FW a été relancée juste après, elle est enregistrée d'après le dernier
+      état vu. Les toutes dernières attaques peuvent manquer.
+    </p>
+  }
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">Joueur par joueur</h2>
+      <div class="filter" role="group" aria-label="Afficher">
+        <button type="button" [attr.aria-pressed]="only() === null" (click)="only.set(null)">
+          Tous
+        </button>
+        @for (s of [v.left, v.right]; track s.tag) {
+          <button
+            type="button"
+            [class]="'team--' + s.color"
+            [attr.aria-pressed]="only() === s.side"
+            (click)="only.set(s.side)"
+          >
+            {{ s.name }}
+          </button>
+        }
+      </div>
+    </div>
+    @if (d.players.length) {
+      <p class="muted hint">Clique sur une colonne pour trier, reclique pour inverser l'ordre.</p>
+      <sc-war-players-table
+        [players]="shown()"
+        [teams]="teams()"
+        caption="Joueurs de la FW"
+        initialSort="stars"
+      />
+    } @else {
+      <p class="muted">Aucun joueur enregistré pour cette FW.</p>
+    }
+  </section>
+} @else if (notFound()) {
+  <h1 class="page-title">FW introuvable</h1>
+  <p class="muted">
+    Cette FW n'existe pas.
+    <a routerLink="/joueurs" [queryParams]="{ type: 'fw' }">Voir les FW classiques</a>
+  </p>
+} @else {
+  <sc-request-state [resource]="request" />
+}

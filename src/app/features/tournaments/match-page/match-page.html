@@ -70,46 +70,11 @@
       @for (s of sides(); track s.side) {
         <section class="section">
           <h2 class="section-title">{{ s.clan?.name }}</h2>
-          <div class="table-wrap">
-            <table class="data-table">
-              <caption class="visually-hidden">
-                Joueurs de
-                {{
-                  s.clan?.name
-                }}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Pos.</th>
-                  <th scope="col" class="cell-text">Joueur</th>
-                  <th scope="col">HDV</th>
-                  <th scope="col">Étoiles</th>
-                  <th scope="col">Destr.</th>
-                  <th scope="col">Temps</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (p of s.players; track p.tag) {
-                  <tr>
-                    <td class="muted">{{ p.mapPosition }}</td>
-                    <td class="cell-text">
-                      <a [routerLink]="['/joueurs', url(p.tag)]">{{ p.name }}</a>
-                    </td>
-                    <td [class.off-rules]="p.townHall !== 18">{{ p.townHall }}</td>
-                    <td>
-                      @if (p.attacks) {
-                        <span class="star" aria-hidden="true">★</span> {{ p.stars }}
-                      } @else {
-                        <span class="muted">Pas attaqué</span>
-                      }
-                    </td>
-                    <td>{{ p.attacks ? (p.destruction | number: '1.1-1') + ' %' : '–' }}</td>
-                    <td>{{ p.attacks ? duration(p.durationSec) : '–' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <sc-war-players-table
+            [players]="s.players"
+            [caption]="'Joueurs de ' + (s.clan?.name ?? '')"
+            [townHallRule]="18"
+          />
         </section>
       }
     </div>

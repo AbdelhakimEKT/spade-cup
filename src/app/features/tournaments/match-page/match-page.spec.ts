@@ -53,7 +53,7 @@ describe('MatchPage', () => {
       ...detail,
       players: { ...detail.players, home: [{ ...first, townHall: 17 }, ...rest] },
     });
-    expect(el.querySelector('.off-rules')?.textContent).toBe('17');
+    expect(el.querySelector('.off-rules')?.textContent?.trim()).toBe('17');
   });
 
   it('match en cours : pas de score, pas de joueurs, statut clair', async () => {

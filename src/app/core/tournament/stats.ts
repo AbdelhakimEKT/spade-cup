@@ -66,6 +66,15 @@ export interface FriendlyWarSummary {
   readonly partial: boolean;
 }
 
+/** Le détail d'une FW classique : le score des deux camps, puis chaque joueur. */
+export interface FwWarDetail {
+  readonly war: FriendlyWarSummary;
+  /** Temps d'attaque cumulé de chaque camp, en secondes. */
+  readonly duration: { readonly home: number; readonly away: number };
+  /** Les joueurs des deux camps (`side` dit lequel), dans l'ordre de la carte. */
+  readonly players: readonly PlayerLine[];
+}
+
 /** Une FW classique dans l'historique d'un joueur. */
 export interface PlayerFwWar {
   readonly war: FriendlyWarSummary;

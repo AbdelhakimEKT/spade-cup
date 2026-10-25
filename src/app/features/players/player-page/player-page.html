@@ -130,13 +130,15 @@
                 </td>
                 @let fwRow = order(h.war);
                 <td class="cell-text">
-                  <span [class]="'team--' + fwRow.left.color"
-                    >{{ fwRow.left.name }} {{ fwRow.left.stars }}★</span
-                  >
-                  <span class="muted"> – </span>
-                  <span [class]="'team--' + fwRow.right.color"
-                    >{{ fwRow.right.stars }}★ {{ fwRow.right.name }}</span
-                  >
+                  <a class="fw-link" [routerLink]="['/fw', h.war.id]">
+                    <span [class]="'team--' + fwRow.left.color"
+                      >{{ fwRow.left.name }} {{ fwRow.left.stars }}★</span
+                    >
+                    <span class="muted"> – </span>
+                    <span [class]="'team--' + fwRow.right.color"
+                      >{{ fwRow.right.stars }}★ {{ fwRow.right.name }}</span
+                    >
+                  </a>
                 </td>
                 <td><ng-container *ngTemplateOutlet="result; context: { $implicit: h.won }" /></td>
                 <td><span class="star" aria-hidden="true">★</span> {{ h.line.stars }}</td>

@@ -24,3 +24,12 @@
   display: block;
   font-size: 0.8rem;
 }
+
+// Le score d'une FW mène à son détail.
+.fw-link {
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
