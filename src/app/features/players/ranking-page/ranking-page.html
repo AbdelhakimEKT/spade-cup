@@ -35,7 +35,7 @@
     @if (fwPlayers.value().length) {
       <sc-ranking-table
         [players]="fwPlayers.value()"
-        [showClan]="false"
+        [clanColors]="fwColors"
         caption="Classement des FW classiques"
       />
     } @else {
@@ -50,28 +50,7 @@
   @if (fwWars.hasValue() && fwWars.value().length) {
     <section class="section">
       <h2 class="section-title">Dernières FW</h2>
-      <ul class="wars">
-        @for (w of fwWars.value(); track w.id) {
-          <li class="war">
-            <span class="war__date muted">{{
-              w.endedAt ? (w.endedAt | date: 'EEE d MMM, HH:mm') : ''
-            }}</span>
-            <span class="war__side" [class.war__side--win]="w.winner === 'home'">
-              {{ w.home.name }} <b>{{ w.home.stars }}★</b>
-              <span class="muted">{{ w.home.destruction | number: '1.1-1' }} %</span>
-            </span>
-            <span class="muted">—</span>
-            <span class="war__side" [class.war__side--win]="w.winner === 'away'">
-              <b>{{ w.away.stars }}★</b>
-              <span class="muted">{{ w.away.destruction | number: '1.1-1' }} %</span>
-              {{ w.away.name }}
-            </span>
-            @if (w.teamSize) {
-              <span class="chip chip--muted">{{ w.teamSize }} contre {{ w.teamSize }}</span>
-            }
-          </li>
-        }
-      </ul>
+      <sc-fw-war-list [wars]="fwWars.value()" />
     </section>
   }
 } @else {

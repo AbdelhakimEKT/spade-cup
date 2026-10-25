@@ -11,4 +11,12 @@ export const SITE_CONFIG = {
   siteUrl: 'https://spade-cup.popi-coc.workers.dev',
   apiUrl: 'https://spade-cup-api.popi-coc.workers.dev',
   repoUrl: 'https://github.com/AbdelhakimEKT/spade-cup',
+  /**
+   * Les deux clans des FW classiques, dans l'ordre d'affichage (team 1 à
+   * gauche), avec leur couleur : la DA du serveur.
+   */
+  fwTeams: [
+    { tag: '#2CYJPRCG8', color: 'violet' },
+    { tag: '#2JVUP2PGC', color: 'green' },
+  ],
 } as const;

@@ -218,3 +218,22 @@
   background: rgb(255 107 134 / 0.12);
   color: var(--color-lose);
 }
+
+// ---- Couleurs des clans de FW (team 1 violet, team 2 vert)
+.team--violet {
+  color: var(--team-violet);
+}
+
+.team--green {
+  color: var(--team-green);
+}
+
+.chip--violet {
+  border-color: var(--team-violet);
+  color: var(--team-violet);
+}
+
+.chip--green {
+  border-color: var(--team-green);
+  color: var(--team-green);
+}

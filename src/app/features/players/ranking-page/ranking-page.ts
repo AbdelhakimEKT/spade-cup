@@ -1,7 +1,8 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { FW_TEAM_COLORS } from '../../../shared/ui/fw-teams';
 import { RankingTable } from '../../../shared/ui/ranking-table';
+import { FwWarList } from '../fw-war-list/fw-war-list';
 import { RequestState } from '../../../shared/request-state/request-state';
 import { Tournaments } from '../../tournaments/data/tournaments';
 import { Players } from '../data/players';
@@ -15,7 +16,7 @@ import { Players } from '../data/players';
  */
 @Component({
   selector: 'sc-ranking-page',
-  imports: [DatePipe, DecimalPipe, RankingTable, RequestState, RouterLink],
+  imports: [FwWarList, RankingTable, RequestState, RouterLink],
   templateUrl: './ranking-page.html',
   styleUrl: './ranking-page.scss',
 })
@@ -26,6 +27,8 @@ export class RankingPage {
   readonly type = input<string>();
 
   protected readonly isFw = computed(() => this.type() === 'fw');
+  /** Team 1 en violet, team 2 en vert, dans la colonne « Clan » du classement FW. */
+  protected readonly fwColors = FW_TEAM_COLORS;
   protected readonly slug = computed(() => this.tournoi() || null);
 
   private readonly data = inject(Players);

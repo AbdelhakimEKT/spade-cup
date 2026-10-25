@@ -18,7 +18,8 @@ describe('LivePage (en direct)', () => {
     expect(el.querySelector('.status--live')?.textContent).toMatch(
       /En cours · fin dans (9|10) min/,
     );
-    expect(el.querySelector('.side--lead .side__name')?.textContent).toBe('FW-team2');
+    expect(el.querySelector('.side--lead .side__name')?.textContent?.trim()).toBe('FW-team2');
+    expect(el.querySelector('.side--lead .side__name')?.classList).toContain('team--green');
     expect(el.querySelector('.side--lead')?.textContent).toContain('3/5 attaques');
     expect(el.querySelectorAll('tbody tr')).toHaveLength(10);
     expect(el.querySelectorAll('tr.waiting')).toHaveLength(2);

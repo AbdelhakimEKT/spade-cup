@@ -64,8 +64,12 @@ describe('PlayerPage', () => {
     expect(titles).toEqual(['En FW classiques']);
     expect(el.querySelector('a.clan')).toBeNull(); // FW-team2 n'a pas de fiche de clan
     expect(el.querySelector('span.clan')?.textContent).toContain('FW-team2');
+    expect(el.querySelector('span.clan')?.classList).toContain('team--green');
     const row = el.querySelector('tbody tr')!;
-    expect(row.textContent).toContain('FW-team2 13★ – 11★ FW-team1');
+    // Team 1 (violet) toujours à gauche, team 2 (vert) à droite.
+    expect(row.textContent?.replace(/\s+/g, ' ')).toContain('FW-team1 11★ – 13★ FW-team2');
+    expect(row.querySelector('.team--violet')?.textContent).toContain('FW-team1');
+    expect(row.querySelector('.team--green')?.textContent).toContain('FW-team2');
     expect(row.textContent).toContain('20 oct. 2026');
     expect(row.querySelector('.result--win')).not.toBeNull();
   });

@@ -46,8 +46,8 @@
         {{ p.totals.clan.name }}
       </a>
     } @else {
-      <!-- Clan de FW (pas inscrit à un tournoi) : pas de fiche de clan. -->
-      <span class="clan">
+      <!-- Clan de FW (pas inscrit à un tournoi) : pas de fiche de clan, sa couleur d'équipe. -->
+      <span class="clan" [class]="'clan team--' + (teamColor(p.totals.clan.tag) ?? 'none')">
         <sc-clan-avatar [clan]="p.totals.clan" />
         {{ p.totals.clan.name }}
       </span>
@@ -128,9 +128,15 @@
                 <td class="cell-text muted">
                   {{ h.war.endedAt ? (h.war.endedAt | date: 'd MMM y') : '–' }}
                 </td>
+                @let fwRow = order(h.war);
                 <td class="cell-text">
-                  {{ h.war.home.name }} {{ h.war.home.stars }}★ – {{ h.war.away.stars }}★
-                  {{ h.war.away.name }}
+                  <span [class]="'team--' + fwRow.left.color"
+                    >{{ fwRow.left.name }} {{ fwRow.left.stars }}★</span
+                  >
+                  <span class="muted"> – </span>
+                  <span [class]="'team--' + fwRow.right.color"
+                    >{{ fwRow.right.stars }}★ {{ fwRow.right.name }}</span
+                  >
                 </td>
                 <td><ng-container *ngTemplateOutlet="result; context: { $implicit: h.won }" /></td>
                 <td><span class="star" aria-hidden="true">★</span> {{ h.line.stars }}</td>

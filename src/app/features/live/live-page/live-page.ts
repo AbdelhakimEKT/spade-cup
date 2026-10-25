@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { LiveWar } from '../../../core/tournament/live';
 import { tagToUrl } from '../../../core/tournament/tags';
 import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
+import { fwTeamColor } from '../../../shared/ui/fw-teams';
 import { RequestState } from '../../../shared/request-state/request-state';
 import { Live } from '../data/live';
 
@@ -29,6 +30,8 @@ export class LivePage {
   protected readonly now = signal(Date.now());
 
   protected readonly url = tagToUrl;
+  /** Team 1 en violet, team 2 en vert (FW classiques). */
+  protected readonly teamColor = fwTeamColor;
 
   constructor() {
     const refresh = setInterval(() => this.request.reload(), REFRESH_MS);

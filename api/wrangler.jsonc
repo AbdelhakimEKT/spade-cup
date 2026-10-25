@@ -34,8 +34,9 @@
     "DISCORD_CHANNEL_RESULTATS": "",
     "DISCORD_CHANNEL_CLASSEMENT": "",
     "DISCORD_CHANNEL_ARBITRES": "",
-    // Les deux clans des FW classiques (hors tournoi), suivis pour les stats.
-    "FW_CLANS": "#2JVUP2PGC,#2CYJPRCG8",
+    // Les deux clans des FW classiques (hors tournoi), suivis pour les stats :
+    // team 1 (FW-team1) puis team 2 (FW-team2), comme sur le site.
+    "FW_CLANS": "#2CYJPRCG8,#2JVUP2PGC",
     // Relais vers l'API du jeu, depuis une IP fixe (voir src/coc.ts).
     "COC_API_BASE": "https://cocproxy.royaleapi.dev/v1"
   }

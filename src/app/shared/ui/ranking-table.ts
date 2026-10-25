@@ -69,7 +69,12 @@ const COLUMNS: readonly { key: SortKey; label: string; title: string }[] = [
               </td>
               @if (showClan()) {
                 <td class="cell-text">
-                  <a class="clan" [routerLink]="['/clans', url(p.clan.tag)]">{{ p.clan.name }}</a>
+                  @if (clanColors(); as colors) {
+                    <!-- Clans de FW : pas de fiche de clan, mais leur couleur d'équipe. -->
+                    <span [class]="'team--' + colors[p.clan.tag]">{{ p.clan.name }}</span>
+                  } @else {
+                    <a class="clan" [routerLink]="['/clans', url(p.clan.tag)]">{{ p.clan.name }}</a>
+                  }
                 </td>
               }
               <td>{{ p.wars }}</td>
@@ -138,6 +143,8 @@ export class RankingTable {
   /** Masqué sur la page d'un clan : tous les joueurs sont du même clan. */
   readonly showClan = input(true);
   readonly caption = input('Classement des joueurs');
+  /** Clans de FW : couleur d'équipe par tag, à la place du lien vers la fiche du clan. */
+  readonly clanColors = input<Readonly<Record<string, string>> | null>(null);
 
   protected readonly columns = COLUMNS;
   protected readonly sort = signal<SortKey>('stars');

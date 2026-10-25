@@ -42,20 +42,23 @@ describe('RankingPage', () => {
     );
   });
 
-  it('?type=fw : classement des FW (sans colonne Clan) et dernières FW ; rien de la Spade Cup', async () => {
+  it('?type=fw : classement des FW (équipe en couleur) et dernières FW ; rien de la Spade Cup', async () => {
     const { el, answer, reply, http } = await openPage(RankingPage, { type: 'fw' });
-    answer('/fw/players', [player(1), player(2, { stars: 5 })]);
+    answer('/fw/players', [
+      player(1, { clan: { tag: '#2CYJPRCG8', name: 'FW-team1' } }),
+      player(2, { stars: 5, clan: { tag: '#2JVUP2PGC', name: 'FW-team2' } }),
+    ]);
     await reply('/fw/wars', [friendlyWar()]);
     http.expectNone((r) => r.url.endsWith('/players')); // le classement Spade Cup n'est pas demandé
 
     expect(el.querySelector('.tab--active')?.textContent?.trim()).toBe('FW classiques');
     expect(el.querySelectorAll('sc-ranking-table tbody tr')).toHaveLength(2);
-    expect(el.querySelector('sc-ranking-table thead')?.textContent).not.toContain('Clan');
-    const war = el.querySelector('.war')!;
-    expect(war.textContent).toContain('FW-team2');
-    expect(war.textContent).toContain('13★');
-    expect(war.textContent).toContain('53,4 %');
-    expect(war.querySelector('.war__side--win')?.textContent).toContain('FW-team2');
+    // Colonne « Clan » : l'équipe en couleur, sans lien (pas de fiche pour les clans de FW).
+    const table = el.querySelector('sc-ranking-table')!;
+    expect(table.querySelector('.team--green')?.textContent).toBe('FW-team2');
+    expect(table.querySelector('.team--violet')?.textContent).toBe('FW-team1');
+    expect(table.querySelector('a[href^="/clans/"]')).toBeNull();
+    expect(el.querySelector('sc-fw-war-list .war')).not.toBeNull();
   });
 
   it('?type=fw sans aucune FW : message d’attente', async () => {

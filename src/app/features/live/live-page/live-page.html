@@ -30,12 +30,12 @@
             [class.side--away]="side === 'away'"
           >
             <sc-clan-avatar [clan]="s" size="lg" />
-            <p class="side__name">{{ s.name }}</p>
+            <p class="side__name" [class]="'side__name team--' + (teamColor(s.tag) ?? 'none')">
+              {{ s.name }}
+            </p>
             <p class="side__stars"><span class="star" aria-hidden="true">★</span> {{ s.stars }}</p>
             <p class="muted">
-              {{ s.destruction | number: '1.1-1' }} % · {{ s.attacksUsed }}/{{
-                s.attacksTotal
-              }}
+              {{ s.destruction | number: '1.1-1' }} % · {{ s.attacksUsed }}/{{ s.attacksTotal }}
               attaques
             </p>
           </div>
