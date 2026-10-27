@@ -26,7 +26,12 @@ import { SITE_CONFIG } from '../../../core/site-config';
   selector: 'sc-poster-view',
   imports: [NgTemplateOutlet],
   templateUrl: './poster-view.html',
-  styleUrls: ['./poster-view.scss', './poster-arena.scss'],
+  styleUrls: [
+    './poster-view.scss',
+    './poster-arena.scss',
+    './poster-edito.scss',
+    './poster-billet.scss',
+  ],
 })
 export class PosterView {
   readonly leftName = input('');
@@ -93,6 +98,8 @@ export class PosterView {
       logo: logo || null,
       initials: initialsOf(clean),
       long: clean.length > 14,
+      // Style « Éditorial » : le nom remplit sa ligne (court → très grand).
+      fit: Math.round(Math.min(128, Math.max(52, 1240 / clean.length))),
     };
   }
 }

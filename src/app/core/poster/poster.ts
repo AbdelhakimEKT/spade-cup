@@ -12,12 +12,14 @@ export type PosterFormat = (typeof POSTER_FORMATS)[number];
 
 /**
  * Les styles d'affiche : même contenu, mise en scène différente. « Classique »
- * (sobre, par défaut) ou « Arène » (affiche de match d'esport, plus
- * spectaculaire).
+ * (sobre, par défaut), « Arène » (affiche de match d'esport), « Éditorial »
+ * (couverture de magazine, noms géants) et « Billet » (un billet de match).
  */
 export const POSTER_STYLES = [
   { value: 'classique', label: 'Classique' },
   { value: 'arene', label: 'Arène' },
+  { value: 'edito', label: 'Éditorial' },
+  { value: 'billet', label: 'Billet' },
 ] as const;
 export type PosterStyle = (typeof POSTER_STYLES)[number]['value'];
 

@@ -1,158 +1,315 @@
-<!-- data-ready : le bot attend cet attribut (logos chargés) avant de photographier. -->
-@if (design() === 'arene') {
-  <article
-    class="poster arena"
-    [attr.data-ready]="ready() ? '' : null"
-    aria-label="Affiche du match"
-  >
-    <!-- Le décor : éclats des coins, faille de lumière entre les deux camps,
+<!-- Un style d'affiche par cas, même contenu. data-ready : le bot attend cet
+     attribut (logos chargés) avant de photographier. -->
+@switch (design()) {
+  @case ('arene') {
+    <article
+      class="poster arena"
+      [attr.data-ready]="ready() ? '' : null"
+      aria-label="Affiche du match"
+    >
+      <!-- Le décor : éclats des coins, faille de lumière entre les deux camps,
          repères aux quatre coins. -->
-    <div class="arena__decor" aria-hidden="true">
-      <ng-container *ngTemplateOutlet="shards; context: { $implicit: topCorners }" />
-      <div class="arena__rift-glow"></div>
-      <div class="arena__rift"></div>
-      <span class="arena__mark arena__mark--tl"></span>
-      <span class="arena__mark arena__mark--tr"></span>
-      <span class="arena__mark arena__mark--bl"></span>
-      <span class="arena__mark arena__mark--br"></span>
-    </div>
+      <div class="arena__decor" aria-hidden="true">
+        <ng-container *ngTemplateOutlet="shards; context: { $implicit: topCorners }" />
+        <div class="arena__rift-glow"></div>
+        <div class="arena__rift"></div>
+        <span class="arena__mark arena__mark--tl"></span>
+        <span class="arena__mark arena__mark--tr"></span>
+        <span class="arena__mark arena__mark--bl"></span>
+        <span class="arena__mark arena__mark--br"></span>
+      </div>
 
-    <header class="arena__head">
-      <img
-        class="arena__brand"
-        src="brand/friendly-wars-512.webp"
-        width="150"
-        height="150"
-        alt=""
-      />
-      <p class="arena__title">Friendly Wars</p>
-      <p class="arena__tag"><span>Clan vs Clan</span></p>
-    </header>
+      <header class="arena__head">
+        <img
+          class="arena__brand"
+          src="brand/friendly-wars-512.webp"
+          width="150"
+          height="150"
+          alt=""
+        />
+        <p class="arena__title">Friendly Wars</p>
+        <p class="arena__tag"><span>Clan vs Clan</span></p>
+      </header>
 
-    <section class="arena__duel">
-      <ng-container
-        *ngTemplateOutlet="
-          arenaTeam;
-          context: { $implicit: left(), side: 'left', failed: leftFailed() }
-        "
-      />
-      <div class="arena__vs" aria-label="contre"><span>VS</span></div>
-      <ng-container
-        *ngTemplateOutlet="
-          arenaTeam;
-          context: { $implicit: right(), side: 'right', failed: rightFailed() }
-        "
-      />
-    </section>
+      <section class="arena__duel">
+        <ng-container
+          *ngTemplateOutlet="
+            arenaTeam;
+            context: { $implicit: left(), side: 'left', failed: leftFailed() }
+          "
+        />
+        <div class="arena__vs" aria-label="contre"><span>VS</span></div>
+        <ng-container
+          *ngTemplateOutlet="
+            arenaTeam;
+            context: { $implicit: right(), side: 'right', failed: rightFailed() }
+          "
+        />
+      </section>
 
-    <div class="arena__panel">
-      <dl class="arena__facts">
-        <div class="arena__fact">
+      <div class="arena__panel">
+        <dl class="arena__facts">
+          <div class="arena__fact">
+            <dt>Date</dt>
+            <dd>
+              @if (weekday(); as day) {
+                <span class="arena__day">{{ day }}</span>
+              }
+              {{ shownDate() }}
+            </dd>
+          </div>
+          <div class="arena__fact">
+            <dt>Heure</dt>
+            <dd>{{ shownTime() }}</dd>
+            <p class="arena__note">Heure de France ({{ offset() }})</p>
+          </div>
+          <div class="arena__fact">
+            <dt>Format</dt>
+            <dd>{{ shownFormat() }}</dd>
+          </div>
+          <div class="arena__fact arena__fact--rules">
+            <dt>Règles</dt>
+            <dd>{{ shownRules() }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <footer class="arena__foot">
+        <span class="arena__sign">
+          <img src="brand/friendly-wars-160.webp" width="52" height="52" alt="" />
+          Friendly Wars
+        </span>
+        @if (discord) {
+          <span class="arena__discord">
+            <span class="arena__discord-label">Discord</span>
+            {{ discord }}
+          </span>
+        }
+      </footer>
+    </article>
+  }
+  @case ('edito') {
+    <article
+      class="poster edito"
+      [attr.data-ready]="ready() ? '' : null"
+      aria-label="Affiche du match"
+    >
+      <!-- Colonnes de mise en page, à peine visibles : la grille d'un magazine. -->
+      <div class="edito__grid" aria-hidden="true"></div>
+
+      <header class="edito__head">
+        <img
+          class="edito__brand"
+          src="brand/friendly-wars-160.webp"
+          width="76"
+          height="76"
+          alt=""
+        />
+        <div>
+          <p class="edito__title">Friendly Wars</p>
+          <p class="edito__kind">Clan vs Clan</p>
+        </div>
+        <p class="edito__format">
+          <span>Format</span>
+          {{ shownFormat() }}
+        </p>
+      </header>
+
+      <section class="edito__duel">
+        <ng-container
+          *ngTemplateOutlet="
+            editoTeam;
+            context: { $implicit: left(), side: 'left', failed: leftFailed(), num: '01' }
+          "
+        />
+        <div class="edito__vs" aria-label="contre"><span>VS</span></div>
+        <ng-container
+          *ngTemplateOutlet="
+            editoTeam;
+            context: { $implicit: right(), side: 'right', failed: rightFailed(), num: '02' }
+          "
+        />
+      </section>
+
+      <dl class="edito__facts">
+        <div class="edito__when">
           <dt>Date</dt>
           <dd>
             @if (weekday(); as day) {
-              <span class="arena__day">{{ day }}</span>
+              <span class="edito__over">{{ day }}</span>
             }
             {{ shownDate() }}
           </dd>
         </div>
-        <div class="arena__fact">
+        <div class="edito__when">
           <dt>Heure</dt>
-          <dd>{{ shownTime() }}</dd>
-          <p class="arena__note">Heure de France ({{ offset() }})</p>
+          <dd>
+            <span class="edito__over">Heure de France ({{ offset() }})</span>
+            {{ shownTime() }}
+          </dd>
         </div>
-        <div class="arena__fact">
-          <dt>Format</dt>
-          <dd>{{ shownFormat() }}</dd>
-        </div>
-        <div class="arena__fact arena__fact--rules">
+        <div class="edito__rules">
           <dt>Règles</dt>
           <dd>{{ shownRules() }}</dd>
         </div>
       </dl>
-    </div>
 
-    <footer class="arena__foot">
-      <span class="arena__sign">
-        <img src="brand/friendly-wars-160.webp" width="52" height="52" alt="" />
-        Friendly Wars
-      </span>
-      @if (discord) {
-        <span class="arena__discord">
-          <span class="arena__discord-label">Discord</span>
-          {{ discord }}
-        </span>
-      }
-    </footer>
-  </article>
-} @else {
-  <article class="poster" [attr.data-ready]="ready() ? '' : null" aria-label="Affiche du match">
-    <!-- Éclats néon dans les coins, comme sur les photos de profil du Discord :
-         violet du côté de l'équipe de gauche, vert du côté de celle de droite. -->
-    <ng-container *ngTemplateOutlet="shards; context: { $implicit: corners }" />
+      <footer class="edito__foot">
+        <span>Friendly Wars</span>
+        @if (discord) {
+          <span class="edito__discord">
+            <span class="edito__discord-label">Discord</span>
+            {{ discord }}
+          </span>
+        }
+      </footer>
+    </article>
+  }
+  @case ('billet') {
+    <article
+      class="poster billet"
+      [attr.data-ready]="ready() ? '' : null"
+      aria-label="Affiche du match"
+    >
+      <!-- Un billet de match : les équipes en haut, le talon (les infos) en bas,
+         séparés par une ligne prédécoupée et ses deux encoches. -->
+      <div class="billet__card">
+        <header class="billet__head">
+          <span class="billet__brand">
+            <img src="brand/friendly-wars-160.webp" width="60" height="60" alt="" />
+            Friendly Wars
+          </span>
+          <span class="billet__kind">Clan vs Clan</span>
+        </header>
 
-    <header class="poster__head">
-      <img
-        class="poster__brand"
-        src="brand/friendly-wars-512.webp"
-        width="170"
-        height="170"
-        alt=""
-      />
-      <p class="poster__name">Friendly Wars</p>
-      <p class="poster__kind"><span>Clan vs Clan</span></p>
-    </header>
+        <section class="billet__duel">
+          <ng-container
+            *ngTemplateOutlet="
+              billetTeam;
+              context: { $implicit: left(), side: 'left', failed: leftFailed() }
+            "
+          />
+          <div class="billet__vs" aria-label="contre"><span>VS</span></div>
+          <ng-container
+            *ngTemplateOutlet="
+              billetTeam;
+              context: { $implicit: right(), side: 'right', failed: rightFailed() }
+            "
+          />
+        </section>
 
-    <section class="duel">
-      <!-- Trait oblique qui sépare les deux camps -->
-      <div class="duel__divider" aria-hidden="true"></div>
-      <ng-container
-        *ngTemplateOutlet="team; context: { $implicit: left(), side: 'left', failed: leftFailed() }"
-      />
-      <div class="duel__vs" aria-label="contre">VS</div>
-      <ng-container
-        *ngTemplateOutlet="
-          team;
-          context: { $implicit: right(), side: 'right', failed: rightFailed() }
-        "
-      />
-    </section>
+        <div class="billet__cut" aria-hidden="true"></div>
 
-    <dl class="facts">
-      <div class="fact">
-        <dt>Format</dt>
-        <dd>{{ shownFormat() }}</dd>
-      </div>
-      <div class="fact">
-        <dt>Date</dt>
-        <dd>
-          @if (weekday(); as day) {
-            <span class="fact__day">{{ day }}</span>
+        <div class="billet__stub">
+          <dl class="billet__facts">
+            <div class="billet__fact">
+              <dt>Date</dt>
+              <dd>
+                @if (weekday(); as day) {
+                  <span class="billet__day">{{ day }}</span>
+                }
+                {{ shownDate() }}
+              </dd>
+            </div>
+            <div class="billet__fact">
+              <dt>Heure</dt>
+              <dd>{{ shownTime() }}</dd>
+              <p class="billet__note">Heure de France ({{ offset() }})</p>
+            </div>
+            <div class="billet__fact">
+              <dt>Format</dt>
+              <dd>{{ shownFormat() }}</dd>
+            </div>
+            <div class="billet__fact billet__fact--rules">
+              <dt>Règles</dt>
+              <dd>{{ shownRules() }}</dd>
+            </div>
+          </dl>
+          @if (discord) {
+            <div class="billet__code">
+              <span class="billet__bars" aria-hidden="true"></span>
+              <span class="billet__discord">
+                <span class="billet__discord-label">Rejoins-nous sur Discord</span>
+                {{ discord }}
+              </span>
+            </div>
           }
-          {{ shownDate() }}
-        </dd>
+        </div>
       </div>
-      <div class="fact">
-        <dt>Heure</dt>
-        <dd>{{ shownTime() }}</dd>
-        <p class="fact__note">Heure de France ({{ offset() }})</p>
-      </div>
-      <div class="fact fact--rules">
-        <dt>Règles</dt>
-        <dd>{{ shownRules() }}</dd>
-      </div>
-    </dl>
+    </article>
+  }
+  @default {
+    <article class="poster" [attr.data-ready]="ready() ? '' : null" aria-label="Affiche du match">
+      <!-- Éclats néon dans les coins, comme sur les photos de profil du Discord :
+         violet du côté de l'équipe de gauche, vert du côté de celle de droite. -->
+      <ng-container *ngTemplateOutlet="shards; context: { $implicit: corners }" />
 
-    <footer class="poster__foot">
-      <span>Friendly Wars</span>
-      @if (discord) {
-        <span class="poster__discord">
-          <span class="poster__discord-label">Discord</span>
-          {{ discord }}
-        </span>
-      }
-    </footer>
-  </article>
+      <header class="poster__head">
+        <img
+          class="poster__brand"
+          src="brand/friendly-wars-512.webp"
+          width="170"
+          height="170"
+          alt=""
+        />
+        <p class="poster__name">Friendly Wars</p>
+        <p class="poster__kind"><span>Clan vs Clan</span></p>
+      </header>
+
+      <section class="duel">
+        <!-- Trait oblique qui sépare les deux camps -->
+        <div class="duel__divider" aria-hidden="true"></div>
+        <ng-container
+          *ngTemplateOutlet="
+            team;
+            context: { $implicit: left(), side: 'left', failed: leftFailed() }
+          "
+        />
+        <div class="duel__vs" aria-label="contre">VS</div>
+        <ng-container
+          *ngTemplateOutlet="
+            team;
+            context: { $implicit: right(), side: 'right', failed: rightFailed() }
+          "
+        />
+      </section>
+
+      <dl class="facts">
+        <div class="fact">
+          <dt>Format</dt>
+          <dd>{{ shownFormat() }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Date</dt>
+          <dd>
+            @if (weekday(); as day) {
+              <span class="fact__day">{{ day }}</span>
+            }
+            {{ shownDate() }}
+          </dd>
+        </div>
+        <div class="fact">
+          <dt>Heure</dt>
+          <dd>{{ shownTime() }}</dd>
+          <p class="fact__note">Heure de France ({{ offset() }})</p>
+        </div>
+        <div class="fact fact--rules">
+          <dt>Règles</dt>
+          <dd>{{ shownRules() }}</dd>
+        </div>
+      </dl>
+
+      <footer class="poster__foot">
+        <span>Friendly Wars</span>
+        @if (discord) {
+          <span class="poster__discord">
+            <span class="poster__discord-label">Discord</span>
+            {{ discord }}
+          </span>
+        }
+      </footer>
+    </article>
+  }
 }
 
 <ng-template #team let-t let-side="side" let-failed="failed">
@@ -215,4 +372,48 @@
       </div>
     }
   </div>
+</ng-template>
+
+<!-- Une équipe, style « Éditorial » : logo et nom géant sur une ligne. -->
+<ng-template #editoTeam let-t let-side="side" let-failed="failed" let-num="num">
+  <figure [class]="'edito__team edito__team--' + side">
+    <div class="edito__logo-box">
+      @if (t.logo && !failed) {
+        <img
+          class="edito__logo"
+          [src]="t.logo"
+          alt=""
+          (load)="logoLoaded(side)"
+          (error)="logoFailed(side)"
+        />
+      } @else {
+        <span class="edito__initials">{{ t.initials }}</span>
+      }
+    </div>
+    <figcaption class="edito__caption">
+      <span class="edito__num">{{ num }}</span>
+      <span class="edito__name" [style.font-size.px]="t.fit">{{ t.name }}</span>
+    </figcaption>
+  </figure>
+</ng-template>
+
+<!-- Une équipe, style « Billet ». -->
+<ng-template #billetTeam let-t let-side="side" let-failed="failed">
+  <figure [class]="'billet__team billet__team--' + side">
+    <div class="billet__logo-box">
+      @if (t.logo && !failed) {
+        <img
+          class="billet__logo"
+          [src]="t.logo"
+          alt=""
+          (load)="logoLoaded(side)"
+          (error)="logoFailed(side)"
+        />
+      } @else {
+        <span class="billet__initials">{{ t.initials }}</span>
+      }
+    </div>
+    <figcaption class="billet__name" [class.billet__name--long]="t.long">{{ t.name }}</figcaption>
+    <span class="billet__bar" aria-hidden="true"></span>
+  </figure>
 </ng-template>

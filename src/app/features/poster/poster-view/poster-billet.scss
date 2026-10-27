@@ -1,0 +1,335 @@
+// Style « Billet » : l'affiche est un billet de match. Une grande carte, les
+// deux équipes en haut, une ligne prédécoupée avec ses deux encoches, et le
+// talon en bas : les infos du match, et l'invitation Discord sous un
+// code-barres, comme le code d'un billet.
+//
+// Mêmes couleurs que le style classique (déclarées sur .poster).
+.poster.billet {
+  display: block;
+  padding: 0;
+  background:
+    radial-gradient(62% 46% at 0% 0%, rgb(139 44 255 / 0.42), transparent 72%),
+    radial-gradient(62% 46% at 100% 100%, rgb(53 224 122 / 0.34), transparent 72%), #06060a;
+}
+
+// ---- La carte
+.billet__card {
+  // Hauteur de la ligne prédécoupée, depuis le haut de la carte.
+  --notch: 814px;
+
+  position: absolute;
+  inset: 60px;
+  display: grid;
+  grid-template-rows: 122px 690px 0 1fr;
+  border: 2px solid transparent;
+  border-radius: 34px;
+  background:
+    linear-gradient(180deg, #13121f, #0a0a11) padding-box,
+    linear-gradient(
+        135deg,
+        var(--violet),
+        rgb(255 255 255 / 0.12) 40%,
+        rgb(255 255 255 / 0.12) 60%,
+        var(--green)
+      )
+      border-box;
+  // Les deux encoches, à gauche et à droite de la ligne prédécoupée : chaque
+  // moitié de la carte perd un demi-cercle sur son bord.
+  mask:
+    radial-gradient(circle 34px at 0 var(--notch), transparent 97%, #000) left / 50.5% 100%
+      no-repeat,
+    radial-gradient(circle 34px at 100% var(--notch), transparent 97%, #000) right / 50.5% 100%
+      no-repeat;
+}
+
+// ---- En-tête du billet
+.billet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 46px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.billet__brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+
+  img {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+.billet__kind {
+  padding: 9px 22px 9px calc(22px + 0.34em);
+  border: 1.5px solid rgb(255 255 255 / 0.25);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+// ---- Les deux équipes, chacune dans sa moitié teintée. Les logos sont à
+// hauteur fixe (alignés entre eux et sur le VS, même si un nom prend deux
+// lignes).
+.billet__duel {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 150px 1fr;
+  align-items: start;
+  padding: 0 24px;
+  background: linear-gradient(
+    90deg,
+    rgb(139 44 255 / 0.16),
+    transparent 42%,
+    transparent 58%,
+    rgb(53 224 122 / 0.13)
+  );
+}
+
+.billet__team {
+  --team: var(--violet);
+
+  display: grid;
+  justify-items: center;
+  gap: 24px;
+  margin: 0;
+  padding-top: 110px;
+  text-align: center;
+}
+
+.billet__team--right {
+  --team: var(--green);
+}
+
+.billet__logo-box {
+  display: grid;
+  place-items: center;
+  width: 330px;
+  height: 330px;
+}
+
+.billet__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  // Fond noir du logo invisible, sans voile (voir le style classique).
+  mix-blend-mode: lighten;
+  filter: brightness(1.08) contrast(1.22);
+  mask-image: radial-gradient(closest-side, #000 82%, transparent);
+}
+
+.billet__initials {
+  display: grid;
+  place-items: center;
+  width: 250px;
+  height: 250px;
+  border: 2px solid var(--team);
+  border-radius: 50%;
+  font-size: 96px;
+  font-weight: 700;
+}
+
+.billet__name {
+  max-width: 370px;
+  color: #fff;
+  font-size: 50px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.billet__name--long {
+  font-size: 36px;
+}
+
+.billet__bar {
+  width: 64px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--team);
+}
+
+// Le VS, entre deux pointillés verticaux qui séparent les deux moitiés. Son
+// centre est à hauteur du centre des logos (110 + 330 / 2 = 275 px).
+.billet__vs {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  grid-template-rows: 201px auto 1fr;
+
+  &::before,
+  &::after {
+    content: '';
+    width: 0;
+    height: calc(100% - 50px);
+    border-left: 2px dashed rgb(255 255 255 / 0.16);
+  }
+
+  &::before {
+    align-self: end;
+  }
+
+  &::after {
+    align-self: start;
+  }
+
+  span {
+    padding: 22px 0.06em 22px 0;
+    background: linear-gradient(90deg, var(--violet), var(--green));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: 104px;
+    font-style: italic;
+    font-weight: 700;
+    line-height: 1;
+  }
+}
+
+// ---- La ligne prédécoupée, entre les deux encoches
+.billet__cut {
+  margin: 0 52px;
+  border-top: 3px dashed rgb(255 255 255 / 0.24);
+}
+
+// ---- Le talon
+.billet__stub {
+  display: grid;
+  align-content: center;
+  gap: 28px;
+  padding: 0 52px;
+}
+
+.billet__facts {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 0.8fr;
+  row-gap: 26px;
+  margin: 0;
+}
+
+// Champs alignés à gauche, comme sur un billet.
+.billet__fact {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+
+  & + &:not(.billet__fact--rules) {
+    padding-left: 32px;
+    border-left: 1px solid rgb(255 255 255 / 0.1);
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    color: #fff;
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
+
+// « MERCREDI », au-dessus de « 28/10 ».
+.billet__day {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 24px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.billet__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.billet__fact--rules {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  gap: 26px;
+  padding-top: 22px;
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+
+  dd {
+    font-size: 32px;
+    text-transform: uppercase;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+// Code-barres (décor) et invitation Discord.
+.billet__code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.billet__bars {
+  width: 330px;
+  height: 62px;
+  background: repeating-linear-gradient(
+    90deg,
+    #e9e8f2 0 3px,
+    transparent 3px 5px,
+    #e9e8f2 5px 6px,
+    transparent 6px 10px,
+    #e9e8f2 10px 14px,
+    transparent 14px 16px,
+    #e9e8f2 16px 17px,
+    transparent 17px 21px,
+    #e9e8f2 21px 23px,
+    transparent 23px 27px,
+    #e9e8f2 27px 28px,
+    transparent 28px 30px,
+    #e9e8f2 30px 34px,
+    transparent 34px 37px,
+    #e9e8f2 37px 38px,
+    transparent 38px 42px,
+    #e9e8f2 42px 45px,
+    transparent 45px 47px,
+    #e9e8f2 47px 48px,
+    transparent 48px 53px
+  );
+  opacity: 0.85;
+}
+
+.billet__discord {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.billet__discord-label {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
