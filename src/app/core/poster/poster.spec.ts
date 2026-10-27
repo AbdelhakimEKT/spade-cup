@@ -5,6 +5,7 @@ import {
   normalizeDate,
   normalizeTime,
   posterQuery,
+  weekdayOf,
 } from './poster';
 
 describe('affiche : mise en forme', () => {
@@ -33,6 +34,14 @@ describe('affiche : mise en forme', () => {
     expect(franceOffset('24/10', now)).toBe('UTC+2'); // la veille : encore l'heure d'été
     expect(franceOffset('15/07', now)).toBe('UTC+2'); // l'été prochain
     expect(franceOffset('05/01', now)).toBe('UTC+1');
+  });
+
+  it('jour de la semaine, l’année de la prochaine occurrence', () => {
+    const now = new Date('2026-10-27T10:00:00Z');
+    expect(weekdayOf('31/10', now)).toBe('Samedi');
+    expect(weekdayOf('1-11', now)).toBe('Dimanche');
+    expect(weekdayOf('05/01', now)).toBe('Mardi'); // janvier 2027
+    expect(weekdayOf('n’importe quoi', now)).toBeNull();
   });
 
   it('logos : seulement ceux hébergés par Discord, en https', () => {

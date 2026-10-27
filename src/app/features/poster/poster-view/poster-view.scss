@@ -2,9 +2,9 @@
 // Toujours en sombre, quel que soit le thème du site : c'est une image de la
 // marque, pas une page. D'où ses propres couleurs.
 //
-// Parti pris : une affiche d'esport sobre. Fond quasi noir, couleurs des
-// équipes en touches (barres, halo très léger), typographie forte, aucun
-// effet « néon ».
+// Parti pris : une affiche d'esport sobre. Fond quasi noir, typographie
+// forte, couleurs des équipes en touches : barres sous les noms et éclats
+// néon dans les coins (ceux des photos de profil du Discord).
 :host {
   display: block;
   width: fit-content;
@@ -27,6 +27,7 @@
   overflow: hidden;
   background:
     // Chaque équipe teinte à peine sa moitié.
+
     linear-gradient(
       90deg,
       rgb(139 44 255 / 0.1),
@@ -34,8 +35,6 @@
       transparent 55%,
       rgb(53 224 122 / 0.08)
     ),
-    // Fines lignes horizontales : texture d'écran, très discrète.
-    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.018) 0 1px, transparent 1px 4px),
     linear-gradient(180deg, #0c0c16 0%, #07070c 100%);
   color: var(--ink);
   font-family: var(--font-display);
@@ -132,12 +131,6 @@
   place-items: center;
   width: 300px;
   height: 300px;
-  // Un halo à peine visible de la couleur de l'équipe, derrière le logo.
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--team) 22%, transparent),
-    transparent
-  );
 }
 
 .team__logo {
@@ -148,6 +141,12 @@
   // des deux, donc le noir laisse voir le fond de l'affiche et le logo semble
   // détouré. Sans effet sur un logo déjà transparent.
   mix-blend-mode: lighten;
+  // Mais ces fonds sont rarement noirs purs (fumée, braises, grain) : ils
+  // laissaient un voile grisâtre autour du logo. On assombrit les gris très
+  // foncés jusqu'au noir (le logo lui-même gagne un peu de contraste), et on
+  // estompe les bords pour qu'aucun angle du carré ne se devine.
+  filter: brightness(1.08) contrast(1.22);
+  mask-image: radial-gradient(closest-side, #000 82%, transparent);
 }
 
 .team__initials {
@@ -236,6 +235,14 @@
   letter-spacing: 0.06em;
 }
 
+// Le jour, sous la date : plus lisible que les autres notes.
+.fact__note--day {
+  color: var(--ink);
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
 .fact--rules dd {
   font-size: 32px;
   text-transform: uppercase;
@@ -270,4 +277,150 @@
   font-size: 16px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
+}
+
+// ---- Éclats néon des coins
+// Chaque coin : une poignée de bandes inclinées (verre teinté, texture en nid
+// d'abeille) et de traits lumineux, qui s'effacent vers le centre. Le coin en
+// haut à gauche est dessiné une fois ; les trois autres en sont le miroir.
+.shards {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.shards__corner {
+  --c: var(--violet);
+
+  position: absolute;
+  inset: 0;
+  // Fondu depuis le coin : rien ne passe sous le titre ni sous les logos.
+  mask-image: radial-gradient(circle at 0 0, #000 18%, transparent 46%);
+}
+
+.shards__corner--tr {
+  --c: var(--green);
+  transform: scaleX(-1);
+}
+
+// En bas, plus discrets : les infos du match passent par-dessus.
+.shards__corner--bl {
+  transform: scaleY(-1);
+  opacity: 0.6;
+  mask-image: radial-gradient(circle at 0 0, #000 12%, transparent 34%);
+}
+
+.shards__corner--br {
+  --c: var(--green);
+  transform: scale(-1);
+  opacity: 0.6;
+  mask-image: radial-gradient(circle at 0 0, #000 12%, transparent 34%);
+}
+
+// Les traits lumineux du bas traverseraient le pied de l'affiche : seules les
+// bandes de verre y restent, sauf le trait le plus éloigné du texte.
+.shards__corner--bl,
+.shards__corner--br {
+  .streak--a,
+  .streak--b,
+  .streak--d {
+    display: none;
+  }
+}
+
+// Repère incliné : x suit les bandes, y s'éloigne du coin.
+.shards__tilt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: rotate(-40deg);
+  transform-origin: 0 0;
+}
+
+// Verre teinté, nid d'abeille très léger, arête claire.
+.shard {
+  position: absolute;
+  border-top: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22.52' height='39'%3E%3Cpath d='M0 6.5L11.26 0L22.52 6.5V19.5L11.26 26L0 19.5Z M11.26 26V39' fill='none' stroke='white' stroke-opacity='0.07'/%3E%3C/svg%3E"),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--c) 34%, transparent),
+      color-mix(in srgb, var(--c) 6%, transparent)
+    );
+}
+
+.shard--a {
+  top: 36px;
+  left: -130px;
+  width: 300px;
+  height: 82px;
+}
+
+.shard--b {
+  top: 140px;
+  left: -160px;
+  width: 200px;
+  height: 18px;
+  opacity: 0.8;
+}
+
+.shard--c {
+  top: 190px;
+  left: -300px;
+  width: 280px;
+  height: 120px;
+  opacity: 0.55;
+}
+
+.shard--d {
+  top: 190px;
+  left: 150px;
+  width: 150px;
+  height: 30px;
+  opacity: 0.7;
+}
+
+// Trait de lumière : blanc au cœur, couleur sur les bords, extrémités fondues.
+.streak {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--c) 30%,
+    #fff 55%,
+    var(--c) 75%,
+    transparent
+  );
+  filter: drop-shadow(0 0 6px var(--c));
+}
+
+.streak--a {
+  top: 117px;
+  left: -60px;
+  width: 230px;
+}
+
+.streak--b {
+  top: 157px;
+  left: -150px;
+  width: 170px;
+  opacity: 0.7;
+}
+
+.streak--c {
+  top: 309px;
+  left: -270px;
+  width: 220px;
+  height: 1px;
+  opacity: 0.6;
+}
+
+.streak--d {
+  top: 35px;
+  left: -10px;
+  width: 70px;
+  height: 1px;
 }

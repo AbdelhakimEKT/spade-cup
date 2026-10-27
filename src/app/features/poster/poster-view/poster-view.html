@@ -1,5 +1,24 @@
 <!-- data-ready : le bot attend cet attribut (logos chargés) avant de photographier. -->
 <article class="poster" [attr.data-ready]="ready() ? '' : null" aria-label="Affiche du match">
+  <!-- Éclats néon dans les coins, comme sur les photos de profil du Discord :
+       violet du côté de l'équipe de gauche, vert du côté de celle de droite. -->
+  <div class="shards" aria-hidden="true">
+    @for (corner of corners; track corner) {
+      <div [class]="'shards__corner shards__corner--' + corner">
+        <div class="shards__tilt">
+          <span class="shard shard--a"></span>
+          <span class="shard shard--b"></span>
+          <span class="shard shard--c"></span>
+          <span class="shard shard--d"></span>
+          <span class="streak streak--a"></span>
+          <span class="streak streak--b"></span>
+          <span class="streak streak--c"></span>
+          <span class="streak streak--d"></span>
+        </div>
+      </div>
+    }
+  </div>
+
   <!-- Trait oblique qui sépare les deux camps -->
   <div class="poster__divider" aria-hidden="true"></div>
 
@@ -30,6 +49,9 @@
     <div class="fact">
       <dt>Date</dt>
       <dd>{{ shownDate() }}</dd>
+      @if (weekday(); as day) {
+        <p class="fact__note fact__note--day">{{ day }}</p>
+      }
     </div>
     <div class="fact">
       <dt>Heure</dt>

@@ -45,20 +45,27 @@ export function normalizeTime(raw: string): string | null {
 }
 
 /**
- * Décalage de l'heure française ce jour-là : « UTC+1 » l'hiver, « UTC+2 »
- * l'été (le passage se fait fin mars et fin octobre). L'année est celle de
- * la prochaine occurrence de la date : en décembre, « 05/01 » est en janvier
- * prochain.
+ * Le jour du match, à midi : jamais au milieu d'un changement d'heure (ils se
+ * font toujours entre 1 h et 3 h du matin). L'année est celle de la prochaine
+ * occurrence de la date : en décembre, « 05/01 » est en janvier prochain.
  */
-export function franceOffset(date: string, now = new Date()): string {
+function matchDay(date: string, now: Date): Date | null {
   const normalized = normalizeDate(date);
-  if (!normalized) return 'UTC+1';
+  if (!normalized) return null;
   const [day, month] = normalized.split('/').map(Number);
   let year = now.getUTCFullYear();
   // Plus d'un mois dans le passé : c'est l'an prochain.
   if (Date.UTC(year, month - 1, day) < now.getTime() - 31 * 86_400_000) year++;
-  // Midi : jamais au milieu d'un changement d'heure (toujours à 1 h – 3 h du matin).
-  const noon = new Date(Date.UTC(year, month - 1, day, 12));
+  return new Date(Date.UTC(year, month - 1, day, 12));
+}
+
+/**
+ * Décalage de l'heure française ce jour-là : « UTC+1 » l'hiver, « UTC+2 »
+ * l'été (le passage se fait fin mars et fin octobre).
+ */
+export function franceOffset(date: string, now = new Date()): string {
+  const noon = matchDay(date, now);
+  if (!noon) return 'UTC+1';
   const label = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Europe/Paris',
     timeZoneName: 'shortOffset',
@@ -66,6 +73,17 @@ export function franceOffset(date: string, now = new Date()): string {
     .formatToParts(noon)
     .find((p) => p.type === 'timeZoneName')?.value;
   return label?.replace('GMT', 'UTC') ?? 'UTC+1';
+}
+
+/** Le jour de la semaine du match : « Samedi ». `null` si la date est illisible. */
+export function weekdayOf(date: string, now = new Date()): string | null {
+  const noon = matchDay(date, now);
+  if (!noon) return null;
+  const day = new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    timeZone: 'Europe/Paris',
+  }).format(noon);
+  return day.charAt(0).toUpperCase() + day.slice(1);
 }
 
 /**

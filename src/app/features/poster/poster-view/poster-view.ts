@@ -5,6 +5,7 @@ import {
   initialsOf,
   normalizeDate,
   normalizeTime,
+  weekdayOf,
 } from '../../../core/poster/poster';
 import { SITE_CONFIG } from '../../../core/site-config';
 
@@ -43,9 +44,13 @@ export class PosterView {
   protected readonly shownFormat = computed(() => this.format().toUpperCase() || '—');
   protected readonly shownDate = computed(() => normalizeDate(this.date()) ?? (this.date() || '—'));
   protected readonly shownTime = computed(() => normalizeTime(this.time()) ?? (this.time() || '—'));
+  /** « Samedi » : le jour de la semaine, sous la date. */
+  protected readonly weekday = computed(() => weekdayOf(this.date()));
   protected readonly offset = computed(() => franceOffset(this.date()));
   protected readonly shownRules = computed(() => this.rules() || '—');
   /** « discord.gg/… » : l'invitation du serveur, en bas de l'affiche (casse respectée). */
+  /** Coins décorés : haut et bas, à gauche (violet) et à droite (vert). */
+  protected readonly corners = ['tl', 'bl', 'tr', 'br'] as const;
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
 
   /**
