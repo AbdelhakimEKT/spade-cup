@@ -1,0 +1,27 @@
+@if (access.unlocked()) {
+  <ng-content />
+} @else {
+  <section class="gate panel" aria-labelledby="gate-title">
+    <h1 id="gate-title" class="gate__title">Accès admin</h1>
+    <p class="muted">{{ purpose() }}</p>
+    <form class="gate__form" (ngSubmit)="submit()">
+      <label class="visually-hidden" for="admin-code">Code d'accès</label>
+      <input
+        id="admin-code"
+        name="code"
+        type="password"
+        autocomplete="current-password"
+        placeholder="Code d'accès"
+        [ngModel]="code()"
+        (ngModelChange)="code.set($event)"
+        [disabled]="busy()"
+      />
+      <button type="submit" class="button button--primary" [disabled]="busy() || !code().trim()">
+        {{ busy() ? 'Vérification…' : 'Entrer' }}
+      </button>
+    </form>
+    @if (error(); as message) {
+      <p class="gate__error" role="alert">{{ message }}</p>
+    }
+  </section>
+}

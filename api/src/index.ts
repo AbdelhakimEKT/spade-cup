@@ -1,3 +1,4 @@
+import { handleAdminUnlock } from './admin';
 import { createAnnouncer, destinationFor, type Channel } from './announcements';
 import { cocHealth, createCocClient } from './coc';
 import { handleDiscord } from './discord/route';
@@ -43,6 +44,11 @@ export default {
     }
 
     try {
+      if (pathname === '/admin/unlock') {
+        return request.method === 'POST'
+          ? await handleAdminUnlock(request, env)
+          : errorResponse(405, 'Envoie le code en POST.');
+      }
       if (pathname === '/discord') {
         return request.method === 'POST'
           ? await handleDiscord(request, env, ctx)

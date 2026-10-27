@@ -12,6 +12,8 @@ interface SpadeCupSecrets {
   DISCORD_WEBHOOK_ARBITRES?: string;
   /** Ancien webhook unique : sert de secours si un salon n'a pas le sien. */
   DISCORD_ANNOUNCE_WEBHOOK?: string;
+  /** Code des admins du site (page « Créer une affiche »), vérifié par POST /admin/unlock. */
+  ADMIN_CODE?: string;
 }
 
 // Les deux façons d'accéder à l'environnement : le paramètre `env` des

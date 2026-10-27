@@ -15,5 +15,6 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM friendly_wars'),
     env.DB.prepare('DELETE FROM live_cache'),
     env.DB.prepare('DELETE FROM fw_snapshots'),
+    env.DB.prepare('DELETE FROM admin_attempts'),
   ]);
 });

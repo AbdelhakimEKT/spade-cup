@@ -115,6 +115,6 @@ describe('API HTTP', () => {
   it('requête préalable du navigateur (OPTIONS) : autorisée', async () => {
     const res = await call('/tournaments', { method: 'OPTIONS' });
     expect(res.status).toBe(204);
-    expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET, OPTIONS');
+    expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET, POST, OPTIONS');
   });
 });

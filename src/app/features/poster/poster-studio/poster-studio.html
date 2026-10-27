@@ -1,0 +1,128 @@
+<sc-admin-gate purpose="Le générateur d'affiches est réservé aux admins du serveur.">
+  <header class="page-head">
+    <p class="eyebrow">Outils admin</p>
+    <h1 class="page-title">Créer une affiche</h1>
+    <p class="lead">
+      Remplis les infos du match et choisis les logos : l'aperçu se met à jour en direct. Les logos
+      restent sur ton appareil, rien n'est envoyé au serveur.
+    </p>
+  </header>
+
+  <div class="studio">
+    <form class="form panel" (submit)="$event.preventDefault()">
+      @for (side of ['left', 'right']; track side) {
+        <fieldset class="team" [class]="'team team--' + side">
+          <legend>
+            {{ side === 'left' ? 'Équipe de gauche (violet)' : 'Équipe de droite (vert)' }}
+          </legend>
+          <label>
+            <span>Nom</span>
+            <input
+              type="text"
+              maxlength="30"
+              [name]="side + '-name'"
+              [attr.name]="side + '-name'"
+              [placeholder]="side === 'left' ? 'FR ESPORT' : 'Ci E-SPORTS'"
+              [ngModel]="side === 'left' ? leftName() : rightName()"
+              (ngModelChange)="(side === 'left' ? leftName : rightName).set($event)"
+            />
+          </label>
+          <label>
+            <span>Logo (PNG, JPG ou WebP)</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              (change)="pickLogo(side === 'left' ? 'left' : 'right', $event)"
+            />
+          </label>
+        </fieldset>
+      }
+      @if (logoError(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+
+      <div class="row">
+        <label>
+          <span>Format</span>
+          <select name="format" [ngModel]="format()" (ngModelChange)="format.set($event)">
+            @for (f of formats; track f) {
+              <option [value]="f">{{ f }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span>Date</span>
+          <input
+            type="text"
+            name="date"
+            placeholder="26/10"
+            maxlength="8"
+            [class.invalid]="dateInvalid()"
+            [ngModel]="date()"
+            (ngModelChange)="date.set($event)"
+          />
+        </label>
+        <label>
+          <span>Heure (France)</span>
+          <input
+            type="text"
+            name="time"
+            placeholder="22h00"
+            maxlength="8"
+            [class.invalid]="timeInvalid()"
+            [ngModel]="time()"
+            (ngModelChange)="time.set($event)"
+          />
+        </label>
+      </div>
+      @if (dateInvalid()) {
+        <p class="error">Date illisible : écris-la comme ceci, 26/10.</p>
+      }
+      @if (timeInvalid()) {
+        <p class="error">Heure illisible : écris-la comme ceci, 22h00.</p>
+      }
+
+      <label>
+        <span>Règles</span>
+        <input
+          type="text"
+          name="rules"
+          maxlength="40"
+          placeholder="Esport — BO3"
+          [ngModel]="rules()"
+          (ngModelChange)="rules.set($event)"
+        />
+      </label>
+
+      <button
+        type="button"
+        class="button button--primary download"
+        [disabled]="!canDownload()"
+        (click)="download()"
+      >
+        {{ downloading() ? 'Création de l’image…' : 'Télécharger l’image (PNG)' }}
+      </button>
+      @if (downloadError(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+      <button type="button" class="lock" (click)="access.lock()">Verrouiller cet appareil</button>
+    </form>
+
+    <section class="preview" aria-label="Aperçu de l'affiche">
+      <div #previewBox class="preview__box" [style.height.px]="previewHeight()">
+        <div class="preview__stage" [style.transform]="'scale(' + scale() + ')'">
+          <sc-poster-view
+            [leftName]="leftName()"
+            [leftLogo]="leftLogo()"
+            [rightName]="rightName()"
+            [rightLogo]="rightLogo()"
+            [format]="format()"
+            [date]="date()"
+            [time]="time()"
+            [rules]="rules()"
+          />
+        </div>
+      </div>
+    </section>
+  </div>
+</sc-admin-gate>

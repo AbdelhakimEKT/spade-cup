@@ -80,11 +80,23 @@ export const routes: Routes = [
     loadComponent: () => import('./features/live/live-page/live-page').then((m) => m.LivePage),
   },
   {
-    // Affiche d'un match (générée par le bot : /arbitre affiche).
     path: 'affiche',
-    title: 'Affiche',
-    loadComponent: () =>
-      import('./features/poster/poster-page/poster-page').then((m) => m.PosterPage),
+    children: [
+      {
+        // Affiche d'un match, photographiée par le bot (/arbitre affiche).
+        path: '',
+        title: 'Affiche',
+        loadComponent: () =>
+          import('./features/poster/poster-page/poster-page').then((m) => m.PosterPage),
+      },
+      {
+        // Le générateur des admins (code d'accès vérifié par le serveur).
+        path: 'creer',
+        title: 'Créer une affiche',
+        loadComponent: () =>
+          import('./features/poster/poster-studio/poster-studio').then((m) => m.PosterStudio),
+      },
+    ],
   },
   {
     path: 'a-propos',
