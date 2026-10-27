@@ -1,26 +1,19 @@
 <!-- data-ready : le bot attend cet attribut (logos chargés) avant de photographier. -->
 <article class="poster" [attr.data-ready]="ready() ? '' : null" aria-label="Affiche du match">
-  <!-- Le pique de la marque, en filigrane derrière le duel -->
-  <svg class="poster__spade" viewBox="-12 -13 24 26" aria-hidden="true">
-    <path
-      d="M0,-12 C-10,-2 -12,4 -6,7 C-3,9 -1,7 0,5 C1,7 3,9 6,7 C12,4 10,-2 0,-12 Z M-1,6 L-3,12 L3,12 L1,6 Z"
-    />
-  </svg>
-  <div class="poster__slash" aria-hidden="true"></div>
+  <!-- Trait oblique qui sépare les deux camps -->
+  <div class="poster__divider" aria-hidden="true"></div>
 
   <header class="poster__head">
-    <img class="poster__brand" src="brand/logo-rond-160.webp" width="112" height="112" alt="" />
-    <p class="poster__eyebrow">Spade Cup FR</p>
-    <p class="poster__kind">Guerre amicale · Clash of Clans</p>
+    <img class="poster__brand" src="brand/friendly-wars-160.webp" width="120" height="120" alt="" />
+    <p class="poster__name">Friendly Wars</p>
+    <p class="poster__kind"><span>Guerre amicale</span></p>
   </header>
 
   <section class="duel">
     <ng-container
       *ngTemplateOutlet="team; context: { $implicit: left(), side: 'left', failed: leftFailed() }"
     />
-    <div class="duel__vs" aria-label="contre">
-      <span>VS</span>
-    </div>
+    <div class="duel__vs" aria-label="contre">VS</div>
     <ng-container
       *ngTemplateOutlet="
         team;
@@ -31,50 +24,38 @@
 
   <dl class="facts">
     <div class="fact">
-      <svg class="fact__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="8" cy="8" r="3" />
-        <circle cx="16" cy="8" r="3" />
-        <path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M10 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-      </svg>
       <dt>Format</dt>
       <dd>{{ format() }}</dd>
     </div>
     <div class="fact">
-      <svg class="fact__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M3 10h18M8 3v4M16 3v4" />
-      </svg>
       <dt>Date</dt>
       <dd>{{ date() }}</dd>
     </div>
     <div class="fact">
-      <svg class="fact__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
       <dt>Heure</dt>
       <dd>{{ time() }}</dd>
-      <p class="fact__note">Heure de France<br />({{ offset() }})</p>
+      <p class="fact__note">Heure de France ({{ offset() }})</p>
     </div>
     <div class="fact fact--rules">
-      <svg class="fact__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M6 3h9l3 3v15H6z" />
-        <path d="M9 10h6M9 14h6M9 18h4" />
-      </svg>
       <dt>Règles</dt>
       <dd>{{ rules() }}</dd>
     </div>
   </dl>
 
   <footer class="poster__foot">
-    <span>Que le meilleur clan l'emporte</span>
-    <span class="poster__site">{{ siteHost }}</span>
+    <span>Friendly Wars</span>
+    @if (discord) {
+      <span class="poster__discord">
+        <span class="poster__discord-label">Discord</span>
+        {{ discord }}
+      </span>
+    }
   </footer>
 </article>
 
 <ng-template #team let-t let-side="side" let-failed="failed">
   <figure class="team" [class]="'team team--' + side">
-    <div class="team__frame">
+    <div class="team__logo-box">
       @if (t.logo && !failed) {
         <img
           class="team__logo"
@@ -88,5 +69,6 @@
       }
     </div>
     <figcaption class="team__name">{{ t.name }}</figcaption>
+    <span class="team__bar" aria-hidden="true"></span>
   </figure>
 </ng-template>

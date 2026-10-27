@@ -20,7 +20,7 @@ import { getTournament } from '../src/repository';
 import { captureScreens } from '../src/screens';
 
 const BANNER =
-  '🧪 **Test des annonces Spade Cup FR.** Voici à quoi ressembleront les messages du bot ' +
+  '🧪 **Test des annonces Friendly Wars.** Voici à quoi ressembleront les messages du bot ' +
   'pendant les tournois. Clans et scores fictifs (tournoi de démonstration).';
 
 export default {

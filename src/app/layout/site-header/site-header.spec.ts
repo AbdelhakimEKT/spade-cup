@@ -26,7 +26,7 @@ describe('SiteHeader', () => {
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('propose les liens vers le direct, les tournois, les joueurs et les règles', async () => {
+  it('propose les liens vers le direct, les tournois, les joueurs, les règles et le Discord', async () => {
     const fixture = await render();
     const nav = (fixture.nativeElement as HTMLElement).querySelector('nav')!;
     const links = [...nav.querySelectorAll('a')].map((a) => [
@@ -39,6 +39,7 @@ describe('SiteHeader', () => {
       ['/tournois', 'Tournois'],
       ['/joueurs', 'Joueurs'],
       ['/a-propos', 'Règles'],
+      ['https://discord.gg/mvkaK2QwS', 'Discord'],
     ]);
   });
 
@@ -54,10 +55,23 @@ describe('SiteHeader', () => {
     expect(button.getAttribute('aria-label')).toBe('Passer en thème sombre');
   });
 
-  it('masque le lien Discord tant que l’invitation n’est pas configurée', async () => {
+  it('le lien Discord ouvre l’invitation du serveur dans un nouvel onglet', async () => {
     const fixture = await render();
+    const link = (fixture.nativeElement as HTMLElement).querySelector(
+      'a[href^="https://discord.gg/"]',
+    )!;
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
 
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Discord');
+  it('le nom du site : Friendly Wars', async () => {
+    const fixture = await render();
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('.brand')
+        ?.textContent?.replace(/\s+/g, ' ')
+        .trim(),
+    ).toBe('Friendly Wars');
   });
 
   describe('point rouge du lien « Direct »', () => {

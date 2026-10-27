@@ -29,7 +29,7 @@ describe('PlayerPage', () => {
     expect(row.querySelector('a[href="/tournois/demo/matchs/R1-M1"]')?.textContent).toContain(
       'Les Pikachus contre Titans FR',
     );
-    expect(TestBed.inject(Title).getTitle()).toBe(`${profile.totals.name} · Spade Cup FR`);
+    expect(TestBed.inject(Title).getTitle()).toBe(`${profile.totals.name} · Friendly Wars`);
   });
 
   it('défaite et match sans vainqueur connu', async () => {

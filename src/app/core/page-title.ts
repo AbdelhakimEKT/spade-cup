@@ -5,7 +5,7 @@ import { SITE_CONFIG } from './site-config';
 
 /**
  * Titre de l'onglet du navigateur. Chaque route déclare un titre court
- * (« Tournois ») ; on y ajoute le nom du site : « Tournois · Spade Cup FR ».
+ * (« Tournois ») ; on y ajoute le nom du site : « Tournois · Friendly Wars ».
  */
 @Service({ autoProvided: false })
 export class PageTitle extends TitleStrategy {

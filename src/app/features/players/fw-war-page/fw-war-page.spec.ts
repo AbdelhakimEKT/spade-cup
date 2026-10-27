@@ -22,7 +22,7 @@ describe('FwWarPage', () => {
     expect(left.textContent).toContain('10 min 55 s'); // 655 s
     expect(right.textContent).toContain('🏆');
     expect(right.querySelector('.chip--green')?.textContent).toContain('Victoire FW-team2');
-    expect(TestBed.inject(Title).getTitle()).toBe('FW-team1 – FW-team2 · Spade Cup FR');
+    expect(TestBed.inject(Title).getTitle()).toBe('FW-team1 – FW-team2 · Friendly Wars');
   });
 
   it('les joueurs qui ont attaqué, triés par étoiles ; pas les comptes de lancement', async () => {

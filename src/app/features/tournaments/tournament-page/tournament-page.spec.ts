@@ -53,7 +53,7 @@ describe('TournamentPage', () => {
     expect(el.querySelector('.meta')?.textContent).toContain('5 contre 5');
     expect(el.querySelector('.meta')?.textContent).toContain('HDV 18');
     expect(el.textContent).toContain('les clans et les scores sont fictifs');
-    expect(TestBed.inject(Title).getTitle()).toBe('Tournoi de démonstration · Spade Cup FR');
+    expect(TestBed.inject(Title).getTitle()).toBe('Tournoi de démonstration · Friendly Wars');
   });
 
   it('met le match en cours à la une, puis affiche l’arbre', async () => {

@@ -18,9 +18,9 @@ interface PosterSide {
 }
 
 /**
- * Affiche d'un match, aux couleurs de la Spade Cup : équipe de gauche en
- * violet, de droite en vert (comme les deux moitiés de l'arbre), le pique au
- * centre. Tout vient de l'adresse :
+ * Affiche d'un match, aux couleurs de Friendly Wars : sobre, façon affiche
+ * d'esport (fond quasi noir, typographie forte), équipe de gauche soulignée
+ * en violet, de droite en vert. Tout vient de l'adresse :
  *   /affiche?g=…&gl=…&d=…&dl=…&f=5v5&j=26/10&h=22H00&r=Esport — BO3
  * C'est le bot qui la construit (commande /arbitre affiche) puis la fait
  * photographier par un navigateur, comme l'image de l'arbre.
@@ -49,7 +49,8 @@ export class PosterPage {
   protected readonly time = computed(() => normalizeTime(this.h()) ?? (this.h() || '—'));
   protected readonly offset = computed(() => franceOffset(this.j()));
   protected readonly rules = computed(() => this.r() || '—');
-  protected readonly siteHost = SITE_CONFIG.siteUrl.replace(/^https:\/\//, '');
+  /** « discord.gg/… » : l'invitation du serveur, en bas de l'affiche (casse respectée). */
+  protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
 
   /**
    * Logos chargés (ou en échec : on affiche alors les initiales). Le bot

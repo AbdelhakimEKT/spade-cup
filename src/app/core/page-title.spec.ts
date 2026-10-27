@@ -22,17 +22,17 @@ describe('PageTitle', () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/');
 
-    expect(TestBed.inject(Title).getTitle()).toBe('Accueil · Spade Cup FR');
+    expect(TestBed.inject(Title).getTitle()).toBe('Accueil · Friendly Wars');
   });
 
   it('affiche « Page introuvable » pour une adresse inconnue', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/nimporte/quoi');
 
-    expect(TestBed.inject(Title).getTitle()).toBe('Page introuvable · Spade Cup FR');
+    expect(TestBed.inject(Title).getTitle()).toBe('Page introuvable · Friendly Wars');
   });
 
   it('sans titre de page, juste le nom du site', () => {
-    expect(fullTitle()).toBe('Spade Cup FR');
+    expect(fullTitle()).toBe('Friendly Wars');
   });
 });

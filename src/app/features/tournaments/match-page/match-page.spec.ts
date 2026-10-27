@@ -21,7 +21,7 @@ describe('MatchPage', () => {
     expect(el.querySelector('.team--win')?.textContent).toContain('91,2 %'); // format français
     expect(el.querySelector('.verdict')?.textContent).toContain('Victoire aux étoiles');
     expect(el.querySelector('.verdict')?.textContent).toContain('lu directement dans le jeu');
-    expect(TestBed.inject(Title).getTitle()).toBe('Les Pikachus – Titans FR · Spade Cup FR');
+    expect(TestBed.inject(Title).getTitle()).toBe('Les Pikachus – Titans FR · Friendly Wars');
   });
 
   it('les joueurs de chaque camp, avec un lien vers leur fiche', async () => {

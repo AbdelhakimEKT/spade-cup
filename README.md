@@ -1,9 +1,9 @@
-# Spade Cup FR
+# Friendly Wars
 
 [![CI](https://github.com/AbdelhakimEKT/spade-cup/actions/workflows/ci.yml/badge.svg)](https://github.com/AbdelhakimEKT/spade-cup/actions/workflows/ci.yml)
 
-Tournois de guerres amicales Clash of Clans entre clans francophones, en
-**5 contre 5, HDV 18**. Les clans s'inscrivent sur Discord, l'arbre est tiré au
+Le site du serveur **Friendly Wars** : guerres amicales Clash of Clans entre
+clans francophones, et leurs tournois, la **Spade Cup**, en **5 contre 5, HDV 18**. Les clans s'inscrivent sur Discord, l'arbre est tiré au
 sort, les résultats sont lus directement dans l'API du jeu, et chaque joueur
 entre au classement.
 

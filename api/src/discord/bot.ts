@@ -85,7 +85,7 @@ export interface Reply {
   readonly files?: readonly { readonly name: string; readonly data: Uint8Array }[];
 }
 
-const ORGANIZER = 'Spade Cup FR';
+const ORGANIZER = 'Friendly Wars';
 const DEFAULT_RULES =
   `Guerres amicales en ${TOURNAMENT_RULES.teamSize} contre ${TOURNAMENT_RULES.teamSize}, ` +
   `HDV${TOURNAMENT_RULES.townHallLevel} uniquement. Étoiles, puis pourcentage, puis temps total d'attaque.`;
