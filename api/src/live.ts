@@ -29,20 +29,28 @@ export interface LiveDeps {
   readonly now: number;
 }
 
+/** Une réponse du jeu, et quand il l'a donnée (ms). */
+export interface CachedWar {
+  readonly war: CocWar;
+  readonly fetchedAt: number;
+}
+
 /**
  * La guerre actuelle d'un clan, avec 30 secondes de mémoire. Si le jeu ne
- * répond pas, on se contente de la dernière réponse connue (même ancienne).
+ * répond pas, on se contente de la dernière réponse connue (même ancienne),
+ * avec son heure : la page dit alors honnêtement quand elle a été vue.
  */
-export async function cachedWar(deps: LiveDeps, tag: string): Promise<CocWar | null> {
+export async function cachedWar(deps: LiveDeps, tag: string): Promise<CachedWar | null> {
   const row = await deps.db
     .prepare('SELECT fetched_at, war_json FROM live_cache WHERE clan_tag = ?')
     .bind(tag)
     .first<{ fetched_at: string; war_json: string }>();
-  if (row && deps.now - sqliteTime(row.fetched_at) < FRESH_MS) {
-    return JSON.parse(row.war_json) as CocWar;
-  }
+  const stored = row
+    ? { war: JSON.parse(row.war_json) as CocWar, fetchedAt: sqliteTime(row.fetched_at) }
+    : null;
+  if (stored && deps.now - stored.fetchedAt < FRESH_MS) return stored;
   const result = await deps.coc.currentWar(tag);
-  if (!result.ok) return row ? (JSON.parse(row.war_json) as CocWar) : null;
+  if (!result.ok) return stored;
   await deps.db
     .prepare(
       `INSERT INTO live_cache (clan_tag, fetched_at, war_json) VALUES (?, ?, ?)
@@ -50,7 +58,7 @@ export async function cachedWar(deps: LiveDeps, tag: string): Promise<CocWar | n
     )
     .bind(tag, toSqliteTime(deps.now), JSON.stringify(result.value))
     .run();
-  return result.value;
+  return { war: result.value, fetchedAt: deps.now };
 }
 
 /** Guerre à montrer : en préparation, en cours, ou finie il y a moins de 2 heures. */
@@ -67,13 +75,13 @@ function opposes(war: CocWar, a: string, b: string): boolean {
   return [war.clan.tag, war.opponent.tag].sort().join() === [a, b].sort().join();
 }
 
-/** Transforme la réponse du jeu en guerre « en direct ». Pure. */
+/** Transforme la réponse du jeu (lue à `fetchedAt`) en guerre « en direct ». Pure. */
 export function toLiveWar(
   war: CocWar,
   home: ClanRef,
   away: ClanRef,
   extra: Pick<LiveWar, 'id' | 'kind' | 'match'>,
-  now: number,
+  fetchedAt: number,
 ): LiveWar | null {
   const snapshot = readWarSnapshot(war, home, away);
   if (!snapshot.ok || war.state === 'notInWar') return null;
@@ -108,7 +116,7 @@ export function toLiveWar(
       home: snapshot.players.filter((p) => p.side === 'home'),
       away: snapshot.players.filter((p) => p.side === 'away'),
     },
-    fetchedAt: new Date(now).toISOString(),
+    fetchedAt: new Date(fetchedAt).toISOString(),
   };
 }
 
@@ -123,7 +131,8 @@ export async function getLiveWars(deps: LiveDeps): Promise<LiveWar[]> {
     .filter((x) => x.status === 'live')
     .slice(0, MAX_MATCHES)) {
     for (const clan of [m.home!, m.away!]) {
-      const war = await cachedWar(deps, clan.tag);
+      const cached = await cachedWar(deps, clan.tag);
+      const war = cached?.war;
       if (!war || !opposes(war, m.home!.tag, m.away!.tag) || !isVisible(war, deps.now)) continue;
       const entry = toLiveWar(
         war,
@@ -139,7 +148,7 @@ export async function getLiveWars(deps: LiveDeps): Promise<LiveWar[]> {
             round: roundLabel(m.round, bracket!.roundCount),
           },
         },
-        deps.now,
+        cached.fetchedAt,
       );
       if (entry) live.push(entry);
       break;
@@ -150,7 +159,8 @@ export async function getLiveWars(deps: LiveDeps): Promise<LiveWar[]> {
   const [a, b] = deps.fwClans;
   if (a && b) {
     for (const tag of [a, b]) {
-      const war = await cachedWar(deps, tag);
+      const cached = await cachedWar(deps, tag);
+      const war = cached?.war;
       if (!war || !opposes(war, a, b) || !isVisible(war, deps.now)) continue;
       const names = new Map([war.clan!, war.opponent!].map((c) => [c.tag, c.name]));
       const entry = toLiveWar(
@@ -158,7 +168,7 @@ export async function getLiveWars(deps: LiveDeps): Promise<LiveWar[]> {
         { tag: a, name: names.get(a)! },
         { tag: b, name: names.get(b)! },
         { id: `fw/${war.preparationStartTime ?? war.startTime ?? ''}`, kind: 'fw' },
-        deps.now,
+        cached.fetchedAt,
       );
       if (entry) live.push(entry);
       break;

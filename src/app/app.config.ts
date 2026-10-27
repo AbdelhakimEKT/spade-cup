@@ -6,8 +6,10 @@ import {
   provideRouter,
   withComponentInputBinding,
   withInMemoryScrolling,
+  withNavigationErrorHandler,
 } from '@angular/router';
 import { routes } from './app.routes';
+import { reloadOnNewVersion } from './core/navigation/new-version';
 import { PageTitle } from './core/page-title';
 
 // Formats français pour les nombres et les dates (« 97,4 » et non « 97.4 »).
@@ -28,6 +30,9 @@ export const appConfig: ApplicationConfig = {
       withComponentInputBinding(),
       // Retour en haut de page à chaque navigation, et liens vers une ancre (#section).
       withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' }),
+      // Site mis à jour pendant que l'onglet était ouvert : la page demandée
+      // n'existe plus sous son ancien nom → on la recharge (nouvelle version).
+      withNavigationErrorHandler((error) => reloadOnNewVersion(error)),
     ),
     { provide: TitleStrategy, useClass: PageTitle },
     { provide: LOCALE_ID, useValue: 'fr' },

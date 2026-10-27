@@ -80,11 +80,20 @@ describe('cachedWar : 30 secondes de mémoire', () => {
     expect(coc.calls).toBe(2);
   });
 
-  it('le jeu ne répond plus : la dernière réponse connue sert encore', async () => {
+  it('le jeu ne répond plus : la dernière réponse connue sert encore, avec son heure', async () => {
     await cachedWar(deps(game({ [FW[0]]: { ok: true, value: inWar } })), FW[0]);
     const down = game({ [FW[0]]: { ok: false, error: 'unavailable' } });
-    const war = await cachedWar(deps(down, NOW + 10 * 60_000), FW[0]);
-    expect(war?.state).toBe('inWar');
+    const cached = await cachedWar(deps(down, NOW + 10 * 60_000), FW[0]);
+    expect(cached?.war.state).toBe('inWar');
+    // « Vu dans le jeu à » : l'heure de la dernière vraie réponse, pas l'heure actuelle.
+    expect(cached?.fetchedAt).toBe(NOW);
+  });
+
+  it('page « En direct » : l’heure affichée est celle de la dernière lecture réussie', async () => {
+    await getLiveWars(deps(game({ [FW[0]]: { ok: true, value: inWar } })));
+    const down = game({ [FW[0]]: { ok: false, error: 'unavailable' } });
+    const [war] = await getLiveWars(deps(down, NOW + 5 * 60_000));
+    expect(war.fetchedAt).toBe(new Date(NOW).toISOString());
   });
 });
 
