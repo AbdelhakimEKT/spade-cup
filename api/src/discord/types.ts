@@ -19,7 +19,20 @@ export const OptionType = {
   String: 3,
   Integer: 4,
   Number: 10,
+  /** Fichier joint à la commande (une image, ici). */
+  Attachment: 11,
 } as const;
+
+/** Un fichier joint à une commande, tel que Discord le décrit. */
+export interface Attachment {
+  readonly id: string;
+  readonly filename: string;
+  /** Adresse temporaire sur cdn.discordapp.com. */
+  readonly url: string;
+  readonly content_type?: string;
+  /** Octets. */
+  readonly size: number;
+}
 
 /** Message visible seulement par la personne qui a tapé la commande. */
 export const EPHEMERAL = 64;
@@ -53,7 +66,12 @@ export interface Interaction {
     /** Permissions de la personne, sous forme de nombre en texte (champ de bits). */
     readonly permissions: string;
   };
-  readonly data?: { readonly name: string; readonly options?: readonly CommandOption[] };
+  readonly data?: {
+    readonly name: string;
+    readonly options?: readonly CommandOption[];
+    /** Les fichiers joints : la valeur d'une option « fichier » est leur identifiant. */
+    readonly resolved?: { readonly attachments?: Readonly<Record<string, Attachment>> };
+  };
 }
 
 export interface Choice {

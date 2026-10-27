@@ -1,8 +1,8 @@
 import puppeteer from '@cloudflare/puppeteer';
 
 /**
- * Images pour Discord : l'arbre d'un tournoi, et le récap joueur par joueur
- * d'un match.
+ * Images pour Discord : l'arbre d'un tournoi, le récap joueur par joueur
+ * d'un match, et l'affiche d'un match.
  *
  * Dessiner une image demanderait bien plus que les 10 ms de calcul d'un Worker
  * gratuit. On demande donc à un VRAI navigateur, hébergé par Cloudflare
@@ -17,7 +17,9 @@ import puppeteer from '@cloudflare/puppeteer';
 
 export type Shot =
   | { readonly kind: 'bracket'; readonly slug: string }
-  | { readonly kind: 'match'; readonly slug: string; readonly matchId: string };
+  | { readonly kind: 'match'; readonly slug: string; readonly matchId: string }
+  /** Affiche d'un match : `query` = paramètres de /affiche (voir posterQuery). */
+  | { readonly kind: 'poster'; readonly query: string };
 
 /**
  * Ce que chaque image doit montrer : l'élément photographié, celui dont on
@@ -30,6 +32,16 @@ function plan(shot: Shot): {
   width: number;
   scale: number;
 } {
+  if (shot.kind === 'poster') {
+    return {
+      path: `/affiche?${shot.query}`,
+      selector: 'sc-poster-page .poster',
+      // data-ready : les deux logos sont chargés (ou remplacés par les initiales).
+      ready: 'sc-poster-page .poster[data-ready]',
+      width: 1080, // l'affiche fait 1080 × 1350 : sa taille finale, telle quelle
+      scale: 1,
+    };
+  }
   const slug = encodeURIComponent(shot.slug);
   return shot.kind === 'bracket'
     ? {

@@ -1,0 +1,257 @@
+// Affiche 1080 × 1350 (format portrait, lisible sur téléphone et sur Discord).
+// Toujours en sombre, quel que soit le thème du site : c'est une image de la
+// marque, pas une page. D'où ses propres couleurs, reprises du thème sombre.
+:host {
+  display: block;
+  width: fit-content;
+  margin-inline: auto;
+}
+
+.poster {
+  --violet: #8b2cff;
+  --violet-light: #b067ff;
+  --green: #35e07a;
+  --ink: #eceaf7;
+  --muted: #9a98b8;
+
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  width: 1080px;
+  height: 1350px;
+  padding: 64px 64px 48px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 46%, rgb(139 44 255 / 0.38), transparent 42%),
+    radial-gradient(circle at 82% 46%, rgb(53 224 122 / 0.28), transparent 42%),
+    linear-gradient(180deg, #0b0b1f 0%, #06060c 100%);
+  color: var(--ink);
+  font-family: var(--font-display);
+  isolation: isolate;
+}
+
+// Le pique de la marque, géant et discret, derrière le duel.
+.poster__spade {
+  position: absolute;
+  inset: 300px 0 auto;
+  z-index: -1;
+  width: 100%;
+  height: 640px;
+  fill: rgb(255 255 255 / 0.05);
+}
+
+// Trait oblique violet → vert qui sépare les deux camps.
+.poster__slash {
+  position: absolute;
+  top: 330px;
+  left: 50%;
+  z-index: -1;
+  width: 3px;
+  height: 560px;
+  background: linear-gradient(180deg, transparent, var(--violet), var(--green), transparent);
+  transform: rotate(16deg);
+  box-shadow: 0 0 24px rgb(139 44 255 / 0.6);
+}
+
+.poster__head {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.poster__brand {
+  width: 112px;
+  height: 112px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 24px rgb(139 44 255 / 0.55));
+}
+
+.poster__eyebrow {
+  margin: 0;
+  background: linear-gradient(90deg, #fff, #e4d6ff 55%, #c9fff0);
+  background-clip: text;
+  color: transparent;
+  font-size: 56px;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.poster__kind {
+  margin: 0;
+  color: var(--muted);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+}
+
+// ---- Le duel
+.duel {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+}
+
+.team {
+  display: grid;
+  justify-items: center;
+  gap: 28px;
+  margin: 0;
+  --team: var(--violet);
+}
+
+.team--right {
+  --team: var(--green);
+}
+
+// Cadre hexagonal : bordure aux couleurs de l'équipe, halo autour.
+.team__frame {
+  display: grid;
+  place-items: center;
+  width: 330px;
+  height: 330px;
+  padding: 6px;
+  background: var(--team);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  filter: drop-shadow(0 0 28px var(--team));
+}
+
+.team__logo,
+.team__initials {
+  width: 100%;
+  height: 100%;
+  clip-path: inherit;
+  background: radial-gradient(circle at 50% 35%, #1c1c3a, #08081a);
+}
+
+.team__logo {
+  object-fit: contain;
+  padding: 34px;
+}
+
+.team__initials {
+  display: grid;
+  place-items: center;
+  color: var(--team);
+  font-size: 120px;
+  font-weight: 700;
+}
+
+.team__name {
+  max-width: 420px;
+  color: #fff;
+  font-size: 50px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 0 22px var(--team);
+  overflow-wrap: anywhere;
+}
+
+.duel__vs span {
+  display: block;
+  background: linear-gradient(135deg, var(--violet-light), #fff 50%, var(--green));
+  background-clip: text;
+  color: transparent;
+  font-size: 128px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  filter: drop-shadow(0 0 18px rgb(255 255 255 / 0.25));
+}
+
+// ---- Les infos du match
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 1.4fr;
+  margin: 0 0 36px;
+  border: 1.5px solid #2c2c58;
+  border-radius: 22px;
+  background: rgb(13 13 26 / 0.82);
+  // Liseré violet → vert sur le haut, comme les deux camps.
+  box-shadow:
+    inset 0 3px 0 -1px var(--violet),
+    0 0 40px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+}
+
+.fact {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  padding: 28px 16px 26px;
+  text-align: center;
+
+  & + & {
+    border-left: 1.5px solid #23234a;
+  }
+
+  dt {
+    order: 1;
+    color: var(--muted);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    order: 2;
+    margin: 0;
+    color: #fff;
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+}
+
+.fact__icon {
+  order: 0;
+  width: 36px;
+  height: 36px;
+  fill: none;
+  stroke: var(--violet-light);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fact__note {
+  order: 3;
+  margin: 0;
+  color: var(--green);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+}
+
+.fact--rules dd {
+  font-size: 34px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.poster__foot {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.poster__site {
+  color: var(--violet-light);
+  letter-spacing: 0.12em;
+  text-transform: none;
+}

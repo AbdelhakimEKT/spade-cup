@@ -571,6 +571,109 @@ describe('/arbitre annuler', () => {
   });
 });
 
+describe('/arbitre affiche', () => {
+  const file = (id: string, name: string, type = 'image/png', size = 50_000) => ({
+    id,
+    filename: name,
+    url: `https://cdn.discordapp.com/attachments/1/${id}/${name}?ex=1`,
+    content_type: type,
+    size,
+  });
+  /** La commande, avec ses deux logos joints (les options « fichier » valent leur identifiant). */
+  function posterCommand(
+    values: Record<string, string> = {},
+    files = [file('a1', 'invaders.png'), file('a2', 'spartiates.webp', 'image/webp')],
+  ) {
+    const interaction = referee('affiche', {
+      equipe_1: 'Clash Invaders',
+      logo_1: 'a1',
+      equipe_2: 'Spartiates',
+      logo_2: 'a2',
+      format: '5v5',
+      date: '26-10',
+      heure: '22h',
+      regles: 'Esport — BO3',
+      ...values,
+    });
+    return {
+      ...interaction,
+      data: {
+        ...interaction.data!,
+        resolved: { attachments: Object.fromEntries(files.map((f) => [f.id, f])) },
+      },
+    };
+  }
+
+  it('dessine l’affiche (logos, format, date et heure remises en forme) et la publie', async () => {
+    const shots: Shot[] = [];
+    const ctx = {
+      ...botContext(db()),
+      capture: async (s: readonly Shot[]) => (shots.push(...s), [FAKE_PNG]),
+    };
+    const reply = await runCommand(posterCommand(), ctx);
+
+    expect(reply.files).toEqual([{ name: 'affiche.png', data: FAKE_PNG }]);
+    expect(reply.ephemeral).toBeFalsy();
+    const shot = shots[0];
+    if (shot.kind !== 'poster') throw new Error('pas une affiche');
+    const q = new URLSearchParams(shot.query);
+    expect(q.get('g')).toBe('Clash Invaders');
+    expect(q.get('gl')).toBe('https://cdn.discordapp.com/attachments/1/a1/invaders.png?ex=1');
+    expect(q.get('dl')).toContain('spartiates.webp');
+    expect([q.get('f'), q.get('j'), q.get('h'), q.get('r')]).toEqual([
+      '5v5',
+      '26/10',
+      '22H00',
+      'Esport — BO3',
+    ]);
+  });
+
+  it('pas besoin d’un tournoi en cours, et la commande attend la capture (réponse différée)', async () => {
+    expect(await getCurrentTournament(db())).toBeNull();
+    expect(needsDefer(posterCommand())).toBe(true);
+  });
+
+  it('date ou heure illisible : message clair, pas d’affiche', async () => {
+    const ctx = botContext(db());
+    expect((await runCommand(posterCommand({ date: 'demain' }), ctx)).content).toContain(
+      'Date illisible',
+    );
+    expect((await runCommand(posterCommand({ heure: '25h' }), ctx)).content).toContain(
+      'Heure illisible',
+    );
+  });
+
+  it('logo qui n’est pas une image, ou trop lourd : refusé', async () => {
+    const ctx = botContext(db());
+    const pdf = await runCommand(
+      posterCommand({}, [file('a1', 'logo.pdf', 'application/pdf'), file('a2', 'b.png')]),
+      ctx,
+    );
+    expect(pdf.content).toContain("n'est pas une image");
+    const big = await runCommand(
+      posterCommand({}, [file('a1', 'a.png'), file('a2', 'b.png', 'image/png', 9e6)]),
+      ctx,
+    );
+    expect(big.content).toContain('trop lourd');
+  });
+
+  it('réservée aux admins, comme tout /arbitre', async () => {
+    const interaction = posterCommand();
+    const reply = await runCommand(
+      { ...interaction, member: { ...interaction.member!, permissions: '0' } },
+      botContext(db()),
+    );
+    expect(reply.content).toContain('réservées aux admins');
+  });
+
+  it('capture impossible : le dit, sans planter', async () => {
+    const ctx = { ...botContext(db()), capture: () => Promise.reject(new Error('quota')) };
+    expect((await runCommand(posterCommand(), ctx)).content).toContain(
+      "Impossible de générer l'affiche",
+    );
+  });
+});
+
 describe('/arbitre arbre', () => {
   it('publie l’image de l’arbre du tournoi courant, avec le tour et le lien', async () => {
     const ctx = botContext(db());
@@ -588,7 +691,10 @@ describe('/arbitre arbre', () => {
     const captured: string[] = [];
     const ctx = {
       ...botContext(db()),
-      capture: async (shots: readonly Shot[]) => (captured.push(shots[0].slug), [FAKE_PNG]),
+      capture: async (shots: readonly Shot[]) => {
+        if (shots[0].kind === 'bracket') captured.push(shots[0].slug);
+        return [FAKE_PNG];
+      },
     };
     const reply = await runCommand(referee('arbre', { tournoi: 'demo' }), ctx);
     expect(reply.content).toContain('**Tournoi de démonstration** · Quarts de finale');

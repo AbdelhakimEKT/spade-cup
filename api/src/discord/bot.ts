@@ -10,6 +10,12 @@ import {
   winnerOf,
 } from '../../../src/app/core/tournament/bracket';
 import { cocTime, readFriendlyWar } from '../../../src/app/core/tournament/coc-war';
+import {
+  isAllowedLogo,
+  normalizeDate,
+  normalizeTime,
+  posterQuery,
+} from '../../../src/app/core/poster/poster';
 import { parseDuration, slugify } from '../../../src/app/core/tournament/format';
 import type {
   Bracket,
@@ -98,7 +104,7 @@ export function needsDefer(interaction: Interaction): boolean {
   const { command, sub } = parse(interaction);
   return (
     command === 'inscription' ||
-    (command === 'arbitre' && ['resultat', 'tirage', 'arbre'].includes(sub ?? ''))
+    (command === 'arbitre' && ['resultat', 'tirage', 'arbre', 'affiche'].includes(sub ?? ''))
   );
 }
 
@@ -266,6 +272,7 @@ async function referee(
     return create(ctx, refereeName, String(options.get('nom')), options.get('reglement'));
   }
   if (sub === 'arbre') return bracketImage(ctx, options.get('tournoi'));
+  if (sub === 'affiche') return matchPoster(ctx, interaction, options);
 
   const active = await getCurrentTournament(ctx.db);
   if (!active) return fail('Aucun tournoi pour le moment. Crée-en un avec `/arbitre creer`.');
@@ -386,6 +393,61 @@ async function bracketImage(ctx: BotContext, chosen: string | number | undefined
     content: bracketCaption(t.name, bracket),
     files: [{ name: 'arbre.png', data: png }],
   };
+}
+
+/** Logos acceptés : images courantes, 8 Mo au plus (la limite d'un envoi Discord gratuit). */
+const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const LOGO_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Affiche d'un match entre deux équipes, avec leurs logos joints à la
+ * commande. Le site la dessine (/affiche), un navigateur la photographie, et
+ * l'image est publiée dans le salon. N'importe quelles deux équipes : pas
+ * besoin d'un tournoi en cours.
+ */
+async function matchPoster(
+  ctx: BotContext,
+  interaction: Interaction,
+  options: Map<string, string | number>,
+): Promise<Reply> {
+  const logo = (n: 1 | 2): string => {
+    const id = String(options.get(`logo_${n}`) ?? '');
+    const file =
+      interaction.data?.resolved?.attachments?.[id] ??
+      fail(`Ajoute le logo de l'équipe ${n === 1 ? 'de gauche' : 'de droite'}.`);
+    const type = file.content_type?.split(';')[0] ?? '';
+    if (!LOGO_TYPES.includes(type)) {
+      fail(`« ${file.filename} » n'est pas une image PNG, JPG ou WebP.`);
+    }
+    if (file.size > LOGO_MAX_BYTES) fail(`« ${file.filename} » est trop lourd (8 Mo au plus).`);
+    if (!isAllowedLogo(file.url))
+      fail(`Logo « ${file.filename} » refusé : il doit venir de Discord.`);
+    return file.url;
+  };
+  const text = (name: string) => String(options.get(name) ?? '').trim();
+
+  const date = normalizeDate(text('date')) ?? fail('Date illisible : écris-la comme ceci, 26/10.');
+  const time =
+    normalizeTime(text('heure')) ?? fail('Heure illisible : écris-la comme ceci, 22h00.');
+  const query = posterQuery({
+    leftName: text('equipe_1'),
+    leftLogo: logo(1),
+    rightName: text('equipe_2'),
+    rightLogo: logo(2),
+    format: text('format'),
+    date,
+    time,
+    rules: text('regles'),
+  });
+
+  let png: Uint8Array;
+  try {
+    [png] = await ctx.capture([{ kind: 'poster', query }]);
+  } catch (error) {
+    console.error('Capture de l’affiche impossible', error);
+    return fail("Impossible de générer l'affiche pour le moment. Réessaie dans une minute.");
+  }
+  return { content: '', files: [{ name: 'affiche.png', data: png }] };
 }
 
 /**

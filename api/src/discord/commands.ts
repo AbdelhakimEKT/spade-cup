@@ -1,3 +1,4 @@
+import { POSTER_FORMATS } from '../../../src/app/core/poster/poster';
 import { OptionType } from './types';
 
 /**
@@ -60,6 +61,23 @@ const sideScore = (n: 1 | 2) => [
 /** Uniquement sur un serveur, pas en message privé. */
 const GUILD_ONLY = { contexts: [0] };
 
+/** Nom et logo d'une équipe de l'affiche (1 = à gauche, en violet ; 2 = à droite, en vert). */
+const posterTeam = (n: 1 | 2) => [
+  {
+    name: `equipe_${n}`,
+    description: `Nom de l'équipe ${n === 1 ? 'de gauche' : 'de droite'}`,
+    type: OptionType.String,
+    required: true,
+    max_length: 30,
+  },
+  {
+    name: `logo_${n}`,
+    description: `Logo de l'équipe ${n === 1 ? 'de gauche' : 'de droite'} (image PNG, JPG ou WebP)`,
+    type: OptionType.Attachment,
+    required: true,
+  },
+];
+
 export const COMMANDS = [
   {
     name: 'inscription',
@@ -119,6 +137,43 @@ export const COMMANDS = [
             description: 'Un autre tournoi que celui en cours (la démo, par exemple)',
             type: OptionType.String,
             autocomplete: true,
+          },
+        ],
+      },
+      {
+        name: 'affiche',
+        description: 'Générer l’affiche d’un match entre deux équipes (avec leurs logos)',
+        type: OptionType.Subcommand,
+        options: [
+          ...posterTeam(1),
+          ...posterTeam(2),
+          {
+            name: 'format',
+            description: 'Taille des équipes',
+            type: OptionType.String,
+            required: true,
+            choices: POSTER_FORMATS.map((f) => ({ name: f, value: f })),
+          },
+          {
+            name: 'date',
+            description: 'Jour du match, par exemple 26/10',
+            type: OptionType.String,
+            required: true,
+            max_length: 8,
+          },
+          {
+            name: 'heure',
+            description: 'Heure de France, par exemple 22h00',
+            type: OptionType.String,
+            required: true,
+            max_length: 8,
+          },
+          {
+            name: 'regles',
+            description: 'Les règles, par exemple « Esport — BO3 » ou « Légende 1 »',
+            type: OptionType.String,
+            required: true,
+            max_length: 40,
           },
         ],
       },

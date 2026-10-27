@@ -80,6 +80,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/live/live-page/live-page').then((m) => m.LivePage),
   },
   {
+    // Affiche d'un match (générée par le bot : /arbitre affiche).
+    path: 'affiche',
+    title: 'Affiche',
+    loadComponent: () =>
+      import('./features/poster/poster-page/poster-page').then((m) => m.PosterPage),
+  },
+  {
     path: 'a-propos',
     title: 'Comment ça marche',
     loadComponent: () => import('./features/about/about-page/about-page').then((m) => m.AboutPage),
