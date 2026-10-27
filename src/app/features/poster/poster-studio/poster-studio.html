@@ -94,15 +94,6 @@
         />
       </label>
 
-      <label>
-        <span>Style de l’affiche</span>
-        <select name="style" [ngModel]="style()" (ngModelChange)="style.set($event)">
-          @for (s of styles; track s.value) {
-            <option [value]="s.value">{{ s.label }}</option>
-          }
-        </select>
-      </label>
-
       <button
         type="button"
         class="button button--primary download"
@@ -129,7 +120,6 @@
             [date]="date()"
             [time]="time()"
             [rules]="rules()"
-            [design]="style()"
           />
         </div>
       </div>

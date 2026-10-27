@@ -5,7 +5,6 @@ import {
   initialsOf,
   normalizeDate,
   normalizeTime,
-  PosterStyle,
   weekdayOf,
 } from '../../../core/poster/poster';
 import { SITE_CONFIG } from '../../../core/site-config';
@@ -17,21 +16,15 @@ import { SITE_CONFIG } from '../../../core/site-config';
  *  - /affiche (paramètres d'adresse), que le bot photographie ;
  *  - /affiche/creer, le formulaire des admins (logos choisis sur l'appareil).
  *
- * Aux couleurs de Friendly Wars, équipe de gauche en violet, de droite en
- * vert. Deux styles, même contenu : « classique » (sobre, fond quasi noir,
- * typographie forte) et « arène » (affiche de match d'esport : cadrans
- * lumineux autour des logos, faille de lumière, panneau d'infos).
+ * Aux couleurs de Friendly Wars : sobre, façon affiche d'esport (fond quasi
+ * noir, typographie forte), équipe de gauche soulignée en violet, de droite
+ * en vert.
  */
 @Component({
   selector: 'sc-poster-view',
   imports: [NgTemplateOutlet],
   templateUrl: './poster-view.html',
-  styleUrls: [
-    './poster-view.scss',
-    './poster-arena.scss',
-    './poster-edito.scss',
-    './poster-billet.scss',
-  ],
+  styleUrl: './poster-view.scss',
 })
 export class PosterView {
   readonly leftName = input('');
@@ -45,8 +38,6 @@ export class PosterView {
   /** Tel que tapé : « 22h », « 22:00 »… */
   readonly time = input('');
   readonly rules = input('');
-  /** « classique » (sobre) ou « arene » (affiche de match d'esport). */
-  readonly design = input<PosterStyle>('classique');
 
   protected readonly left = computed(() => this.side(this.leftName(), this.leftLogo()));
   protected readonly right = computed(() => this.side(this.rightName(), this.rightLogo()));
@@ -57,11 +48,9 @@ export class PosterView {
   protected readonly shownTime = computed(() => normalizeTime(this.time()) ?? (this.time() || '—'));
   protected readonly offset = computed(() => franceOffset(this.date()));
   protected readonly shownRules = computed(() => this.rules() || '—');
-  /** « discord.gg/… » : l'invitation du serveur, en bas de l'affiche (casse respectée). */
   /** Coins décorés : haut et bas, à gauche (violet) et à droite (vert). */
   protected readonly corners = ['tl', 'bl', 'tr', 'br'] as const;
-  /** Style « Arène » : en bas, le panneau des infos prend toute la place. */
-  protected readonly topCorners = ['tl', 'tr'] as const;
+  /** « discord.gg/… » : l'invitation du serveur, en bas de l'affiche (casse respectée). */
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
 
   /**
@@ -98,8 +87,6 @@ export class PosterView {
       logo: logo || null,
       initials: initialsOf(clean),
       long: clean.length > 14,
-      // Style « Éditorial » : le nom remplit sa ligne (court → très grand).
-      fit: Math.round(Math.min(128, Math.max(52, 1240 / clean.length))),
     };
   }
 }

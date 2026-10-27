@@ -10,24 +10,6 @@
 export const POSTER_FORMATS = ['5v5', '10v10', '15v15'] as const;
 export type PosterFormat = (typeof POSTER_FORMATS)[number];
 
-/**
- * Les styles d'affiche : même contenu, mise en scène différente. « Classique »
- * (sobre, par défaut), « Arène » (affiche de match d'esport), « Éditorial »
- * (couverture de magazine, noms géants) et « Billet » (un billet de match).
- */
-export const POSTER_STYLES = [
-  { value: 'classique', label: 'Classique' },
-  { value: 'arene', label: 'Arène' },
-  { value: 'edito', label: 'Éditorial' },
-  { value: 'billet', label: 'Billet' },
-] as const;
-export type PosterStyle = (typeof POSTER_STYLES)[number]['value'];
-
-/** Style lu dans une adresse ou une commande ; inconnu ou absent → « classique ». */
-export function posterStyleOf(raw: string | null | undefined): PosterStyle {
-  return POSTER_STYLES.find((s) => s.value === raw)?.value ?? 'classique';
-}
-
 /** Ce qu'il faut pour dessiner une affiche. */
 export interface PosterInput {
   readonly leftName: string;
@@ -40,8 +22,6 @@ export interface PosterInput {
   /** « 22H00 » */
   readonly time: string;
   readonly rules: string;
-  /** Absent : « classique ». */
-  readonly style?: PosterStyle;
 }
 
 /** « 26-10 », « 26.10 », « 6/1 » → « 26/10 », « 06/01 ». `null` si ce n'est pas une date. */
@@ -125,7 +105,7 @@ export function isAllowedLogo(url: string | null | undefined): boolean {
 
 /** Paramètres de l'adresse /affiche (courts : l'adresse contient deux URL d'images). */
 export function posterQuery(input: PosterInput): string {
-  const params = new URLSearchParams({
+  return new URLSearchParams({
     g: input.leftName,
     gl: input.leftLogo,
     d: input.rightName,
@@ -134,10 +114,7 @@ export function posterQuery(input: PosterInput): string {
     j: input.date,
     h: input.time,
     r: input.rules,
-  });
-  // Le style classique est celui par défaut : inutile de l'écrire.
-  if (input.style && input.style !== 'classique') params.set('s', input.style);
-  return params.toString();
+  }).toString();
 }
 
 /** Initiales d'un nom d'équipe, quand le logo ne charge pas : « Clash Invaders » → « CI ». */

@@ -10,13 +10,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminAccess } from '../../../core/admin/admin-access';
-import {
-  POSTER_FORMATS,
-  POSTER_STYLES,
-  PosterStyle,
-  normalizeDate,
-  normalizeTime,
-} from '../../../core/poster/poster';
+import { POSTER_FORMATS, normalizeDate, normalizeTime } from '../../../core/poster/poster';
 import { slugify } from '../../../core/tournament/format';
 import { AdminGate } from '../../../shared/ui/admin-gate/admin-gate';
 import { PosterView } from '../poster-view/poster-view';
@@ -48,7 +42,6 @@ type Side = 'left' | 'right';
 export class PosterStudio {
   protected readonly access = inject(AdminAccess);
   protected readonly formats = POSTER_FORMATS;
-  protected readonly styles = POSTER_STYLES;
 
   protected readonly leftName = signal('');
   protected readonly rightName = signal('');
@@ -58,7 +51,6 @@ export class PosterStudio {
   protected readonly date = signal('');
   protected readonly time = signal('');
   protected readonly rules = signal('');
-  protected readonly style = signal<PosterStyle>('classique');
 
   /** Date ou heure tapée mais illisible : on le signale sous le champ. */
   protected readonly dateInvalid = computed(

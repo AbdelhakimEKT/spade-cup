@@ -44,14 +44,6 @@ describe('PosterStudio (/affiche/creer)', () => {
     expect(facts.filter((_, i) => i !== 1)).toEqual(['5V5', '22H00', 'Esport — BO3']);
   });
 
-  it('style « Arène » choisi : l’aperçu change de style, avec les mêmes infos', async () => {
-    const { el, fill } = await render();
-    await fill('left-name', 'FR ESPORT');
-    await fill('style', 'arene');
-    expect(el.querySelector('.poster.arena')).not.toBeNull();
-    expect(el.querySelector('.arena__team--left .arena__name')?.textContent).toBe('FR ESPORT');
-  });
-
   it('logo choisi sur l’appareil : affiché dans l’aperçu (sans rien envoyer)', async () => {
     const created = vi.fn(() => 'blob:http://localhost/logo-fr');
     URL.createObjectURL = created;

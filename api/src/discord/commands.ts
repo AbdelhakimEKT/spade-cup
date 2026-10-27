@@ -1,4 +1,4 @@
-import { POSTER_FORMATS, POSTER_STYLES } from '../../../src/app/core/poster/poster';
+import { POSTER_FORMATS } from '../../../src/app/core/poster/poster';
 import { OptionType } from './types';
 
 /**
@@ -174,13 +174,6 @@ export const COMMANDS = [
             type: OptionType.String,
             required: true,
             max_length: 40,
-          },
-          {
-            name: 'style',
-            description: 'Style de l’affiche (Classique si tu ne choisis rien)',
-            type: OptionType.String,
-            required: false,
-            choices: POSTER_STYLES.map((s) => ({ name: s.label, value: s.value })),
           },
         ],
       },

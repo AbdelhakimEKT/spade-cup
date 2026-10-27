@@ -1,19 +1,19 @@
 import { Component, input, isDevMode } from '@angular/core';
-import { isAllowedLogo, posterStyleOf } from '../../../core/poster/poster';
+import { isAllowedLogo } from '../../../core/poster/poster';
 import { PosterView } from '../poster-view/poster-view';
 
-/**
- * /affiche?g=…&gl=…&d=…&dl=…&f=5v5&j=26/10&h=22H00&r=Esport — BO3[&s=arene]
- *
- * L'affiche construite par le bot (commande /arbitre affiche), qu'un
- * navigateur de Cloudflare photographie ensuite, comme l'image de l'arbre.
- * Paramètres d'adresse courts : l'adresse contient déjà deux URL d'images.
- */
 /** Paramètre d'adresse : absent (ou répété) → texte vide. */
 function text(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+/**
+ * /affiche?g=…&gl=…&d=…&dl=…&f=5v5&j=26/10&h=22H00&r=Esport — BO3
+ *
+ * L'affiche construite par le bot (commande /arbitre affiche), qu'un
+ * navigateur de Cloudflare photographie ensuite, comme l'image de l'arbre.
+ * Paramètres d'adresse courts : l'adresse contient déjà deux URL d'images.
+ */
 @Component({
   selector: 'sc-poster-page',
   imports: [PosterView],
@@ -27,7 +27,6 @@ function text(value: unknown): string {
       [date]="j()"
       [time]="h()"
       [rules]="r()"
-      [design]="style(s())"
     />
   `,
   styles: `
@@ -46,10 +45,6 @@ export class PosterPage {
   readonly j = input('', { transform: text });
   readonly h = input('', { transform: text });
   readonly r = input('', { transform: text });
-  /** Style : « arene », sinon classique. */
-  readonly s = input('', { transform: text });
-
-  protected readonly style = posterStyleOf;
 
   /**
    * Seuls les logos hébergés par Discord sont affichés : personne ne peut
