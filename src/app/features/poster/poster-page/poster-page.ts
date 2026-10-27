@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, input, isDevMode, signal } from '@angular/core';
 import {
   franceOffset,
   initialsOf,
@@ -77,6 +77,9 @@ export class PosterPage {
 
   private side(name: string, logo: string): PosterSide {
     const clean = name.trim() || 'À définir';
-    return { name: clean, logo: isAllowedLogo(logo) ? logo : null, initials: initialsOf(clean) };
+    // En développement (ng serve) seulement : des logos posés dans public/,
+    // pour prévisualiser une affiche sans passer par Discord.
+    const allowed = isAllowedLogo(logo) || (isDevMode() && logo.startsWith('/'));
+    return { name: clean, logo: allowed ? logo : null, initials: initialsOf(clean) };
   }
 }
