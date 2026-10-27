@@ -130,22 +130,35 @@
   --team: var(--green);
 }
 
+// Le logo s'affiche EN ENTIER, tel quel : ni filtre, ni fusion avec le fond,
+// ni découpe ronde (ils effaçaient ses détails sombres ou ses coins, comme le
+// serpent du logo de FR ESPORT). La plupart des logos ont un fond noir carré :
+// pour que ce carré ne se voie pas, l'image est posée sur un projecteur noir,
+// un peu plus grand qu'elle et aux bords flous, qui se fond dans l'affiche.
 .team__logo-box {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 340px;
-  height: 340px;
+  width: 320px;
+  height: 320px;
+
+  // Le projecteur : noir plein sous toute l'image, coins compris, puis fondu.
+  // Sous le trait du VS (z-index -1), pour ne pas le couper.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    border-radius: 18%;
+    background: #000;
+    box-shadow: 0 0 44px 54px #000;
+  }
 }
 
-// Le logo tel quel : ni filtre ni fusion avec le fond, ils effaçaient ses
-// détails sombres (le serpent du logo de FR ESPORT disparaissait). Son fond
-// noir, plus sombre que l'affiche, fait comme un projecteur sous le logo ;
-// seuls les bords s'estompent, pour qu'aucun angle du carré ne se devine.
 .team__logo {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  mask-image: radial-gradient(closest-side, #000 90%, transparent);
 }
 
 .team__initials {
