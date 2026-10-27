@@ -41,22 +41,25 @@
   isolation: isolate;
 }
 
-// Un seul trait oblique, violet en haut, vert en bas.
-.poster__divider {
+// Un seul trait oblique, violet en haut, vert en bas. Centré sur le « VS »
+// (il tourne autour de son milieu), il descend jusqu'aux infos du match.
+.duel__divider {
   position: absolute;
-  top: 360px;
+  top: 50%;
   left: 50%;
   z-index: -1;
   width: 2px;
-  height: 520px;
+  height: 600px;
+  margin: -300px 0 0 -1px;
   background: linear-gradient(
     180deg,
     transparent,
-    var(--violet) 30%,
+    var(--violet) 26%,
     var(--green) 70%,
+    rgb(53 224 122 / 0.6) 90%,
     transparent
   );
-  opacity: 0.55;
+  opacity: 0.6;
   transform: rotate(14deg);
 }
 
@@ -86,7 +89,7 @@
   padding-left: 0.32em;
 }
 
-// « — GUERRE AMICALE — » : petits traits de part et d'autre.
+// « — CLAN VS CLAN — » : petits traits de part et d'autre.
 .poster__kind {
   display: flex;
   align-items: center;
@@ -109,6 +112,7 @@
 
 // ---- Le duel
 .duel {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 120px 1fr;
   align-items: center;
@@ -173,6 +177,10 @@
   overflow-wrap: anywhere;
 }
 
+.team__name--long {
+  font-size: 38px;
+}
+
 .team__bar {
   width: 72px;
   height: 4px;
@@ -189,10 +197,11 @@
   letter-spacing: 0.04em;
 }
 
-// ---- Les infos du match : une bande nette, filets fins
+// ---- Les infos du match : une bande nette, filets fins. Format, date et
+// heure côte à côte, puis les règles sur toute la largeur.
 .facts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr) 1.45fr;
+  grid-template-columns: repeat(3, 1fr);
   margin: 0 0 44px;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
@@ -206,7 +215,8 @@
   padding: 30px 12px;
   text-align: center;
 
-  & + & {
+  // Filet entre format, date et heure (les règles ont leur propre ligne).
+  & + &:not(.fact--rules) {
     border-left: 1px solid var(--rule);
   }
 
@@ -235,18 +245,34 @@
   letter-spacing: 0.06em;
 }
 
-// Le jour, sous la date : plus lisible que les autres notes.
-.fact__note--day {
-  color: var(--ink);
-  font-size: 20px;
-  letter-spacing: 0.2em;
+.fact dd {
+  white-space: nowrap;
+}
+
+// « MERCREDI », au-dessus de « 28/10 ».
+.fact__day {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 30px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.fact--rules dd {
-  font-size: 32px;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
+.fact--rules {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  justify-content: center;
+  gap: 28px;
+  padding-block: 24px;
+  border-top: 1px solid var(--rule);
+
+  dd {
+    font-size: 32px;
+    text-transform: uppercase;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 // ---- Pied : le nom à gauche, l'invitation Discord à droite

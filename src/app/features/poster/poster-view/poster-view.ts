@@ -5,6 +5,7 @@ import {
   initialsOf,
   normalizeDate,
   normalizeTime,
+  PosterStyle,
   weekdayOf,
 } from '../../../core/poster/poster';
 import { SITE_CONFIG } from '../../../core/site-config';
@@ -16,15 +17,16 @@ import { SITE_CONFIG } from '../../../core/site-config';
  *  - /affiche (paramètres d'adresse), que le bot photographie ;
  *  - /affiche/creer, le formulaire des admins (logos choisis sur l'appareil).
  *
- * Aux couleurs de Friendly Wars : sobre, façon affiche d'esport (fond quasi
- * noir, typographie forte), équipe de gauche soulignée en violet, de droite
- * en vert.
+ * Aux couleurs de Friendly Wars, équipe de gauche en violet, de droite en
+ * vert. Deux styles, même contenu : « classique » (sobre, fond quasi noir,
+ * typographie forte) et « arène » (affiche de match d'esport : cadrans
+ * lumineux autour des logos, faille de lumière, panneau d'infos).
  */
 @Component({
   selector: 'sc-poster-view',
   imports: [NgTemplateOutlet],
   templateUrl: './poster-view.html',
-  styleUrl: './poster-view.scss',
+  styleUrls: ['./poster-view.scss', './poster-arena.scss'],
 })
 export class PosterView {
   readonly leftName = input('');
@@ -38,19 +40,23 @@ export class PosterView {
   /** Tel que tapé : « 22h », « 22:00 »… */
   readonly time = input('');
   readonly rules = input('');
+  /** « classique » (sobre) ou « arene » (affiche de match d'esport). */
+  readonly design = input<PosterStyle>('classique');
 
   protected readonly left = computed(() => this.side(this.leftName(), this.leftLogo()));
   protected readonly right = computed(() => this.side(this.rightName(), this.rightLogo()));
   protected readonly shownFormat = computed(() => this.format().toUpperCase() || '—');
   protected readonly shownDate = computed(() => normalizeDate(this.date()) ?? (this.date() || '—'));
-  protected readonly shownTime = computed(() => normalizeTime(this.time()) ?? (this.time() || '—'));
-  /** « Samedi » : le jour de la semaine, sous la date. */
+  /** « Mercredi » : le jour de la semaine, au-dessus de la date. */
   protected readonly weekday = computed(() => weekdayOf(this.date()));
+  protected readonly shownTime = computed(() => normalizeTime(this.time()) ?? (this.time() || '—'));
   protected readonly offset = computed(() => franceOffset(this.date()));
   protected readonly shownRules = computed(() => this.rules() || '—');
   /** « discord.gg/… » : l'invitation du serveur, en bas de l'affiche (casse respectée). */
   /** Coins décorés : haut et bas, à gauche (violet) et à droite (vert). */
   protected readonly corners = ['tl', 'bl', 'tr', 'br'] as const;
+  /** Style « Arène » : en bas, le panneau des infos prend toute la place. */
+  protected readonly topCorners = ['tl', 'tr'] as const;
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
 
   /**
@@ -81,6 +87,12 @@ export class PosterView {
 
   private side(name: string, logo: string | null) {
     const clean = name.trim() || 'À définir';
-    return { name: clean, logo: logo || null, initials: initialsOf(clean) };
+    // Nom long (« Les Spartiates du Nord ») : écrit plus petit, sur deux lignes au plus.
+    return {
+      name: clean,
+      logo: logo || null,
+      initials: initialsOf(clean),
+      long: clean.length > 14,
+    };
   }
 }

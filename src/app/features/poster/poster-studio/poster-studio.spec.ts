@@ -39,7 +39,17 @@ describe('PosterStudio (/affiche/creer)', () => {
     expect(el.querySelector('.team--left .team__name')?.textContent).toBe('FR ESPORT');
     expect(el.querySelector('.team--right .team__name')?.textContent).toBe('Ci E-SPORTS');
     const facts = [...el.querySelectorAll('.fact dd')].map((d) => d.textContent?.trim());
-    expect(facts).toEqual(['5V5', '26/10', '22H00', 'Esport — BO3']);
+    // « Lundi 26/10 » : le jour dépend de l'année en cours.
+    expect(facts[1]).toMatch(/^\p{Lu}\p{Ll}+ 26\/10$/u);
+    expect(facts.filter((_, i) => i !== 1)).toEqual(['5V5', '22H00', 'Esport — BO3']);
+  });
+
+  it('style « Arène » choisi : l’aperçu change de style, avec les mêmes infos', async () => {
+    const { el, fill } = await render();
+    await fill('left-name', 'FR ESPORT');
+    await fill('style', 'arene');
+    expect(el.querySelector('.poster.arena')).not.toBeNull();
+    expect(el.querySelector('.arena__team--left .arena__name')?.textContent).toBe('FR ESPORT');
   });
 
   it('logo choisi sur l’appareil : affiché dans l’aperçu (sans rien envoyer)', async () => {

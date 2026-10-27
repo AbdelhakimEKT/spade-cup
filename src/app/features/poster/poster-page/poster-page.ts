@@ -1,14 +1,19 @@
 import { Component, input, isDevMode } from '@angular/core';
-import { isAllowedLogo } from '../../../core/poster/poster';
+import { isAllowedLogo, posterStyleOf } from '../../../core/poster/poster';
 import { PosterView } from '../poster-view/poster-view';
 
 /**
- * /affiche?g=…&gl=…&d=…&dl=…&f=5v5&j=26/10&h=22H00&r=Esport — BO3
+ * /affiche?g=…&gl=…&d=…&dl=…&f=5v5&j=26/10&h=22H00&r=Esport — BO3[&s=arene]
  *
  * L'affiche construite par le bot (commande /arbitre affiche), qu'un
  * navigateur de Cloudflare photographie ensuite, comme l'image de l'arbre.
  * Paramètres d'adresse courts : l'adresse contient déjà deux URL d'images.
  */
+/** Paramètre d'adresse : absent (ou répété) → texte vide. */
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
 @Component({
   selector: 'sc-poster-page',
   imports: [PosterView],
@@ -22,6 +27,7 @@ import { PosterView } from '../poster-view/poster-view';
       [date]="j()"
       [time]="h()"
       [rules]="r()"
+      [design]="style(s())"
     />
   `,
   styles: `
@@ -31,14 +37,19 @@ import { PosterView } from '../poster-view/poster-view';
   `,
 })
 export class PosterPage {
-  readonly g = input('');
-  readonly gl = input('');
-  readonly d = input('');
-  readonly dl = input('');
-  readonly f = input('');
-  readonly j = input('');
-  readonly h = input('');
-  readonly r = input('');
+  // Un paramètre absent de l'adresse arrive `undefined` : on le lit comme vide.
+  readonly g = input('', { transform: text });
+  readonly gl = input('', { transform: text });
+  readonly d = input('', { transform: text });
+  readonly dl = input('', { transform: text });
+  readonly f = input('', { transform: text });
+  readonly j = input('', { transform: text });
+  readonly h = input('', { transform: text });
+  readonly r = input('', { transform: text });
+  /** Style : « arene », sinon classique. */
+  readonly s = input('', { transform: text });
+
+  protected readonly style = posterStyleOf;
 
   /**
    * Seuls les logos hébergés par Discord sont affichés : personne ne peut

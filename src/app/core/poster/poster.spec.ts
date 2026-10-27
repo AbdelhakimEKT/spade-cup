@@ -5,6 +5,7 @@ import {
   normalizeDate,
   normalizeTime,
   posterQuery,
+  posterStyleOf,
   weekdayOf,
 } from './poster';
 
@@ -69,6 +70,24 @@ describe('affiche : mise en forme', () => {
     expect(q.get('gl')).toBe('https://cdn.discordapp.com/a.png?ex=1&is=2');
     expect(q.get('r')).toBe('Esport — BO3');
     expect(q.get('d')).toBe('Spartiates');
+    expect(q.has('s')).toBe(false);
+  });
+
+  it('style : « arene » écrit dans l’adresse, tout le reste revient au classique', () => {
+    const base = {
+      leftName: 'A',
+      leftLogo: '',
+      rightName: 'B',
+      rightLogo: '',
+      format: '5v5',
+      date: '26/10',
+      time: '22H00',
+      rules: '',
+    };
+    expect(new URLSearchParams(posterQuery({ ...base, style: 'arene' })).get('s')).toBe('arene');
+    expect(posterStyleOf('arene')).toBe('arene');
+    expect(posterStyleOf('n’importe quoi')).toBe('classique');
+    expect(posterStyleOf(null)).toBe('classique');
   });
 
   it('initiales de secours', () => {

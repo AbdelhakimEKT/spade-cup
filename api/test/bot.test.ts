@@ -626,6 +626,19 @@ describe('/arbitre affiche', () => {
       '22H00',
       'Esport — BO3',
     ]);
+    expect(q.has('s')).toBe(false); // style classique, par défaut
+  });
+
+  it('style « Arène » : transmis à la page de l’affiche', async () => {
+    const shots: Shot[] = [];
+    const ctx = {
+      ...botContext(db()),
+      capture: async (s: readonly Shot[]) => (shots.push(...s), [FAKE_PNG]),
+    };
+    await runCommand(posterCommand({ style: 'arene' }), ctx);
+    const shot = shots[0];
+    if (shot.kind !== 'poster') throw new Error('pas une affiche');
+    expect(new URLSearchParams(shot.query).get('s')).toBe('arene');
   });
 
   it('pas besoin d’un tournoi en cours, et la commande attend la capture (réponse différée)', async () => {

@@ -19,4 +19,26 @@ describe('PosterPage (/affiche, photographiée par le bot)', () => {
     expect(el.querySelector('.team--right .team__initials')?.textContent).toBe('CE');
     expect(el.querySelector('.fact dd')?.textContent?.trim()).toBe('10V10');
   });
+
+  it('paramètres absents : pas de plantage, « À définir » et initiales', async () => {
+    TestBed.configureTestingModule({ imports: [PosterPage] });
+    const fixture = TestBed.createComponent(PosterPage);
+    fixture.componentRef.setInput('g', undefined);
+    fixture.componentRef.setInput('gl', undefined);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.team--left .team__name')?.textContent).toBe('À définir');
+    expect(el.querySelector('.team--left .team__initials')).not.toBeNull();
+  });
+
+  it('style « arene » : l’affiche Arène', async () => {
+    TestBed.configureTestingModule({ imports: [PosterPage] });
+    const fixture = TestBed.createComponent(PosterPage);
+    fixture.componentRef.setInput('g', 'FR ESPORT');
+    fixture.componentRef.setInput('s', 'arene');
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.poster.arena')).not.toBeNull();
+    expect(el.querySelector('.arena__team--left .arena__name')?.textContent).toBe('FR ESPORT');
+  });
 });

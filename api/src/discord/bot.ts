@@ -15,6 +15,7 @@ import {
   normalizeDate,
   normalizeTime,
   posterQuery,
+  posterStyleOf,
 } from '../../../src/app/core/poster/poster';
 import { parseDuration, slugify } from '../../../src/app/core/tournament/format';
 import type {
@@ -438,6 +439,7 @@ async function matchPoster(
     date,
     time,
     rules: text('regles'),
+    style: posterStyleOf(text('style')),
   });
 
   let png: Uint8Array;

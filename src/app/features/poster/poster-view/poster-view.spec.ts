@@ -24,14 +24,10 @@ describe('PosterView', () => {
     expect(el.querySelector('.team--left .team__name')?.textContent).toBe('FR ESPORT');
     expect(el.querySelector('.team--right .team__name')?.textContent).toBe('Ci E-SPORTS');
     const facts = [...el.querySelectorAll('.fact dd')].map((d) => d.textContent?.trim());
-    expect(facts).toEqual(['5V5', '26/10', '22H00', 'Esport — BO3']);
     // Le jour dépend de l'année en cours : on vérifie seulement qu'il y en a un.
-    expect(el.querySelector('.fact__note--day')?.textContent).toMatch(
-      /^(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche)$/,
-    );
-    expect(el.querySelector('.fact__note:not(.fact__note--day)')?.textContent).toMatch(
-      /Heure de France\s*\(UTC\+[12]\)/,
-    );
+    expect(facts[1]).toMatch(/^(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche) 26\/10$/);
+    expect(facts.filter((_, i) => i !== 1)).toEqual(['5V5', '22H00', 'Esport — BO3']);
+    expect(el.querySelector('.fact__note')?.textContent).toMatch(/Heure de France\s*\(UTC\+[12]\)/);
     expect(el.querySelector('.poster__discord')?.textContent).toContain('discord.gg/');
   });
 
