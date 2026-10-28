@@ -246,7 +246,7 @@ function button(customId: string, label: string, style: number, emoji?: string) 
 
 /**
  * L'annonce dans #annonce-fw : la fiche en image, le ping du rôle et les
- * « INFORMATIONS FW » (texte des organisateurs). La fiche d'inscription, elle,
+ * « INFORMATIONS @FW » (texte des organisateurs). La fiche d'inscription, elle,
  * est dans #inscription.
  */
 export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | null): Reply {
@@ -254,8 +254,8 @@ export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | nul
   return {
     content: [
       ...(e.test ? [TEST_BANNER] : []),
-      `<@&${cfg.role}>`,
-      '**INFORMATIONS FW**',
+      // « INFORMATIONS @FW » : le rôle pingué fait partie du titre.
+      `**INFORMATIONS** <@&${cfg.role}>`,
       `・ <#${cfg.signupChannel}> ouvertes jusqu’à **${c.close}**.`,
       e.mode === 'random'
         ? `・ Tirage des équipes à **${c.teams}**`

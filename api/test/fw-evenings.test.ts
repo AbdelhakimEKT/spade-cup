@@ -170,8 +170,7 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     expect(announce.channel).toBe('c-annonce');
     expect(announce.reply.content).toBe(
       [
-        '<@&r-fw>',
-        '**INFORMATIONS FW**',
+        '**INFORMATIONS** <@&r-fw>',
         '・ <#c-inscription> ouvertes jusqu’à **20h45**.',
         '・ Tirage des équipes à **20h50**',
         '・ Plusieurs comptes autorisés par joueur',
