@@ -137,7 +137,6 @@ const when = (e: Evening) => `${dayLabel(e.startsAt)} à ${sessionClocks(e.start
 
 const TEAM_DOT: Record<Team, string> = { violet: '🟣', vert: '🟢' };
 
-const TEST_BANNER = '🧪 **ESSAI** : rien n’est envoyé aux joueurs (pas de ping).';
 
 // ------------------------------------------------------------ messages
 
@@ -188,7 +187,6 @@ export function signupMessage(
       ? '✅ **Soirée terminée : merci à tous !**'
       : null;
   const header = [
-    ...(e.test ? [TEST_BANNER] : []),
     `📝 **FW #${e.number}** · ${when(e)}`,
     ...(status ? [status] : []),
     `⏰ Fin des inscriptions : **${c.close}** · ⚔️ Équipes affichées vers **${c.teams}** (rééquilibrages possibles)`,
@@ -253,7 +251,6 @@ export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | nul
   const c = sessionClocks(e.startsAt);
   return {
     content: [
-      ...(e.test ? [TEST_BANNER] : []),
       // « INFORMATIONS @FW » : le rôle pingué fait partie du titre.
       `**INFORMATIONS** <@&${cfg.role}>`,
       `・ <#${cfg.signupChannel}> ouvertes jusqu’à **${c.close}**.`,
@@ -263,8 +260,7 @@ export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | nul
       '・ Plusieurs comptes autorisés par joueur',
       `・ En cas de difficulté, ouvrez un <#${cfg.ticketsChannel}>`,
     ].join('\n'),
-    // En essai, le rôle est écrit mais personne n'est notifié.
-    ...(e.test ? {} : { mentionRoles: [cfg.role] }),
+    mentionRoles: [cfg.role],
     ...(png ? { files: [{ name: `fw-${e.number}.png`, data: png }] } : {}),
   };
 }
@@ -404,11 +400,7 @@ function schedule(ctx: BotContext, rawDate: string, rawTime: string) {
 
 async function launch(interaction: Interaction, ctx: BotContext, options: Options): Promise<Reply> {
   const discord = ctx.discord!;
-  const test = text(options, 'test') === 'oui';
-  // En essai, tout va dans le salon où la commande est tapée.
-  const here = interaction.channel_id ?? fail('Salon inconnu : tape la commande dans un salon.');
-  const signupChannel = test ? here : ctx.fw.signupChannel;
-  const announceChannel = test ? here : ctx.fw.announceChannel;
+  const { signupChannel, announceChannel } = ctx.fw;
   const { date, time, startsAt } = schedule(ctx, text(options, 'date'), text(options, 'heure'));
   const mode: TeamMode = text(options, 'equipes') === 'libre' ? 'libre' : 'random';
   const typedNumber = Number(options.get('numero') ?? 0);
@@ -422,14 +414,12 @@ async function launch(interaction: Interaction, ctx: BotContext, options: Option
     mode,
     details: detailsFrom(options, DEFAULT_DETAILS),
     createdBy: displayName(interaction.member!),
-    test,
   });
   const e = (await getEvening(ctx.db, id))!;
 
   // D'abord la fiche d'inscription (sans elle, l'annonce renverrait dans le vide).
   const emojis = await discord.emojis();
-  // L'annonce d'abord, puis la fiche d'inscription : dans un même salon (essai),
-  // la fiche, tenue à jour, reste en dessous.
+  // L'annonce d'abord, puis la fiche d'inscription.
   const png = await posterOf(ctx, e);
   const announceId = await discord.send(announceChannel, announceMessage(e, ctx.fw, png));
   const signupId = await discord.send(signupChannel, signupMessage(e, [], emojis, ctx.fw));
@@ -447,13 +437,11 @@ async function launch(interaction: Interaction, ctx: BotContext, options: Option
   });
 
   return done(
-    (test ? '🧪 Essai : ' : '') +
-      `✅ **FW #${number}** lancée pour le ${when(e)} : fiche d'inscription dans ` +
+    `✅ **FW #${number}** lancée pour le ${when(e)} : fiche d'inscription dans ` +
       `<#${signupChannel}>` +
       (announceId
         ? `, annonce dans <#${announceChannel}>.`
         : `. ⚠️ L'annonce n'a pas pu être postée dans <#${announceChannel}> (droits du bot ?).`) +
-      (test ? '\nQuand tu as fini : `/fw annuler` (ou `/fw bilan`, posté ici aussi).' : '') +
       (png ? '' : '\n_La fiche en image n’a pas pu être générée : réessaie avec /fw modifier._') +
       '\nUne info à corriger ? `/fw modifier`.',
   );
@@ -528,11 +516,8 @@ async function recap(ctx: BotContext): Promise<Reply> {
   const { wars, lines } = await eveningLines(ctx.db, e, now);
   if (wars === 0) fail('Aucune FW de cette soirée n’a encore été enregistrée : rien à publier.');
   const content = eveningRecapText(e, wars, rankPlayers(lines), ctx.siteUrl);
-  // En essai, le bilan reste dans le salon de l'essai.
-  const channel = e.test && e.signup ? e.signup.channel : ctx.fw.resultsChannel;
-  const posted = await ctx.discord!.send(channel, {
-    content: e.test ? `${TEST_BANNER}\n${content}` : content,
-  });
+  const channel = ctx.fw.resultsChannel;
+  const posted = await ctx.discord!.send(channel, { content });
   if (!posted) fail(`Impossible de poster dans <#${channel}> (droits du bot ?).`);
   await closeEvening(ctx.db, e.id, now);
   await refreshSignup(ctx, e.id);

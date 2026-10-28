@@ -134,15 +134,6 @@ export const COMMANDS = [
           fwTeams,
           ...fwDetails,
           fwNumber,
-          {
-            name: 'test',
-            description: 'Essai : tout est posté dans CE salon, sans ping du rôle',
-            type: OptionType.String,
-            choices: [
-              { name: 'Oui, essai dans ce salon', value: 'oui' },
-              { name: 'Non, pour de vrai', value: 'non' },
-            ],
-          },
         ],
       },
       {

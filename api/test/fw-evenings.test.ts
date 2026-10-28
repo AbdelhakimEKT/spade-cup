@@ -220,27 +220,6 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     );
   });
 
-  it('essai : tout dans le salon de la commande, sans ping, sans prendre de numéro', async () => {
-    const { ctx, discord } = setup();
-    const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h', test: 'oui' }), ctx);
-    expect(reply.content).toMatch(/^🧪 Essai : ✅ \*\*FW #41\*\*/);
-    expect(discord.sent.map((m) => m.channel)).toEqual(['c-ici', 'c-ici']);
-    const [announce, signup] = discord.sent;
-    expect(announce.reply.content).toMatch(/^🧪 \*\*ESSAI\*\*/);
-    expect(announce.reply.mentionRoles).toBeUndefined(); // personne n'est notifié
-    expect(signup.reply.content).toMatch(/^🧪 \*\*ESSAI\*\*/);
-
-    // Le bilan de l'essai reste dans ce salon.
-    await threeWars();
-    await runCommand(fw('bilan'), { ...ctx, now: () => START + 2 * 3_600_000 });
-    expect(discord.sent.some((m) => m.channel === 'c-resultats')).toBe(false);
-    expect(discord.sent.at(-1)?.channel).toBe('c-ici');
-
-    // La vraie suivante reste la #41.
-    await runCommand(fw('lancer', { date: '29/10', heure: '21h' }), ctx);
-    expect((await currentEvening(db()))?.number).toBe(41);
-  });
-
   it('sans jeton du bot : refusé, avec l’explication', async () => {
     const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), botContext(db()));
     expect(reply.content).toMatch(/DISCORD_BOT_TOKEN/);
