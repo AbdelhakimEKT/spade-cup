@@ -200,17 +200,11 @@ export function signupMessage(
     : e.closed
       ? '✅ **Soirée terminée : merci à tous !**'
       : null;
+  // Court : le titre, puis les équipes (les infos sont sur l'affiche, dans #annonce-fw).
   const header = [
     ...(e.test ? [TEST_BANNER] : []),
     `📝 **FW #${e.number}** · ${when(e)}`,
     ...(status ? [status] : []),
-    `⏰ Fin des inscriptions : **${c.close}** · ⚔️ Équipes affichées vers **${c.teams}** (rééquilibrages possibles)`,
-    `🛡️ ${[d.format, d.preparation, d.war, d.attacks, d.rounds, d.accepted].map(escapeMarkdown).join(' · ')}`,
-    e.mode === 'random'
-      ? `🎲 Équipes tirées au sort à ${c.teams}.`
-      : '🎯 Équipes au choix : 🟣 FW-Team 1 ou 🟢 FW-Team 2.',
-    '👥 Plusieurs comptes ? Inscris-les tous. Tu arrives en cours de route ? Inscris-toi quand même.',
-    `🎫 Un souci ? Ouvre un ticket dans <#${cfg.ticketsChannel}>.`,
   ].join('\n');
 
   const byTeam = (t: Team) => signups.filter((s) => s.team === t);

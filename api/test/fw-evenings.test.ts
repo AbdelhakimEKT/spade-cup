@@ -155,16 +155,10 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     // La fiche d'inscription d'abord, puis l'annonce (le ping seulement si la fiche est là).
     const [signup, announce] = discord.sent;
     expect(signup.channel).toBe('c-inscription');
-    expect(signup.reply.content).toContain('📝 **FW #41** · mercredi 28/10 à 21h00');
-    expect(signup.reply.content).toContain('Fin des inscriptions : **20h45**');
-    expect(signup.reply.content).toContain(
-      'Équipes affichées vers **20h50** (rééquilibrages possibles)',
+    // Court : le titre et la liste (les infos sont sur l'affiche).
+    expect(signup.reply.content).toBe(
+      '📝 **FW #41** · mercredi 28/10 à 21h00\n\n**Inscrits (0)**\n_Personne pour l’instant._',
     );
-    expect(signup.reply.content).toContain(
-      'HDV 18 mode e-sport · 5 min de préparation · 15 min de guerre · 1 attaque par joueur · ' +
-        'Plusieurs rounds · HDV 17 et HDV 16 acceptés',
-    );
-    expect(signup.reply.content).toContain('<#c-tickets>');
     expect(JSON.stringify(signup.reply.components)).toMatch(/fw:join:\d+".*fw:add:\d+".*fw:leave/);
 
     expect(announce.channel).toBe('c-annonce');
@@ -206,8 +200,10 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     );
     const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply.content;
     expect(fiche).toContain('**FW #50**');
-    expect(fiche).toContain('4 rounds · HDV 17 accepté');
-    expect(fiche).toContain('Fin des inscriptions : **20h15**');
+    const e = (await currentEvening(db()))!;
+    expect(e.details).toMatchObject({ rounds: '4 rounds', accepted: 'HDV 17 accepté' });
+    const announce = discord.sent.find((m) => m.channel === 'c-annonce')!.reply.content;
+    expect(announce).toContain('jusqu’à **20h15**');
   });
 
   it('date passée ou heure illisible : refusée', async () => {
@@ -385,7 +381,7 @@ describe('équipes libres : chacun choisit la sienne', () => {
     const { ctx, discord, settle, e, signupId } = await launched('libre');
     const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply;
     expect(JSON.stringify(fiche.components)).toMatch(/fw:join:\d+:violet.*fw:join:\d+:vert/);
-    expect(fiche.content).toContain('Équipes au choix');
+    expect(fiche.content).toContain('🟣 **FW-Team 1 (0)**');
 
     // Équipes au choix : le lien du clan est là dès l'inscription.
     const tagged = await fwComponent(click(`fw:tag:${e.id}:violet`, MEMBER, { tag: '#PQ2' }), ctx);
@@ -418,8 +414,8 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     const { ctx, discord, e, signupId } = await launched();
     const reply = await runCommand(fw('modifier', { heure: '21h30', rounds: '3 rounds' }), ctx);
     expect(reply.content).toContain('mercredi 28/10 à 21h30');
-    expect(discord.latest(signupId)!.content).toContain('Fin des inscriptions : **21h15**');
-    expect(discord.latest(signupId)!.content).toContain('3 rounds');
+    expect(discord.latest(signupId)!.content).toContain('mercredi 28/10 à 21h30');
+    expect((await currentEvening(db()))?.details.rounds).toBe('3 rounds');
     const announce = discord.latest(e.announce!.message)!;
     expect(announce.content).toContain('jusqu’à **21h15**');
     expect(announce.files?.[0].name).toBe('fw-41.png');
