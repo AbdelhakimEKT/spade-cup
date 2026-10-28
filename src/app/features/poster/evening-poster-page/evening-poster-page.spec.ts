@@ -27,7 +27,7 @@ describe('EveningPosterPage (/affiche/soiree, fiche photographiée par le bot)',
       '~ 20H50',
       '21H00',
     ]);
-    expect(clean(el.querySelector('.tl__mode'))).toBe('Équipes random');
+    expect(clean(el.querySelector('.tl__mode'))).toBe('Équipes tirées au sort');
     expect(el.querySelector('.tl__th-main')?.getAttribute('src')).toBe('th/th18.webp');
     expect([...el.querySelectorAll('.tl__th-more img')].map((i) => i.getAttribute('src'))).toEqual(
       ['th/th17.webp', 'th/th16.webp'],
@@ -43,7 +43,7 @@ describe('EveningPosterPage (/affiche/soiree, fiche photographiée par le bot)',
 
   it('équipes libres ; paramètres absents : pas de plantage', async () => {
     expect(clean((await render({ m: 'libre' })).querySelector('.tl__mode'))).toBe(
-      'Équipes libres',
+      'Équipes au choix',
     );
     TestBed.resetTestingModule();
     const el = await render({ n: undefined, j: undefined, h: undefined });

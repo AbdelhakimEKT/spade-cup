@@ -80,11 +80,11 @@ const fwDetails = [
 
 const fwTeams = {
   name: 'equipes',
-  description: 'Défaut : tirées au hasard 10 min avant',
+  description: 'Tirées au sort (par défaut) ou au choix des joueurs',
   type: OptionType.String,
   choices: [
-    { name: 'Random (tirées au hasard 10 min avant)', value: 'random' },
-    { name: 'Libres (chacun choisit violette ou verte)', value: 'libre' },
+    { name: 'Tirées au sort (10 min avant le début)', value: 'random' },
+    { name: 'Au choix (chacun choisit violette ou verte)', value: 'libre' },
   ],
 };
 

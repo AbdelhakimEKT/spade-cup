@@ -168,11 +168,16 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     expect(JSON.stringify(signup.reply.components)).toMatch(/fw:join:\d+".*fw:add:\d+".*fw:leave/);
 
     expect(announce.channel).toBe('c-annonce');
-    expect(announce.reply.content).toMatch(
-      /^<@&r-fw> 📣 \*\*FW #41\*\* ce \*\*mercredi 28\/10 à 21h00\*\* !/,
+    expect(announce.reply.content).toBe(
+      [
+        '<@&r-fw>',
+        '**INFORMATIONS FW**',
+        '・ <#c-inscription> ouvertes jusqu’à **20h45**.',
+        '・ Tirage des équipes à **20h50**',
+        '・ Plusieurs comptes autorisés par joueur',
+        '・ En cas de difficulté, ouvrez un <#c-tickets>',
+      ].join('\n'),
     );
-    expect(announce.reply.content).toContain('<#c-inscription>');
-    expect(announce.reply.content).toContain('en cours de route');
     expect(announce.reply.mentionRoles).toEqual(['r-fw']);
     expect(announce.reply.files?.[0].name).toBe('fw-41.png');
   });
@@ -346,7 +351,7 @@ describe('équipes libres : chacun choisit la sienne', () => {
     const { ctx, discord, settle, e, signupId } = await launched('libre');
     const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply;
     expect(JSON.stringify(fiche.components)).toMatch(/fw:join:\d+:violet.*fw:join:\d+:vert/);
-    expect(fiche.content).toContain('Choisis ton équipe');
+    expect(fiche.content).toContain('Équipes au choix');
 
     await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
     await signTag(ctx, e.id, '#PQ8', MEMBER, ':vert');
@@ -375,7 +380,7 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     expect(discord.latest(signupId)!.content).toContain('Fin des inscriptions : **21h15**');
     expect(discord.latest(signupId)!.content).toContain('3 rounds');
     const announce = discord.latest(e.announce!.message)!;
-    expect(announce.content).toContain('21h30');
+    expect(announce.content).toContain('jusqu’à **21h15**');
     expect(announce.files?.[0].name).toBe('fw-41.png');
   });
 

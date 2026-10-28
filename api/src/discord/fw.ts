@@ -194,8 +194,8 @@ export function signupMessage(
     `⏰ Fin des inscriptions : **${c.close}** · ⚔️ Équipes affichées vers **${c.teams}** (rééquilibrages possibles)`,
     `🛡️ ${[d.format, d.preparation, d.war, d.attacks, d.rounds, d.accepted].map(escapeMarkdown).join(' · ')}`,
     e.mode === 'random'
-      ? `🎲 Équipes tirées au hasard à ${c.teams}.`
-      : '🎯 Choisis ton équipe : 🟣 violette ou 🟢 verte.',
+      ? `🎲 Équipes tirées au sort à ${c.teams}.`
+      : '🎯 Équipes au choix : 🟣 violette ou 🟢 verte.',
     '👥 Plusieurs comptes ? Inscris-les tous. Tu arrives en cours de route ? Inscris-toi quand même.',
     `🎫 Un souci ? Ouvre un ticket dans <#${cfg.ticketsChannel}>.`,
   ].join('\n');
@@ -244,17 +244,24 @@ function button(customId: string, label: string, style: number, emoji?: string) 
   };
 }
 
-/** L'annonce dans #annonce-fw : le ping du rôle, l'essentiel, la fiche en image. */
+/**
+ * L'annonce dans #annonce-fw : la fiche en image, le ping du rôle et les
+ * « INFORMATIONS FW » (texte des organisateurs). La fiche d'inscription, elle,
+ * est dans #inscription.
+ */
 export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | null): Reply {
   const c = sessionClocks(e.startsAt);
   return {
     content: [
       ...(e.test ? [TEST_BANNER] : []),
-      `<@&${cfg.role}> 📣 **FW #${e.number}** ce **${when(e)}** !`,
-      `📝 Inscriptions ouvertes jusqu'à **${c.close}** dans <#${cfg.signupChannel}> : ` +
-        'un clic suffit, plusieurs comptes possibles.',
-      `⚔️ Équipes affichées vers ${c.teams}. Tu peux aussi nous rejoindre en cours de route.`,
-      `🎫 Un souci pour t'inscrire ? Ouvre un ticket dans <#${cfg.ticketsChannel}>.`,
+      `<@&${cfg.role}>`,
+      '**INFORMATIONS FW**',
+      `・ <#${cfg.signupChannel}> ouvertes jusqu’à **${c.close}**.`,
+      e.mode === 'random'
+        ? `・ Tirage des équipes à **${c.teams}**`
+        : `・ Équipes au choix (violette ou verte), affichées à **${c.teams}**`,
+      '・ Plusieurs comptes autorisés par joueur',
+      `・ En cas de difficulté, ouvrez un <#${cfg.ticketsChannel}>`,
     ].join('\n'),
     // En essai, le rôle est écrit mais personne n'est notifié.
     ...(e.test ? {} : { mentionRoles: [cfg.role] }),
