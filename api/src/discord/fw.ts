@@ -1,43 +1,104 @@
+import { rankPlayers } from '../../../src/app/core/fw/evening';
+import {
+  DEFAULT_DETAILS,
+  TEAM_LABEL,
+  drawTeams,
+  sessionClocks,
+  sessionPosterQuery,
+  smallerTeam,
+  type SessionDetails,
+  type Team,
+  type TeamMode,
+} from '../../../src/app/core/fw/session';
 import { franceDateTime, normalizeDate, normalizeTime } from '../../../src/app/core/poster/poster';
 import { isValidTag, normalizeTag } from '../../../src/app/core/tournament/tags';
 import { COC_ERROR_TEXT } from '../coc';
 import {
   accountsOf,
-  addSignup,
   cancelEvening,
+  closeEvening,
   createEvening,
+  currentEvening,
   dayLabel,
   escapeMarkdown,
+  eveningLines,
+  eveningRecapText,
   getEvening,
-  latestOpenEvening,
+  markTeams,
+  nextNumber,
   removeSignups,
+  removeStatement,
+  run,
   saveAccount,
-  setSignups,
+  saveMessages,
+  setTeams,
+  signupStatement,
   signupsOf,
+  updateEvening,
   type Account,
   type Evening,
+  type Signup,
+  type Who,
 } from '../fw-evenings';
 import type { BotContext, Reply } from './bot';
 import { ADMINISTRATOR, MANAGE_GUILD } from './commands';
-import { ButtonStyle, ComponentType, type Interaction } from './types';
+import type { DiscordApi } from './rest';
+import { ButtonStyle, ComponentType, type Choice, type Interaction } from './types';
 
 /**
- * Les soirées FW « chill » sur Discord.
+ * Les soirées FW (« FW #41 ») sur Discord.
  *
- *  /fw soiree date heure [programme]   (admins et modos) : publie l'affiche
- *      « Inscriptions ouvertes » avec trois boutons dessous ;
- *  /fw annuler                          (admins et modos) : annule la dernière soirée.
+ * Commandes des admins et des modos :
+ *   /fw lancer date heure [équipes] [infos…]  annonce dans #annonce-fw (ping du
+ *                        rôle, fiche en image) et fiche d'inscription dans
+ *                        #inscription, avec ses boutons ;
+ *   /fw modifier [infos…]   corrige la fiche (l'image et le message suivent) ;
+ *   /fw equipes [refaire]   fait (ou refait) les équipes tout de suite ;
+ *   /fw deplacer compte équipe   rééquilibrage ;
+ *   /fw bilan               top 5 de la soirée dans #résultats, la soirée est finie ;
+ *   /fw annuler.
  *
- * Les boutons sous l'affiche :
- *  ✅ Je m'inscris   1re fois : une petite fenêtre demande le tag du compte,
- *                    retenu ensuite. Un seul compte : un clic l'inscrit. Plusieurs
- *                    comptes : une liste à cocher (décocher = désinscrire), et
- *                    « Ajouter un compte » pour en enregistrer un autre ;
- *  👥 Inscrits       la liste, visible seulement par celui qui clique ;
- *  Me désinscrire   retire tous ses comptes de la soirée.
+ * Dans #inscription, la fiche montre les inscrits (avec l'icône de leur HDV),
+ * tenue à jour à chaque clic. Équipes « random » : tirées au hasard à H − 10
+ * (par le bot, toutes les minutes). Équipes « libres » : deux boutons, un par
+ * équipe. La 1re fois, le bot demande le tag du compte et le retient ; on peut
+ * en ajouter d'autres et les inscrire tous.
  *
- * Tout ce que le bot répond à un clic n'est visible que par la personne qui a cliqué.
+ * Tout ce que le bot répond à un clic n'est visible que par la personne.
  */
+
+/** Les salons et le rôle du serveur (réglages de wrangler.jsonc). */
+export interface FwConfig {
+  readonly signupChannel: string;
+  readonly announceChannel: string;
+  readonly ticketsChannel: string;
+  readonly role: string;
+  readonly resultsChannel: string;
+  /** Numéro de la toute première soirée suivie par le bot (41). */
+  readonly firstNumber: number;
+}
+
+/** Les réglages du serveur Discord (wrangler.jsonc), lus une fois par requête. */
+export function fwConfig(env: {
+  DISCORD_CHANNEL_INSCRIPTION?: string;
+  DISCORD_CHANNEL_ANNONCE_FW?: string;
+  DISCORD_CHANNEL_TICKETS?: string;
+  DISCORD_ROLE_FW?: string;
+  DISCORD_CHANNEL_FW_RESULTATS?: string;
+  FW_FIRST_NUMBER?: string;
+}): FwConfig {
+  return {
+    signupChannel: env.DISCORD_CHANNEL_INSCRIPTION ?? '',
+    announceChannel: env.DISCORD_CHANNEL_ANNONCE_FW ?? '',
+    ticketsChannel: env.DISCORD_CHANNEL_TICKETS ?? '',
+    role: env.DISCORD_ROLE_FW ?? '',
+    resultsChannel: env.DISCORD_CHANNEL_FW_RESULTATS ?? '',
+    firstNumber: Number(env.FW_FIRST_NUMBER) || 1,
+  };
+}
+
+/** Ce dont la gestion des soirées a besoin (le bot, ou la tâche de chaque minute). */
+export type FwDeps = Pick<BotContext, 'db' | 'discord' | 'fw' | 'random' | 'now' | 'capture'>;
 
 /** Ce qu'il faut répondre à Discord après un clic ou un formulaire (voir route.ts). */
 export type ComponentResponse =
@@ -56,6 +117,7 @@ const fail = (message: string): never => {
   throw new FwError(message);
 };
 const oops = (message: string): Reply => ({ content: `❌ ${message}`, ephemeral: true });
+const done = (content: string): Reply => ({ content, ephemeral: true });
 
 /** Admins, membres qui peuvent « Gérer le serveur », et rôles de FW_MANAGER_ROLES. */
 export function isManager(
@@ -70,40 +132,101 @@ export function isManager(
 const displayName = (member: NonNullable<Interaction['member']>) =>
   member.nick ?? member.user.global_name ?? member.user.username;
 
-/** « mercredi 28/10 à 20h30 ». */
-const when = (e: Evening) => `${dayLabel(e.startsAt)} à ${e.time.replace('H', 'h')}`;
+/** « mercredi 28/10 à 21h00 ». */
+const when = (e: Evening) => `${dayLabel(e.startsAt)} à ${sessionClocks(e.startsAt).start}`;
 
-// ------------------------------------------------------------ commande /fw
+const TEAM_DOT: Record<Team, string> = { violet: '🟣', vert: '🟢' };
 
-export async function fwCommand(
-  interaction: Interaction,
-  ctx: BotContext,
-  sub: string,
-  options: Map<string, string | number>,
-): Promise<Reply> {
-  try {
-    if (!isManager(interaction.member!, ctx.managerRoles)) {
-      fail('Les commandes /fw sont réservées aux admins et aux modos.');
-    }
-    if (sub === 'soiree') return await createEveningPost(interaction, ctx, options);
-    if (sub === 'annuler') return await cancelLatest(ctx);
-    return fail('Commande inconnue.');
-  } catch (error) {
-    if (error instanceof FwError) return oops(error.message);
-    throw error;
-  }
+// ------------------------------------------------------------ messages
+
+/** L'icône de l'HDV (émoji de l'application « th18 »), sinon « HDV18 ». */
+function thIcon(townHall: number | null, emojis: ReadonlyMap<string, string>): string {
+  if (!townHall) return '`HDV ?`';
+  const id = emojis.get(`th${townHall}`);
+  return id ? `<:th${townHall}:${id}>` : `\`HDV${townHall}\``;
 }
 
-/** Les boutons sous l'affiche d'une soirée. */
-export function eveningButtons(eveningId: number): unknown[] {
+function roster(players: readonly Signup[], emojis: ReadonlyMap<string, string>): string[] {
+  if (players.length === 0) return ['_Personne pour l’instant._'];
+  return players.map((p) => `${thIcon(p.townHall, emojis)} ${escapeMarkdown(p.name)}`);
+}
+
+/** Coupe une liste trop longue pour Discord (2 000 caractères) : « … et 12 autres ». */
+function fit(header: string, sections: { title: string; lines: string[] }[]): string {
+  const budget = 1950 - header.length;
+  const perSection = Math.floor(budget / Math.max(1, sections.length));
+  const parts = sections.map(({ title, lines }) => {
+    const kept: string[] = [];
+    let used = title.length + 1;
+    for (const line of lines) {
+      if (used + line.length + 1 > perSection - 20) break;
+      kept.push(line);
+      used += line.length + 1;
+    }
+    const rest = lines.length - kept.length;
+    return [title, ...kept, ...(rest ? [`… et ${rest} autre${rest > 1 ? 's' : ''}`] : [])].join(
+      '\n',
+    );
+  });
+  return [header, ...parts].join('\n\n');
+}
+
+/** La fiche d'inscription, dans #inscription : les infos, les inscrits, les boutons. */
+export function signupMessage(
+  e: Evening,
+  signups: readonly Signup[],
+  emojis: ReadonlyMap<string, string>,
+  cfg: FwConfig,
+): Reply {
+  const c = sessionClocks(e.startsAt);
+  const d = e.details;
+  const status = e.cancelled
+    ? '❌ **Soirée annulée.**'
+    : e.closed
+      ? '✅ **Soirée terminée : merci à tous !**'
+      : null;
+  const header = [
+    `📝 **FW #${e.number}** · ${when(e)}`,
+    ...(status ? [status] : []),
+    `⏰ Fin des inscriptions : **${c.close}** · ⚔️ Équipes affichées vers **${c.teams}** (rééquilibrages possibles)`,
+    `🛡️ ${[d.format, d.preparation, d.war, d.attacks, d.rounds, d.accepted].map(escapeMarkdown).join(' · ')}`,
+    e.mode === 'random'
+      ? `🎲 Équipes tirées au hasard à ${c.teams}.`
+      : '🎯 Choisis ton équipe : 🟣 violette ou 🟢 verte.',
+    '👥 Plusieurs comptes ? Inscris-les tous. Tu arrives en cours de route ? Inscris-toi quand même.',
+    `🎫 Un souci ? Ouvre un ticket dans <#${cfg.ticketsChannel}>.`,
+  ].join('\n');
+
+  const byTeam = (t: Team) => signups.filter((s) => s.team === t);
+  const teams = e.mode === 'libre' || e.teamsAt !== null;
+  const sections = teams
+    ? (['violet', 'vert'] as const).map((t) => ({
+        title: `${TEAM_DOT[t]} **${TEAM_LABEL[t]} (${byTeam(t).length})**`,
+        lines: roster(byTeam(t), emojis),
+      }))
+    : [{ title: `**Inscrits (${signups.length})**`, lines: roster(signups, emojis) }];
+  // Inscrits sans équipe après le tirage (cas rare) : listés à part.
+  const loose = signups.filter((s) => s.team === null);
+  if (teams && loose.length) sections.push({ title: '**Sans équipe**', lines: roster(loose, emojis) });
+
+  return { content: fit(header, sections), components: e.closed ? [] : signupButtons(e) };
+}
+
+function signupButtons(e: Evening): unknown[] {
+  const buttons =
+    e.mode === 'random'
+      ? [
+          button(`fw:join:${e.id}`, "Je m'inscris", ButtonStyle.Success, '✅'),
+          button(`fw:add:${e.id}`, 'Ajouter un compte', ButtonStyle.Primary, '➕'),
+        ]
+      : [
+          button(`fw:join:${e.id}:violet`, 'Équipe violette', ButtonStyle.Primary, '🟣'),
+          button(`fw:join:${e.id}:vert`, 'Équipe verte', ButtonStyle.Success, '🟢'),
+        ];
   return [
     {
       type: ComponentType.Row,
-      components: [
-        button(`fw:join:${eveningId}`, "Je m'inscris", ButtonStyle.Success, '✅'),
-        button(`fw:list:${eveningId}`, 'Inscrits', ButtonStyle.Secondary, '👥'),
-        button(`fw:leave:${eveningId}`, 'Me désinscrire', ButtonStyle.Secondary),
-      ],
+      components: [...buttons, button(`fw:leave:${e.id}`, 'Me désinscrire', ButtonStyle.Secondary)],
     },
   ];
 }
@@ -118,90 +241,314 @@ function button(customId: string, label: string, style: number, emoji?: string) 
   };
 }
 
-async function createEveningPost(
-  interaction: Interaction,
-  ctx: BotContext,
-  options: Map<string, string | number>,
-): Promise<Reply> {
-  const text = (name: string) => String(options.get(name) ?? '').trim();
-  const date = normalizeDate(text('date')) ?? fail('Date illisible : écris-la comme ceci, 28/10.');
-  const time =
-    normalizeTime(text('heure')) ?? fail('Heure illisible : écris-la comme ceci, 20h30.');
-  const startsAt = franceDateTime(date, time, new Date(ctx.now()))!;
-  if (startsAt < ctx.now() - 60 * 60 * 1000) fail(`Le ${date} à ${time} est déjà passé.`);
-  const note = text('programme') || null;
-
-  const id = await createEvening(ctx.db, {
-    startsAt,
-    date,
-    time,
-    note,
-    createdBy: displayName(interaction.member!),
-  });
-  const evening = (await getEvening(ctx.db, id))!;
-
-  // L'affiche, dessinée par le site et photographiée. Si le navigateur est
-  // indisponible, l'annonce part quand même, sans image.
-  let files: Reply['files'];
-  try {
-    const query = new URLSearchParams({ j: date, h: time, ...(note ? { n: note } : {}) });
-    const [png] = await ctx.capture([{ kind: 'evening', query: query.toString() }]);
-    files = [{ name: 'soiree-fw.png', data: png }];
-  } catch (error) {
-    console.error('Capture de l’affiche de soirée impossible', error);
-  }
-
+/** L'annonce dans #annonce-fw : le ping du rôle, l'essentiel, la fiche en image. */
+export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | null): Reply {
+  const c = sessionClocks(e.startsAt);
   return {
-    content:
-      `📣 **Inscriptions ouvertes** pour la soirée FW chill du **${when(evening)}** !` +
-      (note ? `\n🗓️ ${escapeMarkdown(note)}` : '') +
-      "\nClique sur **Je m'inscris** : un clic suffit, et tu peux inscrire plusieurs comptes." +
-      '\nTu peux aussi nous rejoindre en cours de route, aucun souci. ⚔️',
-    ...(files ? { files } : {}),
-    components: eveningButtons(id),
+    content: [
+      `<@&${cfg.role}> 📣 **FW #${e.number}** ce **${when(e)}** !`,
+      `📝 Inscriptions ouvertes jusqu'à **${c.close}** dans <#${cfg.signupChannel}> : ` +
+        'un clic suffit, plusieurs comptes possibles.',
+      `⚔️ Équipes affichées vers ${c.teams}. Tu peux aussi nous rejoindre en cours de route.`,
+      `🎫 Un souci pour t'inscrire ? Ouvre un ticket dans <#${cfg.ticketsChannel}>.`,
+    ].join('\n'),
+    mentionRoles: [cfg.role],
+    ...(png ? { files: [{ name: `fw-${e.number}.png`, data: png }] } : {}),
   };
 }
 
-async function cancelLatest(ctx: BotContext): Promise<Reply> {
-  const evening =
-    (await latestOpenEvening(ctx.db)) ?? fail("Aucune soirée FW n'est ouverte en ce moment.");
-  await cancelEvening(ctx.db, evening.id);
+/** Met à jour la fiche d'inscription (après chaque inscription, tirage, bilan…). */
+export async function refreshSignup(deps: FwDeps, eveningId: number): Promise<void> {
+  const e = await getEvening(deps.db, eveningId);
+  if (!e?.signup || !deps.discord) return;
+  const [signups, emojis] = await Promise.all([signupsOf(deps.db, e.id), deps.discord.emojis()]);
+  await deps.discord.edit(e.signup.channel, e.signup.message, signupMessage(e, signups, emojis, deps.fw));
+}
+
+/** La fiche en image (le site la dessine, un navigateur la photographie). */
+async function posterOf(deps: FwDeps, e: Evening): Promise<Uint8Array | null> {
+  try {
+    const query = sessionPosterQuery({
+      number: e.number,
+      date: e.date,
+      time: e.time,
+      mode: e.mode,
+      details: e.details,
+    });
+    const [png] = await deps.capture([{ kind: 'evening', query }]);
+    return png;
+  } catch (error) {
+    console.error('Capture de la fiche impossible', error);
+    return null;
+  }
+}
+
+// ------------------------------------------------------------ équipes
+
+/**
+ * Fait les équipes : en « random », tirage au hasard de tous les inscrits
+ * (`redraw` : on recommence même s'il était déjà fait) ; en « libre », chacun
+ * a déjà la sienne. La fiche est mise à jour ; la 1re fois, un message
+ * prévient dans #inscription que les équipes sont prêtes.
+ */
+export async function makeTeams(deps: FwDeps, e: Evening, redraw: boolean): Promise<void> {
+  const first = e.teamsAt === null;
+  if (e.mode === 'random' && (first || redraw)) {
+    const signups = await signupsOf(deps.db, e.id);
+    const drawn = drawTeams(
+      signups.map((s) => s.tag),
+      deps.random,
+    );
+    await setTeams(deps.db, e.id, drawn);
+  }
+  if (first) await markTeams(deps.db, e.id, deps.now());
+  await refreshSignup(deps, e.id);
+  if ((first || redraw) && e.signup && deps.discord) {
+    await deps.discord.send(e.signup.channel, {
+      content:
+        `⚔️ **Les équipes de la FW #${e.number} sont ${first ? 'prêtes' : 'refaites'} !** ` +
+        'Retrouve ta team sur la fiche juste au-dessus. Rééquilibrages possibles par les modos.',
+    });
+  }
+}
+
+// ------------------------------------------------------------ commande /fw
+
+type Options = Map<string, string | number>;
+
+export async function fwCommand(
+  interaction: Interaction,
+  ctx: BotContext,
+  sub: string,
+  options: Options,
+): Promise<Reply> {
+  try {
+    if (!isManager(interaction.member!, ctx.managerRoles)) {
+      fail('Les commandes /fw sont réservées aux admins et aux modos.');
+    }
+    if (!ctx.discord) {
+      fail(
+        "Le bot ne peut pas encore poster en son nom : son jeton n'est pas enregistré sur le " +
+          'serveur (secret DISCORD_BOT_TOKEN).',
+      );
+    }
+    switch (sub) {
+      case 'lancer':
+        return await launch(interaction, ctx, options);
+      case 'modifier':
+        return await modify(ctx, options);
+      case 'equipes':
+        return await teamsCommand(ctx, options);
+      case 'deplacer':
+        return await move(ctx, options);
+      case 'bilan':
+        return await recap(ctx);
+      case 'annuler':
+        return await cancel(ctx);
+    }
+    return fail('Commande inconnue.');
+  } catch (error) {
+    if (error instanceof FwError) return oops(error.message);
+    throw error;
+  }
+}
+
+/** Suggestions pour `/fw deplacer compte:` : les comptes inscrits à la soirée en cours. */
+export async function fwAutocomplete(ctx: BotContext, typed: string): Promise<Choice[]> {
+  const e = await currentEvening(ctx.db);
+  if (!e) return [];
+  const query = typed.toLowerCase();
+  return (await signupsOf(ctx.db, e.id))
+    .map((s) => ({
+      name: `${s.name} (${s.team ? TEAM_LABEL[s.team] : 'sans équipe'})`.slice(0, 100),
+      value: s.tag,
+    }))
+    .filter((c) => c.name.toLowerCase().includes(query) || c.value.toLowerCase().includes(query))
+    .slice(0, 25);
+}
+
+const text = (options: Options, name: string) => String(options.get(name) ?? '').trim();
+
+/** Les infos de la fiche : celles tapées dans la commande, sinon `base`. */
+function detailsFrom(options: Options, base: SessionDetails): SessionDetails {
+  const pick = (name: string, fallback: string) => text(options, name) || fallback;
   return {
-    content: `🗑️ La soirée FW du ${when(evening)} est annulée : plus d'inscriptions ni de bilan.`,
-    ephemeral: true,
+    format: pick('format', base.format),
+    preparation: pick('preparation', base.preparation),
+    war: pick('guerre', base.war),
+    attacks: pick('attaques', base.attacks),
+    rounds: pick('rounds', base.rounds),
+    accepted: pick('hdv', base.accepted),
   };
+}
+
+function schedule(ctx: BotContext, rawDate: string, rawTime: string) {
+  const date = normalizeDate(rawDate) ?? fail('Date illisible : écris-la comme ceci, 28/10.');
+  const time = normalizeTime(rawTime) ?? fail('Heure illisible : écris-la comme ceci, 21h00.');
+  const startsAt = franceDateTime(date, time, new Date(ctx.now()))!;
+  if (startsAt < ctx.now() - 60 * 60 * 1000) fail(`Le ${date} à ${time} est déjà passé.`);
+  return { date, time, startsAt };
+}
+
+async function launch(interaction: Interaction, ctx: BotContext, options: Options): Promise<Reply> {
+  const discord = ctx.discord!;
+  const { date, time, startsAt } = schedule(ctx, text(options, 'date'), text(options, 'heure'));
+  const mode: TeamMode = text(options, 'equipes') === 'libre' ? 'libre' : 'random';
+  const typedNumber = Number(options.get('numero') ?? 0);
+  const number = typedNumber > 0 ? typedNumber : await nextNumber(ctx.db, ctx.fw.firstNumber);
+
+  const id = await createEvening(ctx.db, {
+    number,
+    startsAt,
+    date,
+    time,
+    mode,
+    details: detailsFrom(options, DEFAULT_DETAILS),
+    createdBy: displayName(interaction.member!),
+  });
+  const e = (await getEvening(ctx.db, id))!;
+
+  // D'abord la fiche d'inscription (sans elle, l'annonce renverrait dans le vide).
+  const emojis = await discord.emojis();
+  const signupId = await discord.send(ctx.fw.signupChannel, signupMessage(e, [], emojis, ctx.fw));
+  if (!signupId) {
+    await cancelEvening(ctx.db, id);
+    fail(
+      `Impossible de poster dans <#${ctx.fw.signupChannel}> : vérifie que le bot voit ce salon ` +
+        'et peut y écrire. Rien n’a été publié.',
+    );
+  }
+  const png = await posterOf(ctx, e);
+  const announceId = await discord.send(ctx.fw.announceChannel, announceMessage(e, ctx.fw, png));
+  await saveMessages(ctx.db, id, {
+    signup: { channel: ctx.fw.signupChannel, message: signupId! },
+    announce: announceId ? { channel: ctx.fw.announceChannel, message: announceId } : null,
+  });
+
+  return done(
+    `✅ **FW #${number}** lancée pour le ${when(e)} : fiche d'inscription dans ` +
+      `<#${ctx.fw.signupChannel}>` +
+      (announceId
+        ? `, annonce dans <#${ctx.fw.announceChannel}>.`
+        : `. ⚠️ L'annonce n'a pas pu être postée dans <#${ctx.fw.announceChannel}> (droits du bot ?).`) +
+      (png ? '' : '\n_La fiche en image n’a pas pu être générée : réessaie avec /fw modifier._') +
+      '\nUne info à corriger ? `/fw modifier`.',
+  );
+}
+
+async function current(ctx: BotContext): Promise<Evening> {
+  return (await currentEvening(ctx.db)) ?? fail("Aucune FW n'est en cours : lance-en une avec /fw lancer.");
+}
+
+async function modify(ctx: BotContext, options: Options): Promise<Reply> {
+  const e = await current(ctx);
+  const { date, time, startsAt } =
+    text(options, 'date') || text(options, 'heure')
+      ? schedule(ctx, text(options, 'date') || e.date, text(options, 'heure') || e.time)
+      : { date: e.date, time: e.time, startsAt: e.startsAt };
+  const typedMode = text(options, 'equipes');
+  const mode: TeamMode = typedMode === 'libre' || typedMode === 'random' ? typedMode : e.mode;
+  const typedNumber = Number(options.get('numero') ?? 0);
+  await updateEvening(ctx.db, e.id, {
+    number: typedNumber > 0 ? typedNumber : e.number,
+    startsAt,
+    date,
+    time,
+    mode,
+    details: detailsFrom(options, e.details),
+  });
+  const updated = (await getEvening(ctx.db, e.id))!;
+
+  await refreshSignup(ctx, e.id);
+  if (updated.announce) {
+    const png = await posterOf(ctx, updated);
+    // Modifier l'annonce ne notifie pas le rôle une seconde fois.
+    await ctx.discord!.edit(
+      updated.announce.channel,
+      updated.announce.message,
+      announceMessage(updated, ctx.fw, png),
+    );
+  }
+  return done(`✅ Fiche de la **FW #${updated.number}** mise à jour (${when(updated)}).`);
+}
+
+async function teamsCommand(ctx: BotContext, options: Options): Promise<Reply> {
+  const e = await current(ctx);
+  const redraw = text(options, 'refaire') === 'oui';
+  await makeTeams(ctx, e, redraw);
+  return done(
+    e.mode === 'random'
+      ? `✅ Équipes de la FW #${e.number} ${redraw || e.teamsAt === null ? 'tirées au hasard' : 'republiées'}.`
+      : `✅ Équipes de la FW #${e.number} affichées (chacun a choisi la sienne).`,
+  );
+}
+
+async function move(ctx: BotContext, options: Options): Promise<Reply> {
+  const e = await current(ctx);
+  if (e.mode === 'random' && e.teamsAt === null) {
+    fail('Les équipes ne sont pas encore faites : `/fw equipes` pour les tirer maintenant.');
+  }
+  const tag = text(options, 'compte');
+  const team: Team = text(options, 'equipe') === 'vert' ? 'vert' : 'violet';
+  const signup =
+    (await signupsOf(ctx.db, e.id)).find((s) => s.tag === tag) ??
+    fail('Ce compte n’est pas inscrit à la FW en cours (choisis-le dans la liste).');
+  await setTeams(ctx.db, e.id, new Map([[signup.tag, team]]));
+  await refreshSignup(ctx, e.id);
+  return done(`✅ **${escapeMarkdown(signup.name)}** passe dans l'${TEAM_LABEL[team].toLowerCase()}.`);
+}
+
+/** Le bilan : top 5 de la soirée dans #résultats ; la soirée est finie. */
+async function recap(ctx: BotContext): Promise<Reply> {
+  const e = await current(ctx);
+  const now = ctx.now();
+  const { wars, lines } = await eveningLines(ctx.db, e, now);
+  if (wars === 0) fail('Aucune FW de cette soirée n’a encore été enregistrée : rien à publier.');
+  const content = eveningRecapText(e, wars, rankPlayers(lines), ctx.siteUrl);
+  const posted = await ctx.discord!.send(ctx.fw.resultsChannel, { content });
+  if (!posted) fail(`Impossible de poster dans <#${ctx.fw.resultsChannel}> (droits du bot ?).`);
+  await closeEvening(ctx.db, e.id, now);
+  await refreshSignup(ctx, e.id);
+  return done(`✅ Bilan de la FW #${e.number} publié dans <#${ctx.fw.resultsChannel}>.`);
+}
+
+async function cancel(ctx: BotContext): Promise<Reply> {
+  const e = await current(ctx);
+  await cancelEvening(ctx.db, e.id);
+  await refreshSignup(ctx, e.id);
+  return done(`🗑️ La FW #${e.number} du ${when(e)} est annulée.`);
 }
 
 // ------------------------------------------------------------ boutons et formulaire
 
-/** Un clic sous l'affiche, un choix dans la liste, ou le formulaire du tag. */
+/** Un clic sous la fiche, un choix dans la liste, ou le formulaire du tag. */
 export async function fwComponent(
   interaction: Interaction,
   ctx: BotContext,
 ): Promise<ComponentResponse> {
-  const [scope, action, rawId] = (interaction.data?.custom_id ?? '').split(':');
+  const [scope, action, rawId, rawTeam] = (interaction.data?.custom_id ?? '').split(':');
   try {
     if (scope !== 'fw' || !interaction.member) fail('Bouton inconnu.');
-    const evening = (await getEvening(ctx.db, Number(rawId))) ?? fail('Soirée introuvable.');
+    const e = (await getEvening(ctx.db, Number(rawId))) ?? fail('Soirée introuvable.');
     const member = interaction.member!;
     const who = { id: member.user.id, name: displayName(member) };
+    const team: Team | null = rawTeam === 'violet' || rawTeam === 'vert' ? rawTeam : null;
 
-    switch (action) {
-      case 'list':
-        return { kind: 'reply', reply: await listReply(ctx, evening) };
-      case 'leave':
-        return { kind: 'reply', reply: await leaveReply(ctx, evening, who.id) };
+    if (action === 'leave') return { kind: 'reply', reply: await leave(ctx, e, who.id) };
+    if (e.closed) fail(`La FW #${e.number} est terminée.`);
+    if (e.mode === 'libre' && !team && action !== 'tag') {
+      // Ancien bouton, ou mode changé entre-temps : on demande de choisir l'équipe.
+      fail('Choisis ton équipe avec les boutons violet ou vert sous la fiche.');
     }
-    if (evening.closed) fail(`La soirée du ${when(evening)} est terminée.`);
     switch (action) {
       case 'join':
-        return await join(ctx, evening, who);
+        return await join(ctx, e, who, team);
       case 'add':
-        return { kind: 'modal', modal: tagModal(evening) };
+        return { kind: 'modal', modal: tagModal(e, team) };
       case 'pick':
-        return { kind: 'update', reply: await pick(ctx, evening, who, interaction) };
+        return { kind: 'update', reply: await pick(ctx, e, who, team, interaction.data?.values ?? []) };
       case 'tag':
-        return await tagSubmitted(ctx, evening, who, interaction);
+        return tagSubmitted(ctx, e, who, team, interaction);
     }
     return fail('Bouton inconnu.');
   } catch (error) {
@@ -210,56 +557,87 @@ export async function fwComponent(
   }
 }
 
-/** « Je m'inscris ». */
+/**
+ * L'équipe d'un compte qui s'inscrit : celle du bouton (libre) ; en random,
+ * aucune avant le tirage, la moins remplie après (arrivée en cours de route).
+ */
+async function teamFor(ctx: BotContext, e: Evening, team: Team | null): Promise<Team | null> {
+  if (e.mode === 'libre') return team;
+  if (e.teamsAt === null) return null;
+  const signups = await signupsOf(ctx.db, e.id);
+  const count = (t: Team) => signups.filter((s) => s.team === t).length;
+  return smallerTeam(count('violet'), count('vert'), ctx.random);
+}
+
+/** Après chaque changement, la fiche d'inscription suit (en arrière-plan). */
+function refreshLater(ctx: BotContext, e: Evening): void {
+  ctx.background(refreshSignup(ctx, e.id));
+}
+
+const mine = async (ctx: BotContext, e: Evening, who: Who) =>
+  (await signupsOf(ctx.db, e.id)).filter((s) => s.discordId === who.id);
+
+/** « Je m'inscris » (ou « Équipe violette / verte »). */
 async function join(
   ctx: BotContext,
-  evening: Evening,
-  who: { id: string; name: string },
+  e: Evening,
+  who: Who,
+  team: Team | null,
 ): Promise<ComponentResponse> {
   const accounts = await accountsOf(ctx.db, who.id);
   // Première fois : on demande le tag.
-  if (accounts.length === 0) return { kind: 'modal', modal: tagModal(evening) };
+  if (accounts.length === 0) return { kind: 'modal', modal: tagModal(e, team) };
 
-  const signed = new Set(
-    (await signupsOf(ctx.db, evening.id)).filter((s) => s.discordId === who.id).map((s) => s.tag),
-  );
-  // Un seul compte, pas encore inscrit : un clic suffit.
-  if (accounts.length === 1 && !signed.has(accounts[0].tag)) {
-    await addSignup(ctx.db, evening.id, who, accounts[0]);
+  const signed = await mine(ctx, e, who);
+  const inHere = (a: Account) =>
+    signed.some((s) => s.tag === a.tag && (e.mode === 'random' || s.team === team));
+  // Un seul compte, pas encore ici : un clic suffit.
+  if (accounts.length === 1 && !inHere(accounts[0])) {
+    await run(ctx.db, [
+      signupStatement(ctx.db, e.id, who, accounts[0], await teamFor(ctx, e, team)),
+    ]);
+    refreshLater(ctx, e);
     return {
       kind: 'reply',
       reply: picker(
-        evening,
+        e,
         accounts,
-        new Set([accounts[0].tag]),
-        `✅ **${escapeMarkdown(accounts[0].name)}** est inscrit à la soirée du ${when(evening)}.`,
+        await mine(ctx, e, who),
+        team,
+        `✅ **${escapeMarkdown(accounts[0].name)}** est inscrit à la FW #${e.number}` +
+          (team ? ` (${TEAM_LABEL[team].toLowerCase()}).` : '.'),
       ),
     };
   }
   return {
     kind: 'reply',
     reply: picker(
-      evening,
+      e,
       accounts,
       signed,
-      `Quels comptes inscris-tu à la soirée du ${when(evening)} ? Coche-les dans la liste ` +
-        '(décocher un compte le désinscrit).',
+      team,
+      `Quels comptes inscris-tu à la FW #${e.number}` +
+        (team ? ` dans l'${TEAM_LABEL[team].toLowerCase()}` : '') +
+        ' ? Coche-les dans la liste (décocher un compte le retire).',
     ),
   };
 }
 
 /** La liste à cocher de ses comptes, et le bouton pour en ajouter un. */
 function picker(
-  evening: Evening,
+  e: Evening,
   accounts: readonly Account[],
-  signed: ReadonlySet<string>,
+  signed: readonly Signup[],
+  team: Team | null,
   header: string,
 ): Reply {
   const shown = accounts.slice(0, 25); // limite de Discord
+  const suffix = team ? `:${team}` : '';
+  const signupOf = (a: Account) => signed.find((s) => s.tag === a.tag);
   return {
     content:
       header +
-      '\n_Un autre compte ? « Ajouter un compte » : il sera retenu pour les prochaines soirées._',
+      '\n_Un autre compte ? « Ajouter un compte » : il sera retenu pour les prochaines FW._',
     ephemeral: true,
     components: [
       {
@@ -267,54 +645,74 @@ function picker(
         components: [
           {
             type: ComponentType.StringSelect,
-            custom_id: `fw:pick:${evening.id}`,
+            custom_id: `fw:pick:${e.id}${suffix}`,
             placeholder: 'Choisis tes comptes',
             min_values: 0,
             max_values: shown.length,
-            options: shown.map((a) => ({
-              label: a.name.slice(0, 100),
-              value: a.tag,
-              description: a.townHall ? `${a.tag} · HDV ${a.townHall}` : a.tag,
-              default: signed.has(a.tag),
-            })),
+            options: shown.map((a) => {
+              const s = signupOf(a);
+              const elsewhere = team && s?.team && s.team !== team ? ` · ${TEAM_LABEL[s.team]}` : '';
+              return {
+                label: a.name.slice(0, 100),
+                value: a.tag,
+                description: `${a.tag}${a.townHall ? ` · HDV ${a.townHall}` : ''}${elsewhere}`,
+                default: team ? s?.team === team : Boolean(s),
+              };
+            }),
           },
         ],
       },
       {
         type: ComponentType.Row,
-        components: [
-          button(`fw:add:${evening.id}`, 'Ajouter un compte', ButtonStyle.Primary, '➕'),
-        ],
+        components: [button(`fw:add:${e.id}${suffix}`, 'Ajouter un compte', ButtonStyle.Primary, '➕')],
       },
     ],
   };
 }
 
-/** Cases cochées dans la liste : ses inscriptions deviennent exactement celles-là. */
+/** Cases cochées : ses comptes inscrits (dans cette équipe) deviennent exactement ceux-là. */
 async function pick(
   ctx: BotContext,
-  evening: Evening,
-  who: { id: string; name: string },
-  interaction: Interaction,
+  e: Evening,
+  who: Who,
+  team: Team | null,
+  values: readonly string[],
 ): Promise<Reply> {
   const accounts = await accountsOf(ctx.db, who.id);
-  const chosen = new Set(interaction.data?.values ?? []);
-  const selected = accounts.filter((a) => chosen.has(a.tag));
-  await setSignups(ctx.db, evening.id, who, selected);
-  const names = selected.map((a) => `**${escapeMarkdown(a.name)}**`).join(', ');
+  const chosen = new Set(values);
+  const signed = await mine(ctx, e, who);
+  const statements: D1PreparedStatement[] = [];
+  for (const a of accounts) {
+    const s = signed.find((x) => x.tag === a.tag);
+    const here = s && (e.mode === 'random' || s.team === team);
+    if (chosen.has(a.tag) && !here) {
+      // Nouveau ici (ou venu de l'autre équipe, en libre).
+      statements.push(signupStatement(ctx.db, e.id, who, a, await teamFor(ctx, e, team)));
+    } else if (!chosen.has(a.tag) && here) {
+      statements.push(removeStatement(ctx.db, e.id, a.tag));
+    }
+  }
+  await run(ctx.db, statements);
+  refreshLater(ctx, e);
+
+  const now = await mine(ctx, e, who);
+  const inHere = now.filter((s) => e.mode === 'random' || s.team === team);
+  const names = inHere.map((s) => `**${escapeMarkdown(s.name)}**`).join(', ');
+  const where = team ? ` dans l'${TEAM_LABEL[team].toLowerCase()}` : '';
   return picker(
-    evening,
+    e,
     accounts,
-    new Set(selected.map((a) => a.tag)),
-    selected.length
-      ? `✅ Inscrit${selected.length > 1 ? 's' : ''} à la soirée du ${when(evening)} : ${names}.`
-      : `Aucun de tes comptes n'est inscrit à la soirée du ${when(evening)}.`,
+    now,
+    team,
+    inHere.length
+      ? `✅ Inscrit${inHere.length > 1 ? 's' : ''} à la FW #${e.number}${where} : ${names}.`
+      : `Aucun de tes comptes n'est inscrit à la FW #${e.number}${where}.`,
   );
 }
 
-function tagModal(evening: Evening) {
+function tagModal(e: Evening, team: Team | null) {
   return {
-    custom_id: `fw:tag:${evening.id}`,
+    custom_id: `fw:tag:${e.id}${team ? `:${team}` : ''}`,
     title: 'Inscrire un compte',
     components: [
       {
@@ -337,12 +735,13 @@ function tagModal(evening: Evening) {
 }
 
 /** Le formulaire du tag : on vérifie le compte dans le jeu, on le retient, on l'inscrit. */
-async function tagSubmitted(
+function tagSubmitted(
   ctx: BotContext,
-  evening: Evening,
-  who: { id: string; name: string },
+  e: Evening,
+  who: Who,
+  team: Team | null,
   interaction: Interaction,
-): Promise<ComponentResponse> {
+): ComponentResponse {
   const raw =
     interaction.data?.components?.[0]?.components.find((c) => c.custom_id === 'tag')?.value ?? '';
   const tag = normalizeTag(raw);
@@ -361,61 +760,41 @@ async function tagSubmitted(
         );
       }
       await saveAccount(ctx.db, who.id, found.value);
-      await addSignup(ctx.db, evening.id, who, found.value);
-      const accounts = await accountsOf(ctx.db, who.id);
-      const signed = new Set(
-        (await signupsOf(ctx.db, evening.id))
-          .filter((s) => s.discordId === who.id)
-          .map((s) => s.tag),
-      );
+      await run(ctx.db, [signupStatement(ctx.db, e.id, who, found.value, await teamFor(ctx, e, team))]);
+      await refreshSignup(ctx, e.id);
       return picker(
-        evening,
-        accounts,
-        signed,
+        e,
+        await accountsOf(ctx.db, who.id),
+        await mine(ctx, e, who),
+        team,
         `✅ **${escapeMarkdown(found.value.name)}** (\`${tag}\`, HDV ${found.value.townHall}) ` +
-          `est inscrit à la soirée du ${when(evening)}.`,
+          `est inscrit à la FW #${e.number}` +
+          (team ? ` (${TEAM_LABEL[team].toLowerCase()}).` : '.'),
       );
     },
   };
 }
 
-async function leaveReply(ctx: BotContext, evening: Evening, discordId: string): Promise<Reply> {
-  const removed = await removeSignups(ctx.db, evening.id, discordId);
-  return {
-    content: removed.length
-      ? `🗑️ Désinscrit de la soirée du ${when(evening)} : ` +
-        removed.map((n) => `**${escapeMarkdown(n)}**`).join(', ') +
-        '.'
-      : `Tu n'étais pas inscrit à la soirée du ${when(evening)}.`,
-    ephemeral: true,
-  };
+async function leave(ctx: BotContext, e: Evening, discordId: string): Promise<Reply> {
+  const removed = await removeSignups(ctx.db, e.id, discordId);
+  if (removed.length) refreshLater(ctx, e);
+  return done(
+    removed.length
+      ? `🗑️ Désinscrit de la FW #${e.number} : ` +
+          removed.map((n) => `**${escapeMarkdown(n)}**`).join(', ') +
+          '.'
+      : `Tu n'étais pas inscrit à la FW #${e.number}.`,
+  );
 }
 
-/** Les inscrits, regroupés par personne (« Rags : Rags, Rags 2 »). */
-async function listReply(ctx: BotContext, evening: Evening): Promise<Reply> {
-  const signups = await signupsOf(ctx.db, evening.id);
-  if (signups.length === 0) {
-    return { content: `Personne n'est encore inscrit à la soirée du ${when(evening)}.`, ephemeral: true };
-  }
-  const byPerson = new Map<string, { name: string; accounts: string[] }>();
-  for (const s of signups) {
-    const person = byPerson.get(s.discordId) ?? { name: s.discordName, accounts: [] };
-    person.accounts.push(
-      `${escapeMarkdown(s.name)}${s.townHall ? ` (HDV ${s.townHall})` : ''}`,
-    );
-    byPerson.set(s.discordId, person);
-  }
-  const lines = [...byPerson.values()].map(
-    (p) => `• **${escapeMarkdown(p.name)}** : ${p.accounts.join(', ')}`,
-  );
-  const n = signups.length;
-  return {
-    content: [
-      `👥 **${n} compte${n > 1 ? 's' : ''} inscrit${n > 1 ? 's' : ''}** à la soirée du ${when(evening)} :`,
-      ...lines,
-    ]
-      .join('\n')
-      .slice(0, 2000),
-    ephemeral: true,
-  };
+/** Pour la tâche de chaque minute (index.ts) : les équipes à H − 10. */
+export async function runFwSchedule(
+  deps: FwDeps,
+  due: (now: number) => Promise<Evening[]>,
+): Promise<number> {
+  const evenings = await due(deps.now());
+  for (const e of evenings) await makeTeams(deps, e, false);
+  return evenings.length;
 }
+
+export type { DiscordApi };

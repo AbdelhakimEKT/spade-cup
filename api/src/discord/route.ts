@@ -3,7 +3,8 @@ import { captureScreens } from '../screens';
 import { createCocClient } from '../coc';
 import { json } from '../http';
 import { autocomplete, needsDefer, runCommand, type BotContext, type Reply } from './bot';
-import { fwComponent } from './fw';
+import { fwComponent, fwConfig } from './fw';
+import { createDiscordApi } from './rest';
 import { editBody, message } from './payload';
 import { EPHEMERAL, InteractionType, ResponseType, type Interaction } from './types';
 import { verifyDiscordSignature } from './verify';
@@ -48,6 +49,10 @@ export async function handleDiscord(
       .split(',')
       .map((r) => r.trim())
       .filter(Boolean),
+    discord: createDiscordApi(env),
+    fw: fwConfig(env),
+    background: (task) =>
+      ctx.waitUntil(task.catch((error) => console.error('Tâche Discord en échec', error))),
   };
 
   switch (interaction.type) {
@@ -67,7 +72,11 @@ export async function handleDiscord(
         // lente. On répond tout de suite « je réfléchis », et la vraie réponse
         // part après coup (`waitUntil` garde le Worker en vie jusque-là).
         ctx.waitUntil(safeRun(interaction, bot).then((reply) => editOriginal(interaction, reply)));
-        return json({ type: ResponseType.Deferred });
+        // Les réponses de /fw ne sont visibles que par le modo : le « je réfléchis » aussi.
+        return json({
+          type: ResponseType.Deferred,
+          ...(interaction.data?.name === 'fw' ? { data: { flags: EPHEMERAL } } : {}),
+        });
       }
       return json({ type: ResponseType.Message, data: message(await safeRun(interaction, bot)) });
 

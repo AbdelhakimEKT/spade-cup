@@ -7,36 +7,51 @@ import {
   type FwLine,
   type RankedPlayer,
 } from '../../src/app/core/fw/evening';
+import {
+  DEFAULT_DETAILS,
+  TEAMS_BEFORE_MS,
+  type SessionDetails,
+  type Team,
+  type TeamMode,
+} from '../../src/app/core/fw/session';
 import type { Announcer } from './announcements';
 import type { CocPlayer } from './coc';
 import { sqliteTime, toSqliteTime } from './repository';
 
 /**
- * Les soirées FW « chill » : créées par un modo (/fw soiree), inscriptions
- * par bouton sous l'affiche, puis le bilan de la soirée (top 5 des joueurs)
- * dans #résultats. Et, chaque lundi, le top de la semaine passée.
+ * Les soirées FW (« FW #41 ») : leur fiche, les comptes inscrits et leurs
+ * équipes, le bilan de la soirée et le top de la semaine. Ici, seulement les
+ * données et les calculs ; ce que le bot poste est dans discord/fw.ts.
  */
 
-/** Les FW d'une soirée : lancées entre 1 h avant l'heure prévue et 8 h après. */
+/** Les FW d'une soirée : lancées entre 1 h avant l'heure prévue et le bilan. */
 const EARLY_MS = 60 * 60 * 1000;
-const LATE_MS = 8 * 60 * 60 * 1000;
-/** Bilan publié 45 minutes après la fin de la dernière FW (si aucune autre n'a commencé). */
-const QUIET_MS = 45 * 60 * 1000;
 /** Top de la semaine : publié le lundi à partir de 10 h (heure de Paris). */
 const WEEKLY_HOUR = 10;
 /** Sur une semaine, il faut au moins 4 attaques pour être classé. */
 export const WEEK_MIN_ATTACKS = 4;
+/** Le top de la semaine : les 10 meilleurs. */
+const WEEK_TOP = 10;
 
 export interface Evening {
   readonly id: number;
+  /** « FW #41 ». */
+  readonly number: number;
   /** Début prévu (ms). */
   readonly startsAt: number;
-  /** « 28/10 », « 20H30 ». */
+  /** « 28/10 », « 21H00 ». */
   readonly date: string;
   readonly time: string;
-  readonly note: string | null;
-  /** Bilan publié ou soirée annulée : plus d'inscriptions. */
+  readonly mode: TeamMode;
+  readonly details: SessionDetails;
+  /** La fiche d'inscription (#inscription) et l'annonce (#annonce-fw). */
+  readonly signup: { readonly channel: string; readonly message: string } | null;
+  readonly announce: { readonly channel: string; readonly message: string } | null;
+  /** Équipes faites (ms), ou `null`. */
+  readonly teamsAt: number | null;
+  /** Bilan publié ou soirée annulée : la soirée est finie. */
   readonly closed: boolean;
+  readonly cancelled: boolean;
 }
 
 export interface Account {
@@ -48,41 +63,152 @@ export interface Account {
 export interface Signup extends Account {
   readonly discordId: string;
   readonly discordName: string;
+  readonly team: Team | null;
 }
 
 interface EveningRow {
   id: number;
+  number: number | null;
   starts_at: string;
   date_label: string;
   time_label: string;
-  note: string | null;
+  mode: string;
+  format: string | null;
+  preparation: string | null;
+  war_length: string | null;
+  attacks: string | null;
+  rounds: string | null;
+  accepted: string | null;
+  signup_channel: string | null;
+  signup_message: string | null;
+  announce_channel: string | null;
+  announce_message: string | null;
+  teams_at: string | null;
   recap_posted_at: string | null;
   cancelled: number;
 }
 
+const message = (channel: string | null, id: string | null) =>
+  channel && id ? { channel, message: id } : null;
+
 const toEvening = (r: EveningRow): Evening => ({
   id: r.id,
+  number: r.number ?? r.id,
   startsAt: sqliteTime(r.starts_at),
   date: r.date_label,
   time: r.time_label,
-  note: r.note,
+  mode: r.mode === 'libre' ? 'libre' : 'random',
+  details: {
+    format: r.format ?? DEFAULT_DETAILS.format,
+    preparation: r.preparation ?? DEFAULT_DETAILS.preparation,
+    war: r.war_length ?? DEFAULT_DETAILS.war,
+    attacks: r.attacks ?? DEFAULT_DETAILS.attacks,
+    rounds: r.rounds ?? DEFAULT_DETAILS.rounds,
+    accepted: r.accepted ?? DEFAULT_DETAILS.accepted,
+  },
+  signup: message(r.signup_channel, r.signup_message),
+  announce: message(r.announce_channel, r.announce_message),
+  teamsAt: r.teams_at ? sqliteTime(r.teams_at) : null,
   closed: r.recap_posted_at !== null || r.cancelled === 1,
+  cancelled: r.cancelled === 1,
 });
 
 // ------------------------------------------------------------ soirées
 
-export async function createEvening(
-  db: D1Database,
-  e: { startsAt: number; date: string; time: string; note: string | null; createdBy: string },
-): Promise<number> {
+/** Le numéro de la prochaine soirée : le dernier + 1 (ou `first` pour la toute première). */
+export async function nextNumber(db: D1Database, first: number): Promise<number> {
+  const row = await db
+    .prepare('SELECT MAX(number) AS last FROM fw_evenings WHERE cancelled = 0')
+    .first<{ last: number | null }>();
+  return row?.last ? row.last + 1 : first;
+}
+
+export interface EveningInput {
+  readonly number: number;
+  readonly startsAt: number;
+  readonly date: string;
+  readonly time: string;
+  readonly mode: TeamMode;
+  readonly details: SessionDetails;
+  readonly createdBy: string;
+}
+
+export async function createEvening(db: D1Database, e: EveningInput): Promise<number> {
   const row = await db
     .prepare(
-      `INSERT INTO fw_evenings (starts_at, date_label, time_label, note, created_by)
-       VALUES (?, ?, ?, ?, ?) RETURNING id`,
+      `INSERT INTO fw_evenings (number, starts_at, date_label, time_label, mode, format,
+         preparation, war_length, attacks, rounds, accepted, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
-    .bind(toSqliteTime(e.startsAt), e.date, e.time, e.note, e.createdBy)
+    .bind(
+      e.number,
+      toSqliteTime(e.startsAt),
+      e.date,
+      e.time,
+      e.mode,
+      e.details.format,
+      e.details.preparation,
+      e.details.war,
+      e.details.attacks,
+      e.details.rounds,
+      e.details.accepted,
+      e.createdBy,
+    )
     .first<{ id: number }>();
   return row!.id;
+}
+
+/** Modifie la fiche (/fw modifier). */
+export async function updateEvening(
+  db: D1Database,
+  id: number,
+  e: Omit<EveningInput, 'createdBy'>,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE fw_evenings SET number = ?, starts_at = ?, date_label = ?, time_label = ?, mode = ?,
+         format = ?, preparation = ?, war_length = ?, attacks = ?, rounds = ?, accepted = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      e.number,
+      toSqliteTime(e.startsAt),
+      e.date,
+      e.time,
+      e.mode,
+      e.details.format,
+      e.details.preparation,
+      e.details.war,
+      e.details.attacks,
+      e.details.rounds,
+      e.details.accepted,
+      id,
+    )
+    .run();
+}
+
+/** Où sont la fiche d'inscription et l'annonce (pour les tenir à jour). */
+export async function saveMessages(
+  db: D1Database,
+  id: number,
+  m: {
+    signup: { channel: string; message: string } | null;
+    announce: { channel: string; message: string } | null;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE fw_evenings SET signup_channel = ?, signup_message = ?,
+         announce_channel = ?, announce_message = ? WHERE id = ?`,
+    )
+    .bind(
+      m.signup?.channel ?? null,
+      m.signup?.message ?? null,
+      m.announce?.channel ?? null,
+      m.announce?.message ?? null,
+      id,
+    )
+    .run();
 }
 
 export async function getEvening(db: D1Database, id: number): Promise<Evening | null> {
@@ -93,8 +219,8 @@ export async function getEvening(db: D1Database, id: number): Promise<Evening | 
   return row ? toEvening(row) : null;
 }
 
-/** La dernière soirée créée et encore ouverte (pour l'annuler). */
-export async function latestOpenEvening(db: D1Database): Promise<Evening | null> {
+/** La dernière soirée lancée et pas encore finie (celle que les commandes gèrent). */
+export async function currentEvening(db: D1Database): Promise<Evening | null> {
   const row = await db
     .prepare(
       `SELECT * FROM fw_evenings WHERE recap_posted_at IS NULL AND cancelled = 0
@@ -106,6 +232,37 @@ export async function latestOpenEvening(db: D1Database): Promise<Evening | null>
 
 export async function cancelEvening(db: D1Database, id: number): Promise<void> {
   await db.prepare('UPDATE fw_evenings SET cancelled = 1 WHERE id = ?').bind(id).run();
+}
+
+/** Le bilan est publié : la soirée est finie. */
+export async function closeEvening(db: D1Database, id: number, now: number): Promise<void> {
+  await db
+    .prepare('UPDATE fw_evenings SET recap_posted_at = ? WHERE id = ?')
+    .bind(toSqliteTime(now), id)
+    .run();
+}
+
+export async function markTeams(db: D1Database, id: number, now: number): Promise<void> {
+  await db
+    .prepare('UPDATE fw_evenings SET teams_at = ? WHERE id = ?')
+    .bind(toSqliteTime(now), id)
+    .run();
+}
+
+/**
+ * Les soirées dont les équipes sont à faire maintenant (H − 10), pas plus de
+ * 3 heures en retard (le bot n'était pas configuré, par exemple).
+ */
+export async function eveningsNeedingTeams(db: D1Database, now: number): Promise<Evening[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM fw_evenings
+       WHERE teams_at IS NULL AND recap_posted_at IS NULL AND cancelled = 0
+         AND starts_at <= ? AND starts_at > ?`,
+    )
+    .bind(toSqliteTime(now + TEAMS_BEFORE_MS), toSqliteTime(now - 3 * 60 * 60 * 1000))
+    .all<EveningRow>();
+  return results.map(toEvening);
 }
 
 // ------------------------------------------------------------ comptes et inscriptions
@@ -138,7 +295,7 @@ export async function saveAccount(db: D1Database, discordId: string, p: CocPlaye
 export async function signupsOf(db: D1Database, eveningId: number): Promise<Signup[]> {
   const { results } = await db
     .prepare(
-      `SELECT player_tag, player_name, town_hall, discord_id, discord_name FROM fw_signups
+      `SELECT player_tag, player_name, town_hall, discord_id, discord_name, team FROM fw_signups
        WHERE evening_id = ? ORDER BY signed_at, player_tag`,
     )
     .bind(eveningId)
@@ -148,6 +305,7 @@ export async function signupsOf(db: D1Database, eveningId: number): Promise<Sign
       town_hall: number | null;
       discord_id: string;
       discord_name: string;
+      team: Team | null;
     }>();
   return results.map((r) => ({
     tag: r.player_tag,
@@ -155,53 +313,49 @@ export async function signupsOf(db: D1Database, eveningId: number): Promise<Sign
     townHall: r.town_hall,
     discordId: r.discord_id,
     discordName: r.discord_name,
+    team: r.team,
   }));
 }
 
-/**
- * Les comptes inscrits par cette personne deviennent exactement `accounts`
- * (cases cochées dans la liste) : ceux décochés sont retirés.
- */
-export async function setSignups(
-  db: D1Database,
-  eveningId: number,
-  who: { id: string; name: string },
-  accounts: readonly Account[],
-): Promise<void> {
-  await db.batch([
-    db
-      .prepare('DELETE FROM fw_signups WHERE evening_id = ? AND discord_id = ?')
-      .bind(eveningId, who.id),
-    ...accounts.map((a) => signupStatement(db, eveningId, who, a)),
-  ]);
+export interface Who {
+  readonly id: string;
+  readonly name: string;
 }
 
-/** Inscrit un compte de plus (sans toucher aux autres). */
-export async function addSignup(
+/** Inscrit (ou réinscrit) un compte, dans une équipe ou pas encore. */
+export function signupStatement(
   db: D1Database,
   eveningId: number,
-  who: { id: string; name: string },
-  account: Account,
-): Promise<void> {
-  await signupStatement(db, eveningId, who, account).run();
-}
-
-function signupStatement(
-  db: D1Database,
-  eveningId: number,
-  who: { id: string; name: string },
+  who: Who,
   a: Account,
+  team: Team | null,
 ): D1PreparedStatement {
   // Même compte inscrit par quelqu'un d'autre : la dernière inscription l'emporte.
   return db
     .prepare(
-      `INSERT INTO fw_signups (evening_id, player_tag, player_name, town_hall, discord_id, discord_name)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO fw_signups (evening_id, player_tag, player_name, town_hall, discord_id,
+         discord_name, team)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (evening_id, player_tag) DO UPDATE
        SET player_name = excluded.player_name, town_hall = excluded.town_hall,
-           discord_id = excluded.discord_id, discord_name = excluded.discord_name`,
+           discord_id = excluded.discord_id, discord_name = excluded.discord_name,
+           team = excluded.team`,
     )
-    .bind(eveningId, a.tag, a.name, a.townHall, who.id, who.name);
+    .bind(eveningId, a.tag, a.name, a.townHall, who.id, who.name, team);
+}
+
+export async function run(db: D1Database, statements: D1PreparedStatement[]): Promise<void> {
+  if (statements.length) await db.batch(statements);
+}
+
+export function removeStatement(
+  db: D1Database,
+  eveningId: number,
+  tag: string,
+): D1PreparedStatement {
+  return db
+    .prepare('DELETE FROM fw_signups WHERE evening_id = ? AND player_tag = ?')
+    .bind(eveningId, tag);
 }
 
 /** Désinscrit tous les comptes de cette personne ; renvoie leurs noms. */
@@ -219,6 +373,22 @@ export async function removeSignups(
   return results.map((r) => r.player_name);
 }
 
+/** Change l'équipe de comptes inscrits (tirage, rééquilibrage). */
+export async function setTeams(
+  db: D1Database,
+  eveningId: number,
+  teams: ReadonlyMap<string, Team | null>,
+): Promise<void> {
+  await run(
+    db,
+    [...teams].map(([tag, team]) =>
+      db
+        .prepare('UPDATE fw_signups SET team = ? WHERE evening_id = ? AND player_tag = ?')
+        .bind(team, eveningId, tag),
+    ),
+  );
+}
+
 // ------------------------------------------------------------ statistiques d'une période
 
 /** Les lignes des joueurs dans les FW lancées pendant [start, end[ (la plus récente d'abord). */
@@ -226,10 +396,10 @@ export async function fwLines(
   db: D1Database,
   start: number,
   end: number,
-): Promise<{ wars: number; lastEnd: number | null; lines: FwLine[] }> {
+): Promise<{ wars: number; lines: FwLine[] }> {
   const { results } = await db
     .prepare(
-      `SELECT w.id AS war_id, w.ended_at, p.player_tag, p.player_name, p.attacks, p.stars,
+      `SELECT w.id AS war_id, p.player_tag, p.player_name, p.attacks, p.stars,
               p.destruction_sum, p.duration
        FROM friendly_wars w JOIN fw_players p ON p.war_id = w.id
        WHERE w.started_at >= ? AND w.started_at < ?
@@ -238,7 +408,6 @@ export async function fwLines(
     .bind(toSqliteTime(start), toSqliteTime(end))
     .all<{
       war_id: number;
-      ended_at: string | null;
       player_tag: string;
       player_name: string;
       attacks: number;
@@ -246,11 +415,8 @@ export async function fwLines(
       destruction_sum: number;
       duration: number;
     }>();
-  const ends = results.map((r) => (r.ended_at ? sqliteTime(r.ended_at) : NaN));
-  const known = ends.filter((t) => !Number.isNaN(t));
   return {
     wars: new Set(results.map((r) => r.war_id)).size,
-    lastEnd: known.length ? Math.max(...known) : null,
     lines: results.map((r) => ({
       tag: r.player_tag,
       name: r.player_name,
@@ -262,7 +428,12 @@ export async function fwLines(
   };
 }
 
-// ------------------------------------------------------------ bilan de la soirée
+/** Les FW de la soirée : lancées depuis 1 h avant son début, jusqu'à maintenant. */
+export function eveningLines(db: D1Database, evening: Evening, now: number) {
+  return fwLines(db, evening.startsAt - EARLY_MS, now + 1);
+}
+
+// ------------------------------------------------------------ textes
 
 /** « mercredi 28/10 » (heure de Paris). */
 export function dayLabel(ms: number): string {
@@ -271,23 +442,24 @@ export function dayLabel(ms: number): string {
   return `${f({ weekday: 'long' })} ${f({ day: '2-digit' })}/${f({ month: '2-digit' })}`;
 }
 
-/** Les noms de joueurs n'abîment pas la mise en forme de Discord (« **», « _ »…). */
+/** Les noms de joueurs n'abîment pas la mise en forme de Discord (« ** », « _ »…). */
 export function escapeMarkdown(text: string): string {
   return text.replace(/([\\*_`~|])/g, '\\$1');
 }
 
-const MEDALS = ['🥇', '🥈', '🥉', '4.', '5.'];
+const MEDALS = ['🥇', '🥈', '🥉'];
 const comma = (n: number, digits: number) => n.toFixed(digits).replace('.', ',');
 
 function podium(top: readonly RankedPlayer[]): string[] {
   return top.map(
     (p, i) =>
-      `${MEDALS[i]} **${escapeMarkdown(p.name)}** — ${comma(p.starsPerAttack, 2)} ★/attaque · ` +
+      `${MEDALS[i] ?? `${i + 1}.`} **${escapeMarkdown(p.name)}** — ` +
+      `${comma(p.starsPerAttack, 2)} ★/attaque · ` +
       `${p.attacks} attaque${p.attacks > 1 ? 's' : ''} · ${comma(p.destruction, 1)} %`,
   );
 }
 
-/** Le message du bilan dans #résultats : le top 5 des joueurs de la soirée. */
+/** Le bilan de la soirée dans #résultats : le top 5 des joueurs. */
 export function eveningRecapText(
   evening: Evening,
   wars: number,
@@ -295,11 +467,11 @@ export function eveningRecapText(
   siteUrl: string,
 ): string {
   const header =
-    `🌙 **Bilan de la soirée FW du ${dayLabel(evening.startsAt)}** · ` +
+    `🌙 **Bilan de la FW #${evening.number}** du ${dayLabel(evening.startsAt)} · ` +
     `${wars} FW jouée${wars > 1 ? 's' : ''}`;
   const link = `📊 Toutes les stats : ${siteUrl}/joueurs?type=fw&semaine=${weekOf(evening.startsAt)}`;
   if (ranked.length === 0) {
-    return `${header}\nPersonne n'a fait 2 attaques ce soir : pas de classement cette fois.\n${link}`;
+    return `${header}\nPersonne n'a fait 2 attaques : pas de classement cette fois.\n${link}`;
   }
   return [
     header,
@@ -311,95 +483,30 @@ export function eveningRecapText(
   ].join('\n');
 }
 
-/** Une soirée dont le bilan est à faire maintenant (ou à abandonner : aucune FW). */
-export interface DueRecap {
-  readonly evening: Evening;
-  /** `null` : aucune FW jouée, la soirée est simplement close. */
-  readonly text: string | null;
-}
-
-/**
- * Les soirées terminées dont le bilan n'est pas encore publié. Une soirée est
- * terminée 45 minutes après la fin de sa dernière FW, si aucune FW n'est en
- * cours, ou au plus tard 8 heures après son début.
- */
-export async function dueRecaps(
-  db: D1Database,
-  siteUrl: string,
-  now: number,
-): Promise<DueRecap[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT * FROM fw_evenings
-       WHERE recap_posted_at IS NULL AND cancelled = 0 AND starts_at <= ?`,
-    )
-    .bind(toSqliteTime(now))
-    .all<EveningRow>();
-  if (results.length === 0) return [];
-
-  const inProgress = await db.prepare('SELECT 1 FROM fw_snapshots LIMIT 1').first();
-  const due: DueRecap[] = [];
-  for (const evening of results.map(toEvening)) {
-    const windowEnd = evening.startsAt + LATE_MS;
-    const { wars, lastEnd, lines } = await fwLines(
-      db,
-      evening.startsAt - EARLY_MS,
-      Math.min(windowEnd, now),
-    );
-    const over = now >= windowEnd;
-    if (wars === 0) {
-      if (over) due.push({ evening, text: null });
-      continue;
-    }
-    const quiet = !inProgress && lastEnd !== null && now - lastEnd >= QUIET_MS;
-    if (quiet || over) {
-      due.push({ evening, text: eveningRecapText(evening, wars, rankPlayers(lines), siteUrl) });
-    }
-  }
-  return due;
-}
-
-/** Publie les bilans dus dans #résultats (appelé chaque minute). */
-export async function postDueRecaps(
-  db: D1Database,
-  announcer: Announcer,
-  siteUrl: string,
-  now = Date.now(),
-): Promise<number> {
-  let posted = 0;
-  for (const { evening, text } of await dueRecaps(db, siteUrl, now)) {
-    if (text) {
-      await announcer.post('results', { content: text });
-      posted++;
-    }
-    await db
-      .prepare('UPDATE fw_evenings SET recap_posted_at = ? WHERE id = ?')
-      .bind(toSqliteTime(now), evening.id)
-      .run();
-  }
-  return posted;
-}
-
-// ------------------------------------------------------------ top de la semaine
-
-/** Le message du top de la semaine (salon des stats). */
+/** Le top de la semaine (salon des stats). */
 export function weeklyTopText(
   monday: string,
   wars: number,
   ranked: readonly RankedPlayer[],
   siteUrl: string,
 ): string {
-  const header = `📅 **Top FW de la semaine** (${weekLabel(monday)}) · ${wars} FW jouée${wars > 1 ? 's' : ''}`;
+  const header =
+    `📅 **Top FW de la semaine** (${weekLabel(monday)}) · ` +
+    `${wars} FW jouée${wars > 1 ? 's' : ''}`;
   const link = `📊 Le classement complet : ${siteUrl}/joueurs?type=fw&semaine=${monday}`;
-  if (ranked.length === 0) return `${header}\nPas assez d'attaques cette semaine pour un classement.\n${link}`;
+  if (ranked.length === 0) {
+    return `${header}\nPas assez d'attaques cette semaine pour un classement.\n${link}`;
+  }
   return [
     header,
-    `**Les 5 meilleurs** (étoiles par attaque, ${WEEK_MIN_ATTACKS} attaques minimum)`,
-    ...podium(ranked.slice(0, 5)),
+    `**Les ${WEEK_TOP} meilleurs** (étoiles par attaque, ${WEEK_MIN_ATTACKS} attaques minimum)`,
+    ...podium(ranked.slice(0, WEEK_TOP)),
     '',
     link,
   ].join('\n');
 }
+
+// ------------------------------------------------------------ top de la semaine
 
 /** Lundi, 10 h passées, heure de Paris ? */
 function isMondayMorning(now: number): boolean {
@@ -415,7 +522,7 @@ function isMondayMorning(now: number): boolean {
 }
 
 /**
- * Le lundi à partir de 10 h : le top de la semaine passée, une seule fois,
+ * Le lundi à partir de 10 h : le top 10 de la semaine passée, une seule fois,
  * dans le salon des stats. Rien tant que ce salon n'est pas configuré, et
  * rien s'il n'y a eu aucune FW.
  */

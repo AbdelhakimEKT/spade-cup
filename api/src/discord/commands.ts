@@ -60,6 +60,42 @@ const sideScore = (n: 1 | 2) => [
   },
 ];
 
+/** Une info de la fiche d'une FW (texte libre). */
+const fwText = (name: string, description: string, max = 60) => ({
+  name,
+  description,
+  type: OptionType.String,
+  max_length: max,
+});
+
+/** Les infos de la fiche : facultatives (valeurs habituelles par défaut). */
+const fwDetails = [
+  fwText('format', 'Défaut : « HDV 18 mode e-sport »'),
+  fwText('preparation', 'Défaut : « 5 min de préparation »'),
+  fwText('guerre', 'Défaut : « 15 min de guerre »'),
+  fwText('attaques', 'Défaut : « 1 attaque par joueur »'),
+  fwText('rounds', 'Défaut : « Plusieurs rounds »'),
+  fwText('hdv', 'Défaut : « HDV 17 et HDV 16 acceptés »'),
+];
+
+const fwTeams = {
+  name: 'equipes',
+  description: 'Défaut : tirées au hasard 10 min avant',
+  type: OptionType.String,
+  choices: [
+    { name: 'Random (tirées au hasard 10 min avant)', value: 'random' },
+    { name: 'Libres (chacun choisit violette ou verte)', value: 'libre' },
+  ],
+};
+
+const fwNumber = {
+  name: 'numero',
+  description: 'Numéro de la FW (défaut : le suivant)',
+  type: OptionType.Integer,
+  min_value: 1,
+  max_value: 9999,
+};
+
 /** Uniquement sur un serveur, pas en message privé. */
 const GUILD_ONLY = { contexts: [0] };
 
@@ -85,39 +121,81 @@ export const COMMANDS = [
     // Visible de tous (les modos n'ont pas « Gérer le serveur ») : le bot
     // vérifie lui-même que la personne est admin ou modo (FW_MANAGER_ROLES).
     name: 'fw',
-    description: 'Soirées FW chill (admins et modos)',
+    description: 'Soirées FW (admins et modos)',
     ...GUILD_ONLY,
     options: [
       {
-        name: 'soiree',
-        description: 'Publier l’affiche d’une soirée FW et ouvrir les inscriptions',
+        name: 'lancer',
+        description: 'Lancer une FW : annonce (ping) et fiche d’inscription',
+        type: OptionType.Subcommand,
+        options: [
+          { ...fwText('date', 'Jour de la FW, par exemple 28/10', 8), required: true },
+          { ...fwText('heure', 'Heure de début (France), par exemple 21h00', 8), required: true },
+          fwTeams,
+          ...fwDetails,
+          fwNumber,
+        ],
+      },
+      {
+        name: 'modifier',
+        description: 'Corriger la fiche de la FW en cours (seules les infos tapées changent)',
+        type: OptionType.Subcommand,
+        options: [
+          fwText('date', 'Nouveau jour, par exemple 28/10', 8),
+          fwText('heure', 'Nouvelle heure de début, par exemple 21h00', 8),
+          fwTeams,
+          ...fwDetails,
+          fwNumber,
+        ],
+      },
+      {
+        name: 'equipes',
+        description: 'Faire les équipes maintenant (sinon : automatique, 10 min avant)',
         type: OptionType.Subcommand,
         options: [
           {
-            name: 'date',
-            description: 'Jour de la soirée, par exemple 28/10',
+            name: 'refaire',
+            description: 'Refaire le tirage au hasard (équipes random)',
             type: OptionType.String,
-            required: true,
-            max_length: 8,
-          },
-          {
-            name: 'heure',
-            description: 'Heure de France, par exemple 20h30',
-            type: OptionType.String,
-            required: true,
-            max_length: 8,
-          },
-          {
-            name: 'programme',
-            description: 'Facultatif, par exemple « 3 FW · 15v15 »',
-            type: OptionType.String,
-            max_length: 40,
+            choices: [
+              { name: 'Oui, nouveau tirage', value: 'oui' },
+              { name: 'Non, juste les afficher', value: 'non' },
+            ],
           },
         ],
       },
       {
+        name: 'deplacer',
+        description: 'Rééquilibrage : changer un compte d’équipe',
+        type: OptionType.Subcommand,
+        options: [
+          {
+            name: 'compte',
+            description: 'Le compte (choisis dans la liste)',
+            type: OptionType.String,
+            required: true,
+            autocomplete: true,
+          },
+          {
+            name: 'equipe',
+            description: 'Sa nouvelle équipe',
+            type: OptionType.String,
+            required: true,
+            choices: [
+              { name: 'Équipe violette', value: 'violet' },
+              { name: 'Équipe verte', value: 'vert' },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'bilan',
+        description: 'Fin de soirée : publier le top 5 des joueurs dans #résultats',
+        type: OptionType.Subcommand,
+      },
+      {
         name: 'annuler',
-        description: 'Annuler la dernière soirée FW (plus d’inscriptions ni de bilan)',
+        description: 'Annuler la FW en cours',
         type: OptionType.Subcommand,
       },
     ],

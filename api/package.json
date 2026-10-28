@@ -11,7 +11,8 @@
     "seed:demo": "tsx scripts/seed-demo.ts > scripts/seed-demo.sql && wrangler d1 execute spade-cup-db --remote --file scripts/seed-demo.sql",
     "migrate": "wrangler d1 migrations apply spade-cup-db --remote",
     "register:commands": "tsx scripts/register-commands.ts",
-    "check:war": "tsx scripts/check-war.ts"
+    "check:war": "tsx scripts/check-war.ts",
+    "upload:emojis": "tsx scripts/upload-th-emojis.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.6",

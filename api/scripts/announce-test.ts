@@ -51,6 +51,7 @@ export default {
     const plan: { channel: Channel; content: string; files: string[] }[] = [];
     const bannerDone = new Set<Channel>();
     const announcer: Announcer = {
+      can: (channel) => real.can(channel),
       async post(channel, reply: Reply) {
         if (only && !only.includes(channel)) return;
         if (!bannerDone.has(channel)) {

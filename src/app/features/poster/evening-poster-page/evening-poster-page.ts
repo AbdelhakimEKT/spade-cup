@@ -1,5 +1,7 @@
 import { Component, computed, input } from '@angular/core';
+import { DEFAULT_DETAILS, parisClock, CLOSE_BEFORE_MS, TEAMS_BEFORE_MS } from '../../../core/fw/session';
 import {
+  franceDateTime,
   franceOffset,
   normalizeDate,
   normalizeTime,
@@ -13,12 +15,13 @@ function text(value: unknown): string {
 }
 
 /**
- * /affiche/soiree?j=28/10&h=20H30[&n=3 FW · 15v15]
+ * /affiche/soiree?n=41&j=28/10&h=21H00&m=random&f=…&p=…&g=…&a=…&r=…&t=…
  *
- * L'affiche d'une soirée FW « chill » : « Inscriptions ouvertes », la date,
- * l'heure, et le rappel qu'on peut venir en cours de route. Le bot la
- * photographie (/fw soiree) et la publie avec le bouton « Je m'inscris ».
- * Même charte que l'affiche d'un match (mêmes styles : poster-view.scss).
+ * La fiche d'une soirée FW (« FW #41 ») : date et heure, fin des inscriptions
+ * (H − 15), équipes affichées (H − 10), le format et ses règles, le mode des
+ * équipes, et le rappel qu'on peut venir en cours de route. Le bot la
+ * photographie (/fw lancer, /fw modifier) pour l'annonce. Même charte que
+ * l'affiche d'un match (mêmes styles : poster-view.scss).
  */
 @Component({
   selector: 'sc-evening-poster-page',
@@ -26,16 +29,43 @@ function text(value: unknown): string {
   styleUrls: ['../poster-view/poster-view.scss', './evening-poster-page.scss'],
 })
 export class EveningPosterPage {
+  /** Numéro de la soirée. */
+  readonly n = input('', { transform: text });
   readonly j = input('', { transform: text });
   readonly h = input('', { transform: text });
-  /** Le programme, facultatif : « 3 FW · 15v15 ». */
-  readonly n = input('', { transform: text });
+  /** Équipes : « random » ou « libre ». */
+  readonly m = input('', { transform: text });
+  /** Les infos de la fiche (vides : valeurs habituelles). */
+  readonly f = input('', { transform: text });
+  readonly p = input('', { transform: text });
+  readonly g = input('', { transform: text });
+  readonly a = input('', { transform: text });
+  readonly r = input('', { transform: text });
+  readonly t = input('', { transform: text });
 
+  protected readonly number = computed(() => this.n().replace(/\D/g, '') || '?');
   protected readonly shownDate = computed(() => normalizeDate(this.j()) ?? (this.j() || '—'));
   protected readonly weekday = computed(() => weekdayOf(this.j()));
   protected readonly shownTime = computed(() => normalizeTime(this.h()) ?? (this.h() || '—'));
   protected readonly offset = computed(() => franceOffset(this.j()));
-  protected readonly programme = computed(() => this.n().trim() || 'FW à la chaîne');
+  /** Fin des inscriptions et équipes, d'après l'heure de début. */
+  protected readonly clocks = computed(() => {
+    const start = franceDateTime(this.j(), this.h());
+    const at = (before: number) => (start === null ? '—' : parisClock(start - before).toUpperCase());
+    return { close: at(CLOSE_BEFORE_MS), teams: at(TEAMS_BEFORE_MS) };
+  });
+  protected readonly random = computed(() => this.m() !== 'libre');
+  protected readonly format = computed(() => this.f().trim() || DEFAULT_DETAILS.format);
+  /** Les règles, en pastilles. */
+  protected readonly rules = computed(() =>
+    [
+      [this.p(), DEFAULT_DETAILS.preparation],
+      [this.g(), DEFAULT_DETAILS.war],
+      [this.a(), DEFAULT_DETAILS.attacks],
+      [this.r(), DEFAULT_DETAILS.rounds],
+      [this.t(), DEFAULT_DETAILS.accepted],
+    ].map(([typed, fallback]) => typed.trim() || fallback),
+  );
   /** Coins décorés, comme l'affiche d'un match. */
   protected readonly corners = ['tl', 'bl', 'tr', 'br'] as const;
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');

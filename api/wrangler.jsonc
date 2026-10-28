@@ -34,12 +34,23 @@
     "DISCORD_CHANNEL_RESULTATS": "",
     "DISCORD_CHANNEL_CLASSEMENT": "",
     "DISCORD_CHANNEL_ARBITRES": "",
-    // Salon des stats : le top FW de la semaine, chaque lundi à 10 h (ou par webhook,
-    // secret DISCORD_WEBHOOK_STATS). Vide : rien n'est publié.
-    "DISCORD_CHANNEL_STATS": "",
+    // Salon #statistiques-joueurs : le top 10 FW de la semaine, chaque lundi à 10 h.
+    "DISCORD_CHANNEL_STATS": "1565007960713855076",
     // Rôles qui gèrent les soirées FW (/fw) et l'arbitrage (/arbitre), en plus
     // des membres qui peuvent « Gérer le serveur » : Admin, puis Modo.
     "FW_MANAGER_ROLES": "1517890929611116696,1517890701399035924",
+    // Soirées FW (/fw lancer) : la fiche d'inscription va dans #inscription,
+    // l'annonce (avec le ping du rôle) dans #annonce-fw ; #ticket en cas de souci.
+    "DISCORD_CHANNEL_INSCRIPTION": "1517854455742074940",
+    "DISCORD_CHANNEL_ANNONCE_FW": "1522954557657714738",
+    "DISCORD_CHANNEL_TICKETS": "1520071335156519172",
+    // #résultats des soirées FW : le top 5 publié par /fw bilan.
+    "DISCORD_CHANNEL_FW_RESULTATS": "1517854742833922078",
+    "DISCORD_ROLE_FW": "1521260745541550350",
+    // Numéro de la première soirée lancée avec le bot (les suivantes : +1).
+    "FW_FIRST_NUMBER": "41",
+    // Identifiant PUBLIC de l'application (émojis des HDV).
+    "DISCORD_APPLICATION_ID": "1563155880034177115",
     // Les deux clans des FW classiques (hors tournoi), suivis pour les stats :
     // team 1 (FW-team1) puis team 2 (FW-team2), comme sur le site.
     "FW_CLANS": "#2CYJPRCG8,#2JVUP2PGC",

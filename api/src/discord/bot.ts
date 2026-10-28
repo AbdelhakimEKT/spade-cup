@@ -46,7 +46,8 @@ import {
   slugExists,
   type StoredTournament,
 } from '../repository';
-import { fwCommand, isManager } from './fw';
+import { fwAutocomplete, fwCommand, isManager, type FwConfig } from './fw';
+import type { DiscordApi } from './rest';
 import type { Choice, CommandOption, Interaction } from './types';
 
 /**
@@ -67,6 +68,12 @@ export interface BotContext {
   readonly now: () => number;
   /** Rôles Discord qui gèrent les soirées FW et l'arbitrage (FW_MANAGER_ROLES). */
   readonly managerRoles: readonly string[];
+  /** Le bot qui poste en son nom (jeton DISCORD_BOT_TOKEN), ou `null` s'il n'est pas configuré. */
+  readonly discord: DiscordApi | null;
+  /** Salons et rôle des soirées FW. */
+  readonly fw: FwConfig;
+  /** Tâche à finir après la réponse à Discord (mise à jour de la fiche d'inscription). */
+  readonly background: (task: Promise<unknown>) => void;
   /** Images des pages du site (PNG) : un vrai navigateur en production. */
   readonly capture: (shots: readonly Shot[]) => Promise<Uint8Array[]>;
   /**
@@ -89,6 +96,8 @@ export interface Reply {
   readonly files?: readonly { readonly name: string; readonly data: Uint8Array }[];
   /** Boutons et listes sous le message (voir discord/fw.ts). */
   readonly components?: readonly unknown[];
+  /** Rôles notifiés par le message (ping de l'annonce d'une FW). */
+  readonly mentionRoles?: readonly string[];
 }
 
 const ORGANIZER = 'Friendly Wars';
@@ -110,7 +119,8 @@ export function needsDefer(interaction: Interaction): boolean {
   const { command, sub } = parse(interaction);
   return (
     command === 'inscription' ||
-    (command === 'fw' && sub === 'soiree') ||
+    // /fw : le bot poste et modifie des messages, et photographie la fiche.
+    command === 'fw' ||
     (command === 'arbitre' && ['resultat', 'tirage', 'arbre', 'affiche'].includes(sub ?? ''))
   );
 }
@@ -144,6 +154,10 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
 export async function autocomplete(interaction: Interaction, ctx: BotContext): Promise<Choice[]> {
   const { command, sub, options, focused } = parse(interaction);
   if (!focused) return [];
+  if (command === 'fw') {
+    if (!interaction.member || !isManager(interaction.member, ctx.managerRoles)) return [];
+    return focused.name === 'compte' ? fwAutocomplete(ctx, String(focused.value ?? '')) : [];
+  }
   // Les suggestions de /arbitre ne sont proposées qu'aux admins et aux modos.
   if (
     command === 'arbitre' &&

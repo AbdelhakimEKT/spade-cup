@@ -1,18 +1,20 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
+import { weekRange } from '../../src/app/core/fw/evening';
+import type { BotContext, Reply } from '../src/discord/bot';
 import { runCommand } from '../src/discord/bot';
-import { fwComponent, type ComponentResponse } from '../src/discord/fw';
+import { fwComponent, runFwSchedule, type ComponentResponse } from '../src/discord/fw';
+import type { DiscordApi } from '../src/discord/rest';
 import type { Interaction } from '../src/discord/types';
 import {
-  dueRecaps,
+  currentEvening,
+  eveningsNeedingTeams,
   getEvening,
-  postDueRecaps,
   postWeeklyTop,
   signupsOf,
 } from '../src/fw-evenings';
 import { toSqliteTime } from '../src/repository';
 import { listFriendlyWars, listFwPlayers } from '../src/stats-repository';
-import { weekRange } from '../../src/app/core/fw/evening';
 import {
   MEMBER,
   MODO,
@@ -25,8 +27,51 @@ import {
 
 const db = () => env.DB;
 
+/** Un faux Discord : garde ce que le bot poste et modifie. */
+function fakeDiscord() {
+  const sent: { channel: string; id: string; reply: Reply }[] = [];
+  const edits: { channel: string; id: string; reply: Reply }[] = [];
+  const api: DiscordApi = {
+    async send(channel, reply) {
+      const id = `m${sent.length + 1}`;
+      sent.push({ channel, id, reply });
+      return id;
+    },
+    async edit(channel, id, reply) {
+      edits.push({ channel, id, reply });
+      return true;
+    },
+    emojis: async () =>
+      new Map([
+        ['th18', 'e18'],
+        ['th17', 'e17'],
+      ]),
+  };
+  /** Le dernier état d'un message (envoyé puis modifié). */
+  const latest = (id: string) =>
+    [...edits].reverse().find((e) => e.id === id)?.reply ?? sent.find((s) => s.id === id)?.reply;
+  return { api, sent, edits, latest };
+}
+
+/** Contexte du bot avec un faux Discord ; les tâches de fond sont attendues par `settle`. */
+function setup() {
+  const discord = fakeDiscord();
+  const tasks: Promise<unknown>[] = [];
+  let seed = 3;
+  const ctx: BotContext = {
+    ...botContext(db()),
+    discord: discord.api,
+    background: (task) => void tasks.push(task),
+    random: () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31,
+  };
+  const settle = async () => {
+    while (tasks.length) await tasks.shift();
+  };
+  return { ctx, discord, settle };
+}
+
 /** « /fw <sub> … » tapé par `who`. */
-function fw(sub: string, values: Record<string, string> = {}, who: Who = MODO): Interaction {
+function fw(sub: string, values: Record<string, string | number> = {}, who: Who = MODO): Interaction {
   return {
     type: 2,
     token: 'jeton',
@@ -42,7 +87,11 @@ function fw(sub: string, values: Record<string, string> = {}, who: Who = MODO): 
         {
           name: sub,
           type: 1,
-          options: Object.entries(values).map(([name, value]) => ({ name, type: 3, value })),
+          options: Object.entries(values).map(([name, value]) => ({
+            name,
+            type: typeof value === 'number' ? 4 : 3,
+            value,
+          })),
         },
       ],
     },
@@ -78,159 +127,266 @@ async function textOf(response: ComponentResponse): Promise<string> {
   return response.reply.content;
 }
 
-async function newEvening(ctx = botContext(db())): Promise<number> {
-  const reply = await runCommand(fw('soiree', { date: '28/10', heure: '20h30' }), ctx);
-  const row = await db()
-    .prepare('SELECT id FROM fw_evenings ORDER BY id DESC LIMIT 1')
-    .first<{ id: number }>();
-  expect(reply.components).toBeDefined();
-  return row!.id;
+const START = Date.UTC(2026, 9, 28, 20); // mercredi 28/10, 21h00 à Paris
+
+async function launched(mode: 'random' | 'libre' = 'random') {
+  const s = setup();
+  await runCommand(fw('lancer', { date: '28/10', heure: '21h00', equipes: mode }), s.ctx);
+  const e = (await currentEvening(db()))!;
+  return { ...s, e, signupId: e.signup!.message };
 }
 
-describe('/fw soiree : l’affiche et les inscriptions', () => {
-  it('un modo publie l’affiche avec les boutons ; un membre simple ne peut pas', async () => {
-    const ctx = botContext(db());
-    const refused = await runCommand(fw('soiree', { date: '28/10', heure: '20h30' }, MEMBER), ctx);
-    expect(refused).toEqual({
-      content: '❌ Les commandes /fw sont réservées aux admins et aux modos.',
-      ephemeral: true,
-    });
+/** Inscrit un compte par le formulaire du tag. */
+async function signTag(ctx: BotContext, id: number, tag: string, who: Who = MEMBER, team = '') {
+  return textOf(await fwComponent(click(`fw:tag:${id}${team}`, who, { tag }), ctx));
+}
 
-    const reply = await runCommand(
-      fw('soiree', { date: '28/10', heure: '20h30', programme: '3 FW · 15v15' }),
-      ctx,
+describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #annonce-fw', () => {
+  it('un modo lance la FW #41 ; un membre simple ne peut pas', async () => {
+    const { ctx, discord } = setup();
+    const refused = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }, MEMBER), ctx);
+    expect(refused.content).toBe('❌ Les commandes /fw sont réservées aux admins et aux modos.');
+
+    const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), ctx);
+    expect(reply.ephemeral).toBe(true);
+    expect(reply.content).toContain('**FW #41** lancée pour le mercredi 28/10 à 21h00');
+
+    const [signup, announce] = discord.sent;
+    expect(signup.channel).toBe('c-inscription');
+    expect(signup.reply.content).toContain('📝 **FW #41** · mercredi 28/10 à 21h00');
+    expect(signup.reply.content).toContain('Fin des inscriptions : **20h45**');
+    expect(signup.reply.content).toContain(
+      'Équipes affichées vers **20h50** (rééquilibrages possibles)',
     );
-    expect(reply.content).toContain('Inscriptions ouvertes');
-    expect(reply.content).toContain('mercredi 28/10 à 20h30');
-    expect(reply.content).toContain('en cours de route');
-    expect(reply.files?.[0].name).toBe('soiree-fw.png');
-    const ids = JSON.stringify(reply.components);
-    expect(ids).toMatch(/fw:join:\d+/);
-    expect(ids).toMatch(/fw:list:\d+/);
-    expect(ids).toMatch(/fw:leave:\d+/);
+    expect(signup.reply.content).toContain(
+      'HDV 18 mode e-sport · 5 min de préparation · 15 min de guerre · 1 attaque par joueur · ' +
+        'Plusieurs rounds · HDV 17 et HDV 16 acceptés',
+    );
+    expect(signup.reply.content).toContain('<#c-tickets>');
+    expect(JSON.stringify(signup.reply.components)).toMatch(/fw:join:\d+".*fw:add:\d+".*fw:leave/);
 
-    const evening = await db().prepare('SELECT * FROM fw_evenings').first<{
-      starts_at: string;
-      note: string;
-      created_by: string;
-    }>();
-    // 20h30 à Paris, l'hiver = 19h30 UTC.
-    expect(evening).toMatchObject({
-      starts_at: '2026-10-28 19:30:00',
-      note: '3 FW · 15v15',
-      created_by: 'Athena',
-    });
+    expect(announce.channel).toBe('c-annonce');
+    expect(announce.reply.content).toMatch(
+      /^<@&r-fw> 📣 \*\*FW #41\*\* ce \*\*mercredi 28\/10 à 21h00\*\* !/,
+    );
+    expect(announce.reply.content).toContain('<#c-inscription>');
+    expect(announce.reply.content).toContain('en cours de route');
+    expect(announce.reply.mentionRoles).toEqual(['r-fw']);
+    expect(announce.reply.files?.[0].name).toBe('fw-41.png');
   });
 
-  it('date passée ou illisible : refusée', async () => {
-    const ctx = botContext(db());
-    expect((await runCommand(fw('soiree', { date: '26/10', heure: '20h' }), ctx)).content).toMatch(
+  it('numéro suivant ; une FW annulée ne compte pas', async () => {
+    const { ctx } = setup();
+    await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), ctx);
+    await runCommand(fw('annuler'), ctx);
+    await runCommand(fw('lancer', { date: '29/10', heure: '21h' }), ctx);
+    expect((await currentEvening(db()))?.number).toBe(41);
+    await db().prepare('UPDATE fw_evenings SET recap_posted_at = CURRENT_TIMESTAMP').run();
+    await runCommand(fw('lancer', { date: '30/10', heure: '21h' }), ctx);
+    expect((await currentEvening(db()))?.number).toBe(42);
+  });
+
+  it('infos et numéro modifiables à la création', async () => {
+    const { ctx, discord } = setup();
+    await runCommand(
+      fw('lancer', {
+        date: '28/10',
+        heure: '20h30',
+        numero: 50,
+        rounds: '4 rounds',
+        hdv: 'HDV 17 accepté',
+      }),
+      ctx,
+    );
+    expect(discord.sent[0].reply.content).toContain('**FW #50**');
+    expect(discord.sent[0].reply.content).toContain('4 rounds · HDV 17 accepté');
+    expect(discord.sent[0].reply.content).toContain('Fin des inscriptions : **20h15**');
+  });
+
+  it('date passée ou heure illisible : refusée', async () => {
+    const { ctx } = setup();
+    expect((await runCommand(fw('lancer', { date: '26/10', heure: '20h' }), ctx)).content).toMatch(
       /déjà passé/,
     );
-    expect((await runCommand(fw('soiree', { date: '28/10', heure: 'tôt' }), ctx)).content).toMatch(
+    expect((await runCommand(fw('lancer', { date: '28/10', heure: 'tôt' }), ctx)).content).toMatch(
       /Heure illisible/,
     );
   });
 
-  it('affiche impossible (navigateur en panne) : l’annonce part quand même', async () => {
-    const ctx = {
-      ...botContext(db()),
-      capture: async () => {
-        throw new Error('quota');
-      },
-    };
-    const reply = await runCommand(fw('soiree', { date: '28/10', heure: '20h30' }), ctx);
-    expect(reply.files).toBeUndefined();
-    expect(reply.components).toBeDefined();
+  it('sans jeton du bot : refusé, avec l’explication', async () => {
+    const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), botContext(db()));
+    expect(reply.content).toMatch(/DISCORD_BOT_TOKEN/);
+  });
+
+  it('#inscription inaccessible : rien n’est publié', async () => {
+    const { ctx } = setup();
+    const blocked = { ...ctx, discord: { ...ctx.discord!, send: async () => null } };
+    const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), blocked);
+    expect(reply.content).toMatch(/Impossible de poster dans <#c-inscription>/);
+    expect(await currentEvening(db())).toBeNull();
   });
 });
 
-describe('inscriptions par bouton, plusieurs comptes', () => {
-  it('1re fois : le tag est demandé, vérifié dans le jeu, retenu, et le compte inscrit', async () => {
-    const ctx = botContext(db());
-    const id = await newEvening(ctx);
+describe('inscriptions (équipes random), plusieurs comptes', () => {
+  it('1re fois : le tag ; la fiche montre les inscrits avec l’icône de leur HDV', async () => {
+    const { ctx, discord, settle, e, signupId } = await launched();
+    expect((await fwComponent(click(`fw:join:${e.id}`), ctx)).kind).toBe('modal');
+    expect(await signTag(ctx, e.id, 'pq2')).toContain(
+      '**Rags** (`#PQ2`, HDV 18) est inscrit à la FW #41',
+    );
+    // Un 2e compte, par « Ajouter un compte ».
+    expect((await fwComponent(click(`fw:add:${e.id}`), ctx)).kind).toBe('modal');
+    await signTag(ctx, e.id, '#PQ8');
+    await settle();
 
-    expect((await fwComponent(click(`fw:join:${id}`), ctx)).kind).toBe('modal');
-    const text = await textOf(await fwComponent(click(`fw:tag:${id}`, MEMBER, { tag: 'pq2' }), ctx));
-    expect(text).toContain('**Rags** (`#PQ2`, HDV 18) est inscrit');
-
-    // Un 2e compte, puis les deux sont inscrits.
-    expect((await fwComponent(click(`fw:add:${id}`), ctx)).kind).toBe('modal');
-    await textOf(await fwComponent(click(`fw:tag:${id}`, MEMBER, { tag: '#PQ8' }), ctx));
-    expect((await signupsOf(db(), id)).map((s) => s.name)).toEqual(['Rags', 'Rags 2']);
+    const fiche = discord.latest(signupId)!.content;
+    expect(fiche).toContain('**Inscrits (2)**');
+    expect(fiche).toContain('<:th18:e18> Rags');
+    expect(fiche).toContain('<:th17:e17> Rags 2');
   });
 
-  it('comptes retenus : un seul → un clic l’inscrit ; plusieurs → liste à cocher', async () => {
-    const ctx = botContext(db());
-    const first = await newEvening(ctx);
-    await fwComponent(click(`fw:tag:${first}`, MEMBER, { tag: '#PQ2' }), ctx).then(textOf);
+  it('comptes retenus : un seul → un clic ; plusieurs → liste à cocher ; désinscription', async () => {
+    const { ctx, settle, e } = await launched();
+    await signTag(ctx, e.id, '#PQ2');
+    expect(await textOf(await fwComponent(click(`fw:leave:${e.id}`), ctx))).toContain('**Rags**');
+    expect(await signupsOf(db(), e.id)).toEqual([]);
 
-    // Soirée suivante : un clic suffit.
-    const second = await newEvening(ctx);
-    const oneClick = await fwComponent(click(`fw:join:${second}`), ctx);
-    expect(await textOf(oneClick)).toContain('**Rags** est inscrit');
-    expect((await signupsOf(db(), second)).map((s) => s.tag)).toEqual(['#PQ2']);
+    // Un seul compte retenu : un clic l'inscrit.
+    expect(await textOf(await fwComponent(click(`fw:join:${e.id}`), ctx))).toContain(
+      '**Rags** est inscrit',
+    );
+    await signTag(ctx, e.id, '#PQ8');
 
-    // Un 2e compte retenu : la liste, avec les comptes déjà inscrits cochés.
-    await fwComponent(click(`fw:tag:${second}`, MEMBER, { tag: '#PQ8' }), ctx).then(textOf);
-    const third = await newEvening(ctx);
-    const list = await fwComponent(click(`fw:join:${third}`), ctx);
-    expect(list.kind).toBe('reply');
+    // Deux comptes : la liste à cocher.
+    const list = await fwComponent(click(`fw:join:${e.id}`), ctx);
     expect(await textOf(list)).toContain('Quels comptes inscris-tu');
-
-    // On coche le 2e seulement, puis on change d'avis : les deux.
-    const picked = await fwComponent(click(`fw:pick:${third}`, MEMBER, { values: ['#PQ8'] }), ctx);
-    expect(picked.kind).toBe('update');
-    expect((await signupsOf(db(), third)).map((s) => s.tag)).toEqual(['#PQ8']);
-    await fwComponent(click(`fw:pick:${third}`, MEMBER, { values: ['#PQ2', '#PQ8'] }), ctx);
-    expect((await signupsOf(db(), third)).map((s) => s.tag).sort()).toEqual(['#PQ2', '#PQ8']);
-    // Tout décoché : plus aucun compte inscrit.
-    await fwComponent(click(`fw:pick:${third}`, MEMBER, { values: [] }), ctx);
-    expect(await signupsOf(db(), third)).toEqual([]);
+    await fwComponent(click(`fw:pick:${e.id}`, MEMBER, { values: ['#PQ8'] }), ctx);
+    expect((await signupsOf(db(), e.id)).map((s) => s.tag)).toEqual(['#PQ8']);
+    await fwComponent(click(`fw:pick:${e.id}`, MEMBER, { values: ['#PQ2', '#PQ8'] }), ctx);
+    expect((await signupsOf(db(), e.id)).map((s) => s.tag).sort()).toEqual(['#PQ2', '#PQ8']);
+    await settle();
   });
 
   it('tag invalide ou inconnu : message clair, rien d’enregistré', async () => {
-    const ctx = botContext(db());
-    const id = await newEvening(ctx);
-    expect(await textOf(await fwComponent(click(`fw:tag:${id}`, MEMBER, { tag: 'abc!' }), ctx))).toMatch(
-      /n'est pas un tag valide/,
-    );
-    expect(await textOf(await fwComponent(click(`fw:tag:${id}`, MEMBER, { tag: '#PQ22' }), ctx))).toMatch(
-      /Aucun joueur ne porte le tag #PQ22/,
-    );
-    expect(await signupsOf(db(), id)).toEqual([]);
+    const { ctx, e } = await launched();
+    expect(await signTag(ctx, e.id, 'abc!')).toMatch(/n'est pas un tag valide/);
+    expect(await signTag(ctx, e.id, '#PQ22')).toMatch(/Aucun joueur ne porte le tag #PQ22/);
+    expect(await signupsOf(db(), e.id)).toEqual([]);
   });
 
-  it('liste des inscrits regroupée par personne, et désinscription', async () => {
-    const ctx = botContext(db());
-    const id = await newEvening(ctx);
-    for (const tag of ['#PQ2', '#PQ8']) {
-      await fwComponent(click(`fw:tag:${id}`, MEMBER, { tag }), ctx).then(textOf);
-    }
-    await fwComponent(click(`fw:tag:${id}`, OTHER_MEMBER, { tag: '#PQ9' }), ctx).then(textOf);
+  it('H − 10 : équipes tirées au hasard, fiche mise à jour, « équipes prêtes »', async () => {
+    const { ctx, discord, settle, e, signupId } = await launched();
+    await signTag(ctx, e.id, '#PQ2');
+    await signTag(ctx, e.id, '#PQ8');
+    await signTag(ctx, e.id, '#PQ9', OTHER_MEMBER);
 
-    const list = await textOf(await fwComponent(click(`fw:list:${id}`, OTHER_MEMBER), ctx));
-    expect(list).toContain('3 comptes inscrits');
-    expect(list).toContain('• **Chef** : Rags (HDV 18), Rags 2 (HDV 17)');
-    expect(list).toContain('• **Autre** : Fight (HDV 18)');
+    const due = (now: number) => eveningsNeedingTeams(db(), now);
+    expect(await runFwSchedule({ ...ctx, now: () => START - 11 * 60_000 }, due)).toBe(0);
+    expect(await runFwSchedule({ ...ctx, now: () => START - 10 * 60_000 }, due)).toBe(1);
+    expect(await runFwSchedule({ ...ctx, now: () => START - 9 * 60_000 }, due)).toBe(0);
 
-    const left = await textOf(await fwComponent(click(`fw:leave:${id}`), ctx));
-    expect(left).toContain('**Rags**, **Rags 2**');
-    expect((await signupsOf(db(), id)).map((s) => s.name)).toEqual(['Fight']);
-    expect(await textOf(await fwComponent(click(`fw:leave:${id}`), ctx))).toMatch(/n'étais pas inscrit/);
+    const teams = (await signupsOf(db(), e.id)).map((s) => s.team);
+    expect(teams.filter((t) => t === 'violet')).toHaveLength(2);
+    expect(teams.filter((t) => t === 'vert')).toHaveLength(1);
+    const fiche = discord.latest(signupId)!.content;
+    expect(fiche).toContain('🟣 **Équipe violette (2)**');
+    expect(fiche).toContain('🟢 **Équipe verte (1)**');
+    expect(discord.sent.at(-1)?.reply.content).toContain('Les équipes de la FW #41 sont prêtes');
+
+    // Arrivé en cours de route : dans l'équipe la moins remplie.
+    const late = { id: 'u-retard', name: 'Retard', permissions: '0' };
+    await db()
+      .prepare(
+        "INSERT INTO discord_accounts (discord_id, player_tag, player_name, town_hall) VALUES ('u-retard', '#LATE', 'Retard', 16)",
+      )
+      .run();
+    await fwComponent(click(`fw:join:${e.id}`, late), ctx);
+    expect((await signupsOf(db(), e.id)).find((s) => s.tag === '#LATE')?.team).toBe('vert');
+
+    // Rééquilibrage par un modo.
+    const moved = await runCommand(fw('deplacer', { compte: '#PQ9', equipe: 'violet' }), ctx);
+    expect(moved.content).toContain("passe dans l'équipe violette");
+    await settle();
   });
 
-  it('soirée annulée : plus d’inscriptions', async () => {
-    const ctx = botContext(db());
-    const id = await newEvening(ctx);
-    const cancelled = await runCommand(fw('annuler'), ctx);
-    expect(cancelled.content).toMatch(/est annulée/);
-    expect((await getEvening(db(), id))?.closed).toBe(true);
-    expect(await textOf(await fwComponent(click(`fw:join:${id}`), ctx))).toMatch(/est terminée/);
+  it('déplacer avant le tirage : refusé', async () => {
+    const { ctx, e } = await launched();
+    await signTag(ctx, e.id, '#PQ2');
+    const reply = await runCommand(fw('deplacer', { compte: '#PQ2', equipe: 'vert' }), ctx);
+    expect(reply.content).toMatch(/pas encore faites/);
   });
 });
 
-// ------------------------------------------------------------ bilan de la soirée
+describe('équipes libres : chacun choisit la sienne', () => {
+  it('deux boutons ; un compte dans chaque équipe ; passer de l’une à l’autre', async () => {
+    const { ctx, discord, settle, e, signupId } = await launched('libre');
+    expect(JSON.stringify(discord.sent[0].reply.components)).toMatch(
+      /fw:join:\d+:violet.*fw:join:\d+:vert/,
+    );
+    expect(discord.sent[0].reply.content).toContain('Choisis ton équipe');
+
+    await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
+    await signTag(ctx, e.id, '#PQ8', MEMBER, ':vert');
+    const team = async (tag: string) =>
+      (await signupsOf(db(), e.id)).find((s) => s.tag === tag)?.team;
+    expect(await team('#PQ2')).toBe('violet');
+    expect(await team('#PQ8')).toBe('vert');
+
+    // Dans la liste de l'équipe verte, on coche les deux : Rags passe en vert.
+    await fwComponent(click(`fw:pick:${e.id}:vert`, MEMBER, { values: ['#PQ2', '#PQ8'] }), ctx);
+    expect(await team('#PQ2')).toBe('vert');
+    // On décoche Rags 2 dans la verte : il n'est plus inscrit.
+    await fwComponent(click(`fw:pick:${e.id}:vert`, MEMBER, { values: ['#PQ2'] }), ctx);
+    expect(await team('#PQ8')).toBeUndefined();
+
+    await settle();
+    expect(discord.latest(signupId)!.content).toContain('🟢 **Équipe verte (1)**');
+  });
+});
+
+describe('/fw modifier, /fw bilan, /fw annuler', () => {
+  it('modifier : la fiche et l’annonce suivent', async () => {
+    const { ctx, discord, e, signupId } = await launched();
+    const reply = await runCommand(fw('modifier', { heure: '21h30', rounds: '3 rounds' }), ctx);
+    expect(reply.content).toContain('mercredi 28/10 à 21h30');
+    expect(discord.latest(signupId)!.content).toContain('Fin des inscriptions : **21h15**');
+    expect(discord.latest(signupId)!.content).toContain('3 rounds');
+    const announce = discord.latest(e.announce!.message)!;
+    expect(announce.content).toContain('21h30');
+    expect(announce.files?.[0].name).toBe('fw-41.png');
+  });
+
+  it('bilan : top 5 de la soirée dans #résultats ; la fiche se ferme', async () => {
+    const { ctx, discord, e, signupId } = await launched();
+    expect((await runCommand(fw('bilan'), ctx)).content).toMatch(/rien à publier/);
+
+    await threeWars();
+    const later = { ...ctx, now: () => START + 2 * 3_600_000 };
+    const reply = await runCommand(fw('bilan'), later);
+    expect(reply.content).toContain('publié dans <#c-resultats>');
+
+    const recap = discord.sent.find((s) => s.channel === 'c-resultats')!.reply.content;
+    const lines = recap.split('\n');
+    expect(lines[0]).toBe('🌙 **Bilan de la FW #41** du mercredi 28/10 · 3 FW jouées');
+    expect(lines[2]).toMatch(/^🥇 \*\*Joueur 0\*\* — 3,00 ★\/attaque · 3 attaques · 99,0 %$/);
+    expect(recap).not.toContain('Remplissage');
+    expect(recap).toContain('https://site.test/joueurs?type=fw&semaine=2026-10-26');
+
+    expect((await getEvening(db(), e.id))?.closed).toBe(true);
+    const fiche = discord.latest(signupId)!;
+    expect(fiche.content).toContain('Soirée terminée');
+    expect(fiche.components).toEqual([]);
+    expect(await textOf(await fwComponent(click(`fw:join:${e.id}`), ctx))).toMatch(/est terminée/);
+  });
+
+  it('annuler : la fiche le dit', async () => {
+    const { ctx, discord, signupId } = await launched();
+    expect((await runCommand(fw('annuler'), ctx)).content).toContain('FW #41');
+    expect(discord.latest(signupId)!.content).toContain('Soirée annulée');
+  });
+});
+
+// ------------------------------------------------------------ statistiques
 
 /** Une FW terminée, lancée à `start` (ms), avec les lignes des joueurs. */
 async function addWar(
@@ -259,79 +415,47 @@ async function addWar(
   }
 }
 
-const EVENING_START = Date.UTC(2026, 9, 28, 19, 30); // mercredi 28/10, 20h30 à Paris
-
-async function eveningWithWars(): Promise<number> {
-  const id = await newEvening();
+async function threeWars(): Promise<void> {
   const players = (stars: number[]) =>
-    stars.map((s, i) => ({ tag: `#P${i}`, name: `Joueur ${i}`, attacks: 1, stars: s, destruction: 60 + s * 13 }));
-  // Trois FW ; Joueur 5 ne fait qu'une attaque (pas classé), Joueur 6 aucune (compte de remplissage).
-  await addWar(EVENING_START, [...players([3, 2, 2, 1, 3, 3]), { tag: '#P6', name: 'Remplissage', attacks: 0, stars: 0, destruction: 0 }]);
-  await addWar(EVENING_START + 20 * 60_000, players([3, 3, 2, 2, 2]));
-  await addWar(EVENING_START + 40 * 60_000, players([3, 2, 3, 2, 1]));
-  return id;
+    stars.map((s, i) => ({
+      tag: `#P${i}`,
+      name: `Joueur ${i}`,
+      attacks: 1,
+      stars: s,
+      destruction: 60 + s * 13,
+    }));
+  // Joueur 5 ne fait qu'une attaque (pas classé) ; « Remplissage » aucune.
+  await addWar(START, [
+    ...players([3, 2, 2, 1, 3, 3]),
+    { tag: '#P6', name: 'Remplissage', attacks: 0, stars: 0, destruction: 0 },
+  ]);
+  await addWar(START + 20 * 60_000, players([3, 3, 2, 2, 2]));
+  await addWar(START + 40 * 60_000, players([3, 2, 3, 2, 1]));
 }
 
-describe('bilan de la soirée : top 5 des joueurs', () => {
-  it('45 minutes après la dernière FW : le top 5 au prorata dans #résultats, une seule fois', async () => {
-    await eveningWithWars();
-    const lastEnd = EVENING_START + 55 * 60_000;
-    const { announcer, inChannel } = fakeAnnouncer();
-
-    // Trop tôt : la soirée continue peut-être.
-    expect(await postDueRecaps(db(), announcer, 'https://site.test', lastEnd + 10 * 60_000)).toBe(0);
-
-    expect(await postDueRecaps(db(), announcer, 'https://site.test', lastEnd + 46 * 60_000)).toBe(1);
-    const [recap] = inChannel('results');
-    const lines = recap.content.split('\n');
-    expect(lines[0]).toBe('🌙 **Bilan de la soirée FW du mercredi 28/10** · 3 FW jouées');
-    // Joueur 0 : 9 étoiles en 3 attaques ; Joueur 4 : 6 en 2 (venu en cours de route).
-    expect(lines[2]).toMatch(/^🥇 \*\*Joueur 0\*\* — 3,00 ★\/attaque · 3 attaques · 99,0 %$/);
-    expect(lines[3]).toMatch(/^🥈 \*\*Joueur 1\*\* — 2,33 ★\/attaque/);
-    expect(recap.content).not.toContain('Remplissage');
-    expect(recap.content).toContain('https://site.test/joueurs?type=fw&semaine=2026-10-26');
-
-    // Déjà publié : plus rien.
-    expect(await postDueRecaps(db(), announcer, 'https://site.test', lastEnd + 90 * 60_000)).toBe(0);
-    expect(inChannel('results')).toHaveLength(1);
-  });
-
-  it('une FW encore en cours : on attend', async () => {
-    await eveningWithWars();
-    await db()
-      .prepare("INSERT INTO fw_snapshots (war_key, war_json, seen_at) VALUES ('x', '{}', '2026-10-28 21:00:00')")
-      .run();
-    expect(await dueRecaps(db(), 'https://site.test', EVENING_START + 2 * 3_600_000)).toEqual([]);
-  });
-
-  it('aucune FW jouée : la soirée se clôt sans message, 8 heures après', async () => {
-    const id = await newEvening();
-    const { announcer, posted } = fakeAnnouncer();
-    expect(await postDueRecaps(db(), announcer, 'https://site.test', EVENING_START + 3_600_000)).toBe(0);
-    expect((await getEvening(db(), id))?.closed).toBe(false);
-    await postDueRecaps(db(), announcer, 'https://site.test', EVENING_START + 9 * 3_600_000);
-    expect(posted).toEqual([]);
-    expect((await getEvening(db(), id))?.closed).toBe(true);
-  });
-});
-
-describe('top de la semaine, le lundi', () => {
+describe('top 10 de la semaine, le lundi', () => {
   const MONDAY_10H = Date.UTC(2026, 10, 2, 9, 5); // lundi 02/11, 10h05 à Paris
 
   it('lundi 10 h : le top de la semaine passée, une seule fois', async () => {
-    await eveningWithWars();
+    await threeWars();
     const { announcer, inChannel } = fakeAnnouncer();
-    expect(await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H - 3_600_000)).toBe(false);
+    expect(
+      await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H - 3_600_000),
+    ).toBe(false);
     expect(await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H)).toBe(true);
     const [top] = inChannel('stats');
-    expect(top.content).toMatch(/^📅 \*\*Top FW de la semaine\*\* \(du 26\/10 au 01\/11\) · 3 FW jouées/);
+    expect(top.content).toMatch(
+      /^📅 \*\*Top FW de la semaine\*\* \(du 26\/10 au 01\/11\) · 3 FW jouées/,
+    );
     // 4 attaques minimum sur la semaine : personne n'en a assez ici.
     expect(top.content).toContain("Pas assez d'attaques");
-    expect(await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H + 60_000)).toBe(false);
+    expect(await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H + 60_000)).toBe(
+      false,
+    );
   });
 
   it('salon des stats non configuré : rien', async () => {
-    await eveningWithWars();
+    await threeWars();
     const { announcer, posted } = fakeAnnouncer();
     const off = { ...announcer, can: () => false };
     expect(await postWeeklyTop(db(), off, 'https://site.test', MONDAY_10H)).toBe(false);
@@ -341,7 +465,7 @@ describe('top de la semaine, le lundi', () => {
 
 describe('classement de la semaine (site)', () => {
   it('seulement les FW lancées entre lundi 0 h et le lundi suivant', async () => {
-    await eveningWithWars(); // semaine du 26/10
+    await threeWars(); // semaine du 26/10
     await addWar(Date.UTC(2026, 9, 25, 18), [
       { tag: '#P0', name: 'Joueur 0', attacks: 1, stars: 1, destruction: 50 },
       { tag: '#OLD', name: 'Ancien', attacks: 1, stars: 3, destruction: 100 },

@@ -43,6 +43,7 @@ export const OptionType = {
   String: 3,
   Integer: 4,
   Number: 10,
+  Boolean: 5,
   /** Fichier joint à la commande (une image, ici). */
   Attachment: 11,
 } as const;

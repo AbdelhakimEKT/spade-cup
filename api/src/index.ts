@@ -14,7 +14,10 @@ import {
   listPlayers,
 } from './stats-repository';
 import { fwClans, trackFriendlyWars } from './fw-tracker';
-import { postDueRecaps, postWeeklyTop } from './fw-evenings';
+import { eveningsNeedingTeams, postWeeklyTop } from './fw-evenings';
+import { fwConfig, runFwSchedule } from './discord/fw';
+import { createDiscordApi } from './discord/rest';
+import { captureScreens } from './screens';
 import { getLiveWars } from './live';
 import { isMonday, weekRange } from '../../src/app/core/fw/evening';
 import { runWatch, type WatchDeps } from './watch';
@@ -84,13 +87,22 @@ export default {
         })
         .catch((error) => console.error('Suivi des FW en échec', error)),
     );
-    // Soirées FW : le bilan (top 5) après la soirée ; le lundi, le top de la semaine.
+    // Soirées FW : les équipes à H − 10 ; le lundi, le top de la semaine.
     ctx.waitUntil(
       (async () => {
-        const announcer = createAnnouncer(env);
-        const recaps = await postDueRecaps(env.DB, announcer, env.SITE_URL);
-        if (recaps) console.log(`Bilan de soirée FW publié : ${recaps}`);
-        if (await postWeeklyTop(env.DB, announcer, env.SITE_URL)) {
+        const teams = await runFwSchedule(
+          {
+            db: env.DB,
+            discord: createDiscordApi(env),
+            fw: fwConfig(env),
+            random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
+            now: () => Date.now(),
+            capture: (shots) => captureScreens(env.BROWSER, env.SITE_URL, shots),
+          },
+          (now) => eveningsNeedingTeams(env.DB, now),
+        );
+        if (teams) console.log(`Équipes de FW faites : ${teams}`);
+        if (await postWeeklyTop(env.DB, createAnnouncer(env), env.SITE_URL)) {
           console.log('Top FW de la semaine publié');
         }
       })().catch((error) => console.error('Soirées FW en échec', error)),

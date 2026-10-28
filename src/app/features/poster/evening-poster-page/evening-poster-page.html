@@ -1,5 +1,5 @@
 <!-- data-ready : rien à charger (pas de logo d'équipe) ; le bot l'attend quand même. -->
-<article class="poster" data-ready aria-label="Affiche de la soirée FW">
+<article class="poster session" data-ready aria-label="Fiche de la FW">
   <div class="shards" aria-hidden="true">
     @for (corner of corners; track corner) {
       <div [class]="'shards__corner shards__corner--' + corner">
@@ -17,50 +17,58 @@
     }
   </div>
 
-  <header class="poster__head">
-    <img class="poster__brand" src="brand/friendly-wars-512.webp" width="170" height="170" alt="" />
-    <p class="poster__name">Friendly Wars</p>
-    <p class="poster__kind"><span>Soirée FW chill</span></p>
+  <header class="session__head">
+    <img class="session__brand" src="brand/friendly-wars-512.webp" width="120" height="120" alt="" />
+    <div>
+      <p class="session__org">Friendly Wars</p>
+      <h1 class="session__title">FW <span class="session__number">#{{ number() }}</span></h1>
+    </div>
   </header>
 
-  <section class="call">
-    <h1 class="call__title">
-      Inscriptions
-      <span class="call__open">ouvertes</span>
-    </h1>
-    <p class="call__how">
-      Clique sur <strong>« Je m'inscris »</strong> sous l'affiche, sur Discord.<br />
-      Plusieurs comptes ? Inscris-les tous.
-    </p>
-    <p class="call__late">
-      <span class="call__dot" aria-hidden="true"></span>
-      Tu peux nous rejoindre en cours de route
-    </p>
-  </section>
+  <p class="session__when">
+    @if (weekday(); as day) {
+      <span>{{ day }}</span>
+    }
+    <span>{{ shownDate() }}</span>
+    <span class="session__dot" aria-hidden="true"></span>
+    <span>{{ shownTime() }}</span>
+    <small>Heure de France ({{ offset() }})</small>
+  </p>
 
-  <dl class="facts">
+  <dl class="facts session__facts">
     <div class="fact">
-      <dt>Date</dt>
-      <dd>
-        @if (weekday(); as day) {
-          <span class="fact__day">{{ day }}</span>
-        }
-        {{ shownDate() }}
-      </dd>
+      <dt>Fin des inscriptions</dt>
+      <dd>{{ clocks().close }}</dd>
     </div>
     <div class="fact">
-      <dt>Heure</dt>
-      <dd>{{ shownTime() }}</dd>
-      <p class="fact__note">Heure de France ({{ offset() }})</p>
+      <dt>Équipes affichées</dt>
+      <dd>~ {{ clocks().teams }}</dd>
+      <p class="fact__note">Rééquilibrages possibles</p>
     </div>
     <div class="fact">
-      <dt>Programme</dt>
-      <dd class="fact__programme">{{ programme() }}</dd>
+      <dt>Équipes</dt>
+      <dd class="session__mode">{{ random() ? 'Random' : 'Libres' }}</dd>
+      <p class="fact__note">{{ random() ? 'Tirées au hasard' : 'Violette ou verte, au choix' }}</p>
     </div>
   </dl>
 
-  <footer class="poster__foot">
-    <span>Friendly Wars</span>
+  <section class="session__format">
+    <p class="session__label">Format</p>
+    <p class="session__format-name">{{ format() }}</p>
+    <ul class="session__rules">
+      @for (rule of rules(); track $index) {
+        <li>{{ rule }}</li>
+      }
+    </ul>
+  </section>
+
+  <p class="session__late">
+    <span class="session__live" aria-hidden="true"></span>
+    Tu peux nous rejoindre en cours de route
+  </p>
+
+  <footer class="poster__foot session__foot">
+    <span>Inscriptions sur Discord</span>
     @if (discord) {
       <span class="poster__discord">
         <span class="poster__discord-label">Discord</span>

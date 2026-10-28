@@ -15,7 +15,8 @@ export function message(reply: Reply) {
   return {
     content: reply.content.slice(0, 2000), // limite de Discord
     flags: SUPPRESS_EMBEDS | (reply.ephemeral ? EPHEMERAL : 0),
-    allowed_mentions: { parse: [] },
+    // Seuls les rôles cités dans `mentionRoles` sont notifiés (annonce d'une FW).
+    allowed_mentions: { parse: [], ...(reply.mentionRoles ? { roles: reply.mentionRoles } : {}) },
     // Boutons et listes sous le message (`[]` les retire).
     ...(reply.components ? { components: reply.components } : {}),
   };

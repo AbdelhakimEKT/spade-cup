@@ -15,6 +15,16 @@ export const CLANS: readonly ClanRef[] = [
   { tag: '#2VVV', name: 'Lyra' },
 ];
 
+/** Salons et rôle des soirées FW, pour les tests. */
+export const FW_CONFIG = {
+  signupChannel: 'c-inscription',
+  announceChannel: 'c-annonce',
+  ticketsChannel: 'c-tickets',
+  role: 'r-fw',
+  resultsChannel: 'c-resultats',
+  firstNumber: 41,
+};
+
 /** « Maintenant » pour les soirées FW : mardi 27/10/2026, 18 h (heure de Paris). */
 export const NOW_FW = Date.UTC(2026, 9, 27, 17);
 
@@ -134,6 +144,9 @@ export function botContext(
     random: seededRandom(),
     now: () => NOW_FW,
     managerRoles: ['r-admin', 'r-modo'],
+    discord: null,
+    fw: FW_CONFIG,
+    background: () => undefined,
     capture: async (shots) => shots.map(() => FAKE_PNG),
     publish: (_t, _bracket, outcome) => void published.push(outcome),
     published,
