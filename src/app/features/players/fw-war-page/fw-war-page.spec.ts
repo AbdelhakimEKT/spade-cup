@@ -25,6 +25,15 @@ describe('FwWarPage', () => {
     expect(TestBed.inject(Title).getTitle()).toBe('FW-team1 – FW-team2 · Friendly Wars');
   });
 
+  it('mode capture (image Discord) : ni lien de retour ni filtres, signature du site', async () => {
+    const { el, reply } = await openPage(FwWarPage, { id: '1', capture: true });
+    await reply('/fw/wars/1', fwWarDetail());
+    expect(el.querySelector('sc-back-link')).toBeNull();
+    expect(el.querySelector('.filter')).toBeNull();
+    expect(el.querySelector('sc-war-players-table')).not.toBeNull();
+    expect(el.querySelector('.capture-url')?.textContent).toMatch(/\/fw\/\d+$/);
+  });
+
   it('les joueurs qui ont attaqué, triés par étoiles ; pas les comptes de lancement', async () => {
     const { el, reply, fixture } = await openPage(FwWarPage, { id: '1' });
     await reply('/fw/wars/1', fwWarDetail()); // 10 joueurs, dont 2 sans attaque

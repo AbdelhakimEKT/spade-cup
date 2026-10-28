@@ -32,8 +32,11 @@ export interface RankedPlayer {
   readonly durationPerAttack: number;
 }
 
-/** Il faut au moins 2 attaques sur la soirée pour être classé. */
-export const EVENING_MIN_ATTACKS = 2;
+/**
+ * Une attaque sur la soirée suffit pour être classé (au prorata) : seuls les
+ * comptes qui n'ont pas attaqué (ceux qui complètent les équipes) sont exclus.
+ */
+export const EVENING_MIN_ATTACKS = 1;
 
 /**
  * Le classement : étoiles par attaque, puis destruction moyenne, puis le plus
@@ -141,4 +144,68 @@ export function isMonday(value: string): boolean {
 export function weekLabel(monday: string): string {
   const short = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
   return `du ${short(monday)} au ${short(addDays(monday, 6))}`;
+}
+
+// ------------------------------------------------------------ mois, périodes
+
+/** Les FW enregistrées commencent en octobre 2026 : rien à montrer avant. */
+export const FIRST_WEEK = '2026-10-19';
+export const FIRST_MONTH = '2026-10';
+
+/** Une période du classement FW : une semaine (son lundi) ou un mois (« 2026-10 »). */
+export type FwPeriod =
+  | { readonly kind: 'week'; readonly value: string }
+  | { readonly kind: 'month'; readonly value: string };
+
+/** Le mois de cet instant (heure de Paris) : « 2026-10 ». */
+export function monthOf(ms: number): string {
+  return weekDay(ms).slice(0, 7);
+}
+
+/** « 2026-10-28 » : le jour de cet instant, heure de Paris. */
+function weekDay(ms: number): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: PARIS,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(ms));
+}
+
+/** Un mois bien écrit ? (paramètre d'adresse) */
+export function isMonth(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})$/.exec(value);
+  return !!m && Number(m[2]) >= 1 && Number(m[2]) <= 12;
+}
+
+/** Le mois précédent : « 2026-01 » → « 2025-12 ». */
+export function previousMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+
+/** Le mois qui commence le 1er : [début, fin[ en millisecondes (minuit, heure de Paris). */
+export function monthRange(month: string): { readonly start: number; readonly end: number } {
+  const [y, m] = month.split('-').map(Number);
+  const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+  return { start: parisMidnight(`${month}-01`), end: parisMidnight(`${next}-01`) };
+}
+
+/** « octobre 2026 ». */
+export function monthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Intl.DateTimeFormat('fr-FR', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, 15)));
+}
+
+export function periodRange(p: FwPeriod): { readonly start: number; readonly end: number } {
+  return p.kind === 'week' ? weekRange(p.value) : monthRange(p.value);
+}
+
+/** « du 26/10 au 01/11 » ou « en octobre 2026 ». */
+export function periodLabel(p: FwPeriod): string {
+  return p.kind === 'week' ? weekLabel(p.value) : `en ${monthLabel(p.value)}`;
 }

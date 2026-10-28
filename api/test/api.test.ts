@@ -92,6 +92,8 @@ describe('API HTTP', () => {
     expect((await call('/fw/wars?week=2026-10-26')).status).toBe(200);
     expect((await call('/fw/players?week=2026-10-27')).status).toBe(400);
     expect((await call('/fw/players?week=semaine')).status).toBe(400);
+    expect((await call('/fw/players?month=2026-10')).status).toBe(200);
+    expect((await call('/fw/wars?month=2026-13')).status).toBe(400);
   });
 
   it('GET /fw/players et /fw/wars : vides tant qu’aucune FW classique n’est enregistrée', async () => {

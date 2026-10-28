@@ -1,6 +1,8 @@
 @if (detail(); as d) {
   @let v = view()!;
-  <sc-back-link fallback="/joueurs?type=fw" fallbackLabel="Classement des FW classiques" />
+  @if (!capture()) {
+    <sc-back-link fallback="/joueurs?type=fw" fallbackLabel="Classement des FW classiques" />
+  }
 
   <header class="page-head">
     <p class="eyebrow">
@@ -62,31 +64,35 @@
   <section class="section">
     <div class="section-head">
       <h2 class="section-title">Joueur par joueur</h2>
-      <div class="filter" role="group" aria-label="Afficher">
-        <button type="button" [attr.aria-pressed]="only() === null" (click)="only.set(null)">
-          Tous
-        </button>
-        @for (s of [v.left, v.right]; track s.tag) {
-          <button
-            type="button"
-            [class]="'team--' + s.color"
-            [attr.aria-pressed]="only() === s.side"
-            (click)="only.set(s.side)"
-          >
-            {{ s.name }}
+      @if (!capture()) {
+        <div class="filter" role="group" aria-label="Afficher">
+          <button type="button" [attr.aria-pressed]="only() === null" (click)="only.set(null)">
+            Tous
           </button>
-        }
-      </div>
+          @for (s of [v.left, v.right]; track s.tag) {
+            <button
+              type="button"
+              [class]="'team--' + s.color"
+              [attr.aria-pressed]="only() === s.side"
+              (click)="only.set(s.side)"
+            >
+              {{ s.name }}
+            </button>
+          }
+        </div>
+      }
     </div>
     @if (shown().length || only()) {
-      <p class="muted hint">
-        Clique sur une colonne pour trier, reclique pour inverser l'ordre.
-        @if (launchers()) {
-          {{ launchers() }}
-          {{ launchers() > 1 ? 'comptes' : 'compte' }} sans attaque (lancement de la FW)
-          {{ launchers() > 1 ? 'ne sont pas affichés' : "n'est pas affiché" }}.
-        }
-      </p>
+      @if (!capture()) {
+        <p class="muted hint">
+          Clique sur une colonne pour trier, reclique pour inverser l'ordre.
+          @if (launchers()) {
+            {{ launchers() }}
+            {{ launchers() > 1 ? 'comptes' : 'compte' }} sans attaque (lancement de la FW)
+            {{ launchers() > 1 ? 'ne sont pas affichés' : "n'est pas affiché" }}.
+          }
+        </p>
+      }
       <sc-war-players-table
         [players]="shown()"
         [teams]="teams()"
@@ -97,6 +103,9 @@
       <p class="muted">Aucune attaque enregistrée pour cette FW.</p>
     }
   </section>
+  @if (capture()) {
+    <p class="capture-url">{{ siteHost }}/fw/{{ d.war.id }}</p>
+  }
 } @else if (notFound()) {
   <h1 class="page-title">FW introuvable</h1>
   <p class="muted">

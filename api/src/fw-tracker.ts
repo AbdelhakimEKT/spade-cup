@@ -51,10 +51,12 @@ export async function trackFriendlyWars(
   coc: CocClient,
   clans: readonly string[],
   now: number = Date.now(),
-): Promise<{ current: TrackResult; recovered: number }> {
-  if (clans.length < 2) return { current: 'nothing', recovered: 0 };
+): Promise<{ current: TrackResult; recovered: number; added: number[] }> {
+  if (clans.length < 2) return { current: 'nothing', recovered: 0, added: [] };
   let current: TrackResult = 'nothing';
   let gameAnswered = false;
+  // Les FW enregistrées pour la première fois à ce passage (leur identifiant).
+  const added: number[] = [];
 
   for (const tag of clans) {
     const result = await coc.currentWar(tag);
@@ -71,13 +73,13 @@ export async function trackFriendlyWars(
     if (war.state === 'inWar') {
       await saveSnapshot(db, key, war, now);
     } else if (war.state === 'warEnded') {
-      current = await recordWar(db, clans, key, war, true);
+      current = await recordWar(db, clans, key, war, true, added);
     }
     break; // les deux clans voient la même guerre : inutile de demander à l'autre
   }
 
-  const recovered = await recoverMissed(db, clans, now, gameAnswered);
-  return { current, recovered };
+  const recovered = await recoverMissed(db, clans, now, gameAnswered, added);
+  return { current, recovered, added };
 }
 
 /** Garde (ou remplace) le dernier état vu d'une FW en cours. */
@@ -101,6 +103,7 @@ async function recordWar(
   key: string,
   war: CocWar,
   complete: boolean,
+  added: number[],
 ): Promise<TrackResult> {
   const known = await db
     .prepare('SELECT complete FROM friendly_wars WHERE war_key = ?')
@@ -123,6 +126,14 @@ async function recordWar(
     ...recordStatements(key, war, home, away, reading, complete),
     { sql: 'DELETE FROM fw_snapshots WHERE war_key = ?', params: [key] },
   ]);
+  // Une version partielle remplacée par la complète n'est pas une nouvelle FW.
+  if (!known) {
+    const row = await db
+      .prepare('SELECT id FROM friendly_wars WHERE war_key = ?')
+      .bind(key)
+      .first<{ id: number }>();
+    if (row) added.push(row.id);
+  }
   return 'recorded';
 }
 
@@ -137,6 +148,7 @@ async function recoverMissed(
   clans: readonly string[],
   now: number,
   gameAnswered: boolean,
+  added: number[],
 ): Promise<number> {
   const { results } = await db
     .prepare('SELECT war_key, war_json FROM fw_snapshots')
@@ -147,7 +159,7 @@ async function recoverMissed(
     const ended = cocTime(war.endTime);
     const waited = Number.isNaN(ended) ? Infinity : now - ended;
     if (waited < RECOVERY_GRACE_MS || (!gameAnswered && waited < 30 * 60 * 1000)) continue;
-    if ((await recordWar(db, clans, row.war_key, war, false)) === 'recorded') recovered++;
+    if ((await recordWar(db, clans, row.war_key, war, false, added)) === 'recorded') recovered++;
     await db.prepare('DELETE FROM fw_snapshots WHERE war_key = ?').bind(row.war_key).run();
   }
   return recovered;

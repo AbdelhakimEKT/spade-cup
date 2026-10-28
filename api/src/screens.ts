@@ -21,7 +21,9 @@ export type Shot =
   /** Affiche d'un match : `query` = paramètres de /affiche (voir posterQuery). */
   | { readonly kind: 'poster'; readonly query: string }
   /** Affiche d'une soirée FW : `query` = paramètres de /affiche/soiree (j, h, n). */
-  | { readonly kind: 'evening'; readonly query: string };
+  | { readonly kind: 'evening'; readonly query: string }
+  /** Le récap joueur par joueur d'une FW classique (page /fw/:id). */
+  | { readonly kind: 'fw'; readonly id: number };
 
 /**
  * Ce que chaque image doit montrer : l'élément photographié, celui dont on
@@ -34,6 +36,15 @@ function plan(shot: Shot): {
   width: number;
   scale: number;
 } {
+  if (shot.kind === 'fw') {
+    return {
+      path: `/fw/${shot.id}?capture`,
+      selector: 'sc-fw-war-page',
+      ready: 'sc-fw-war-page sc-war-players-table table',
+      width: 1300, // les colonnes du tableau tiennent sur une ligne
+      scale: 1.5,
+    };
+  }
   if (shot.kind === 'evening') {
     return {
       path: `/affiche/soiree?${shot.query}`,

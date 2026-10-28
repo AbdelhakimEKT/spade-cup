@@ -35,14 +35,21 @@
   <label class="period">
     <span>Période</span>
     <select
-      name="semaine"
-      [value]="week() ?? ''"
-      (change)="chooseWeek($any($event.target).value)"
+      name="periode"
+      [value]="periodValue()"
+      (change)="choosePeriod($any($event.target).value)"
     >
       <option value="">Depuis le début</option>
-      @for (w of weeks(); track w.value) {
-        <option [value]="w.value" [selected]="w.value === week()">{{ w.label }}</option>
-      }
+      <optgroup label="Par semaine">
+        @for (w of weeks(); track w.value) {
+          <option [value]="w.value" [selected]="w.value === periodValue()">{{ w.label }}</option>
+        }
+      </optgroup>
+      <optgroup label="Par mois">
+        @for (m of months(); track m.value) {
+          <option [value]="m.value" [selected]="m.value === periodValue()">{{ m.label }}</option>
+        }
+      </optgroup>
     </select>
   </label>
 
@@ -53,13 +60,13 @@
         [showClan]="false"
         [limit]="15"
         [caption]="
-          weekText()
-            ? 'Classement des FW classiques ' + weekText()
+          periodText()
+            ? 'Classement des FW classiques ' + periodText()
             : 'Classement des FW classiques'
         "
       />
-    } @else if (weekText()) {
-      <p class="panel">Aucune FW classique jouée {{ weekText() }}.</p>
+    } @else if (periodText()) {
+      <p class="panel">Aucune FW classique jouée {{ periodText() }}.</p>
     } @else {
       <p class="panel">
         Aucune FW classique enregistrée pour l'instant : la première arrivera bientôt.
@@ -71,7 +78,15 @@
 
   @if (fwWars.hasValue() && fwWars.value().length) {
     <section class="section">
-      <h2 class="section-title">{{ weekText() ? 'Les FW de la semaine' : 'Dernières FW' }}</h2>
+      <h2 class="section-title">
+        {{
+          period()?.kind === 'week'
+            ? 'Les FW de la semaine'
+            : period()?.kind === 'month'
+              ? 'Les FW du mois'
+              : 'Dernières FW'
+        }}
+      </h2>
       <sc-fw-war-list [wars]="fwWars.value()" />
     </section>
   }

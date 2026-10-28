@@ -10,20 +10,13 @@ import {
   currentEvening,
   eveningsNeedingTeams,
   getEvening,
+  postFwRecaps,
   postWeeklyTop,
   signupsOf,
 } from '../src/fw-evenings';
 import { toSqliteTime } from '../src/repository';
 import { listFriendlyWars, listFwPlayers } from '../src/stats-repository';
-import {
-  MEMBER,
-  MODO,
-  NOW_FW,
-  OTHER_MEMBER,
-  botContext,
-  fakeAnnouncer,
-  type Who,
-} from './helpers';
+import { MEMBER, MODO, NOW_FW, OTHER_MEMBER, botContext, fakeAnnouncer, type Who } from './helpers';
 
 const db = () => env.DB;
 
@@ -71,7 +64,11 @@ function setup() {
 }
 
 /** « /fw <sub> … » tapé par `who`. */
-function fw(sub: string, values: Record<string, string | number> = {}, who: Who = MODO): Interaction {
+function fw(
+  sub: string,
+  values: Record<string, string | number> = {},
+  who: Who = MODO,
+): Interaction {
   return {
     type: 2,
     token: 'jeton',
@@ -253,7 +250,9 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
       },
     };
     const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), blocked);
-    expect(reply.content).toMatch(/Impossible de poster dans <#c-inscription>.*Rien n’a été annoncé/);
+    expect(reply.content).toMatch(
+      /Impossible de poster dans <#c-inscription>.*Rien n’a été annoncé/,
+    );
     expect(discord.sent).toEqual([]);
     expect(await currentEvening(db())).toBeNull();
   });
@@ -405,7 +404,9 @@ describe('équipes libres : chacun choisit la sienne', () => {
     await settle();
     expect(discord.latest(signupId)!.content).toContain('🟢 **FW-Team 2 (1)**');
     // Et sous la fiche, sans attendre le tirage.
-    expect(JSON.stringify(discord.latest(signupId)!.components)).toContain('Rejoindre la FW-Team 1');
+    expect(JSON.stringify(discord.latest(signupId)!.components)).toContain(
+      'Rejoindre la FW-Team 1',
+    );
   });
 });
 
@@ -489,7 +490,7 @@ async function threeWars(): Promise<void> {
       stars: s,
       destruction: 60 + s * 13,
     }));
-  // Joueur 5 ne fait qu'une attaque (pas classé) ; « Remplissage » aucune.
+  // Joueur 5 ne fait qu'une attaque (classé quand même, au prorata) ; « Remplissage » aucune.
   await addWar(START, [
     ...players([3, 2, 2, 1, 3, 3]),
     { tag: '#P6', name: 'Remplissage', attacks: 0, stars: 0, destruction: 0 },
@@ -498,15 +499,52 @@ async function threeWars(): Promise<void> {
   await addWar(START + 40 * 60_000, players([3, 2, 3, 2, 1]));
 }
 
+describe('récap de chaque FW dans #statistiques-joueurs', () => {
+  it('le tableau en image, sans ping ; pas pour une vieille FW ; rien sans salon', async () => {
+    await threeWars();
+    const ids = (
+      await db().prepare('SELECT id FROM friendly_wars ORDER BY id').all<{ id: number }>()
+    ).results.map((r) => r.id);
+    const { announcer, inChannel, shots } = fakeAnnouncer();
+    const soon = START + 60 * 60_000;
+    expect(await postFwRecaps(db(), announcer, ids, 'https://site.test', soon)).toBe(3);
+    expect(shots[0]).toEqual(ids.map((id) => ({ kind: 'fw', id })));
+    const [first] = inChannel('stats');
+    expect(first.content).toBe(
+      '⚔️ FW terminée · **FW-team1** 10 ★ – 9 ★ **FW-team2** · victoire de **FW-team1**',
+    );
+    expect(first.files?.[0].name).toBe(`fw-${ids[0]}.png`);
+    expect(first.mentionRoles).toBeUndefined();
+    expect(first.mentionUsers).toBeUndefined();
+
+    // Une FW finie il y a plus de 3 heures (rattrapage) : rien.
+    expect(
+      await postFwRecaps(db(), announcer, ids, 'https://site.test', START + 6 * 3_600_000),
+    ).toBe(0);
+    const off = { ...announcer, can: () => false };
+    expect(await postFwRecaps(db(), off, ids, 'https://site.test', soon)).toBe(0);
+  });
+
+  it('image impossible : le texte et le lien', async () => {
+    await threeWars();
+    const [{ id }] = (
+      await db().prepare('SELECT id FROM friendly_wars LIMIT 1').all<{ id: number }>()
+    ).results;
+    const { announcer, inChannel } = fakeAnnouncer({ failCapture: true });
+    await postFwRecaps(db(), announcer, [id], 'https://site.test', START + 60 * 60_000);
+    expect(inChannel('stats')[0].content).toContain(`https://site.test/fw/${id}`);
+  });
+});
+
 describe('top 10 de la semaine, le lundi', () => {
   const MONDAY_10H = Date.UTC(2026, 10, 2, 9, 5); // lundi 02/11, 10h05 à Paris
 
   it('lundi 10 h : le top de la semaine passée, une seule fois', async () => {
     await threeWars();
     const { announcer, inChannel } = fakeAnnouncer();
-    expect(
-      await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H - 3_600_000),
-    ).toBe(false);
+    expect(await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H - 3_600_000)).toBe(
+      false,
+    );
     expect(await postWeeklyTop(db(), announcer, 'https://site.test', MONDAY_10H)).toBe(true);
     const [top] = inChannel('stats');
     expect(top.content).toMatch(

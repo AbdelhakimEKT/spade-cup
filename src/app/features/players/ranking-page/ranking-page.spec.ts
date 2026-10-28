@@ -66,9 +66,20 @@ describe('RankingPage', () => {
     });
     answer('/fw/players?week=2026-10-26', [player(1)]);
     await reply('/fw/wars?week=2026-10-26', [friendlyWar()]);
-    expect(el.querySelector<HTMLSelectElement>('.period select')?.value).toBe('2026-10-26');
+    expect(el.querySelector<HTMLSelectElement>('.period select')?.value).toBe('semaine:2026-10-26');
     expect(el.querySelector('caption')?.textContent).toContain('du 26/10 au 01/11');
-    expect(el.querySelector('.section-title')?.textContent).toBe('Les FW de la semaine');
+    expect(el.querySelector('.section-title')?.textContent?.trim()).toBe('Les FW de la semaine');
+  });
+
+  it('?type=fw&mois=2026-10 : le classement du mois ; menu à partir du 19/10 et d’octobre', async () => {
+    const { el, answer, reply } = await openPage(RankingPage, { type: 'fw', mois: '2026-10' });
+    answer('/fw/players?month=2026-10', [player(1)]);
+    await reply('/fw/wars?month=2026-10', [friendlyWar()]);
+    expect(el.querySelector<HTMLSelectElement>('.period select')?.value).toBe('mois:2026-10');
+    expect(el.querySelector('.section-title')?.textContent?.trim()).toBe('Les FW du mois');
+    const options = [...el.querySelectorAll('.period option')].map((o) => o.getAttribute('value'));
+    expect(options.at(-1)).toBe('mois:2026-10');
+    expect(options.filter((v) => v?.startsWith('semaine:')).at(-1)).toBe('semaine:2026-10-19');
   });
 
   it('?type=fw&semaine=… sans FW cette semaine : le dit', async () => {

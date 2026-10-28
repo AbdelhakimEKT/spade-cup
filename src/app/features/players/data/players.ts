@@ -1,5 +1,6 @@
 import { HttpResourceRef, httpResource } from '@angular/common/http';
 import { Service } from '@angular/core';
+import { FwPeriod } from '../../../core/fw/evening';
 import { SITE_CONFIG } from '../../../core/site-config';
 import {
   FriendlyWarSummary,
@@ -8,7 +9,9 @@ import {
   PlayerTotals,
 } from '../../../core/tournament/stats';
 
-const weekQuery = (week: string | null) => (week ? `?week=${encodeURIComponent(week)}` : '');
+/** « ?week=2026-10-26 », « ?month=2026-10 », ou rien. */
+const periodQuery = (p: FwPeriod | null) =>
+  p ? `?${p.kind}=${encodeURIComponent(p.value)}` : '';
 
 /** Statistiques des joueurs, lues sur le serveur. Même principe que `Tournaments`. */
 @Service()
@@ -33,24 +36,24 @@ export class Players {
 
   /**
    * Classement des FW classiques (hors tournoi), demandé seulement si `active()` :
-   * depuis le début, ou la semaine du lundi `week()` (« 2026-10-26 »).
+   * depuis le début, ou sur une période (une semaine, un mois).
    */
   fwRanking(
     active: () => boolean,
-    week: () => string | null = () => null,
+    period: () => FwPeriod | null = () => null,
   ): HttpResourceRef<readonly PlayerTotals[] | undefined> {
     return httpResource<readonly PlayerTotals[]>(() =>
-      active() ? `${this.api}/fw/players${weekQuery(week())}` : undefined,
+      active() ? `${this.api}/fw/players${periodQuery(period())}` : undefined,
     );
   }
 
-  /** Les dernières FW classiques (ou celles de la semaine), demandées seulement si `active()`. */
+  /** Les dernières FW classiques (ou celles de la période), demandées seulement si `active()`. */
   fwWars(
     active: () => boolean,
-    week: () => string | null = () => null,
+    period: () => FwPeriod | null = () => null,
   ): HttpResourceRef<readonly FriendlyWarSummary[] | undefined> {
     return httpResource<readonly FriendlyWarSummary[]>(() =>
-      active() ? `${this.api}/fw/wars${weekQuery(week())}` : undefined,
+      active() ? `${this.api}/fw/wars${periodQuery(period())}` : undefined,
     );
   }
 

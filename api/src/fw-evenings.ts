@@ -17,6 +17,7 @@ import {
 import type { Announcer } from './announcements';
 import type { CocPlayer } from './coc';
 import { sqliteTime, toSqliteTime } from './repository';
+import { getFriendlyWar } from './stats-repository';
 
 /**
  * Les soirées FW (« FW #41 ») : leur fiche, les comptes inscrits et leurs
@@ -371,9 +372,7 @@ export async function removeSignups(
   discordId: string,
 ): Promise<string[]> {
   const { results } = await db
-    .prepare(
-      'DELETE FROM fw_signups WHERE evening_id = ? AND discord_id = ? RETURNING player_name',
-    )
+    .prepare('DELETE FROM fw_signups WHERE evening_id = ? AND discord_id = ? RETURNING player_name')
     .bind(eveningId, discordId)
     .all<{ player_name: string }>();
   return results.map((r) => r.player_name);
@@ -477,11 +476,11 @@ export function eveningRecapText(
     `${wars} FW jouée${wars > 1 ? 's' : ''}`;
   const link = `📊 Toutes les stats : ${siteUrl}/joueurs?type=fw&semaine=${weekOf(evening.startsAt)}`;
   if (ranked.length === 0) {
-    return `${header}\nPersonne n'a fait 2 attaques : pas de classement cette fois.\n${link}`;
+    return `${header}\nAucune attaque enregistrée : pas de classement cette fois.\n${link}`;
   }
   return [
     header,
-    '**Top 5 des joueurs** (étoiles par attaque, 2 attaques minimum)',
+    '**Top 5 des joueurs** (moyenne d’étoiles par attaque)',
     ...podium(ranked.slice(0, 5)),
     '',
     'Merci à tous d’être venus ! ⚔️',
@@ -555,4 +554,62 @@ export async function postWeeklyTop(
     content: weeklyTopText(monday, wars, rankPlayers(lines, WEEK_MIN_ATTACKS), siteUrl),
   });
   return true;
+}
+
+// ------------------------------------------------------------ récap de chaque FW
+
+/** Une FW finie il y a plus longtemps n'est pas postée (rattrapage d'un vieux relevé). */
+const RECAP_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+/** « ⚔️ FW terminée · FW-team1 12 ★ – 10 ★ FW-team2 · victoire de FW-team1 ». */
+export function fwRecapText(war: {
+  home: { name: string; stars: number };
+  away: { name: string; stars: number };
+  winner: 'home' | 'away' | null;
+  partial: boolean;
+}): string {
+  const { home, away } = war;
+  const result = war.winner
+    ? `victoire de **${escapeMarkdown(war[war.winner].name)}**`
+    : 'égalité parfaite';
+  return (
+    `⚔️ FW terminée · **${escapeMarkdown(home.name)}** ${home.stars} ★ – ${away.stars} ★ ` +
+    `**${escapeMarkdown(away.name)}** · ${result}` +
+    (war.partial ? '\n_Relevé partiel : les toutes dernières attaques peuvent manquer._' : '')
+  );
+}
+
+/**
+ * À la fin de chaque FW : son tableau joueur par joueur (la page du site,
+ * photographiée) dans #statistiques-joueurs. Sans aucun ping. Rien si le
+ * salon n'est pas configuré ; le texte seul si l'image échoue.
+ */
+export async function postFwRecaps(
+  db: D1Database,
+  announcer: Announcer,
+  ids: readonly number[],
+  siteUrl: string,
+  now = Date.now(),
+): Promise<number> {
+  if (ids.length === 0 || !announcer.can('stats')) return 0;
+  const wars = [];
+  for (const id of ids) {
+    const detail = await getFriendlyWar(db, id);
+    const ended = detail?.war.endedAt ? Date.parse(detail.war.endedAt) : now;
+    if (detail && now - ended < RECAP_MAX_AGE_MS) wars.push(detail.war);
+  }
+  if (wars.length === 0) return 0;
+  let images: Uint8Array[] | null = null;
+  try {
+    images = await announcer.capture(wars.map((w) => ({ kind: 'fw' as const, id: w.id })));
+  } catch (error) {
+    console.error('Images des FW impossibles', error);
+  }
+  for (const [i, war] of wars.entries()) {
+    await announcer.post('stats', {
+      content: fwRecapText(war) + (images ? '' : `\n${siteUrl}/fw/${war.id}`),
+      ...(images ? { files: [{ name: `fw-${war.id}.png`, data: images[i] }] } : {}),
+    });
+  }
+  return wars.length;
 }

@@ -1,8 +1,9 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, booleanAttribute, computed, effect, inject, input, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { fullTitle } from '../../../core/page-title';
+import { SITE_CONFIG } from '../../../core/site-config';
 import { formatDuration } from '../../../core/tournament/format';
 import { Side } from '../../../core/tournament/models';
 import { RequestState } from '../../../shared/request-state/request-state';
@@ -20,10 +21,17 @@ import { Players } from '../data/players';
   imports: [BackLink, DatePipe, DecimalPipe, RequestState, RouterLink, WarPlayersTable],
   templateUrl: './fw-war-page.html',
   styleUrl: './fw-war-page.scss',
+  host: { '[class.capture]': 'capture()' },
 })
 export class FwWarPage {
   /** L'identifiant de la FW, lu dans l'adresse (/fw/12). */
   readonly id = input.required<string>();
+  /**
+   * /fw/12?capture : sans lien de retour ni filtres, avec l'adresse du site en
+   * signature, pour l'image que le bot poste dans #statistiques-joueurs.
+   */
+  readonly capture = input(false, { transform: booleanAttribute });
+  protected readonly siteHost = SITE_CONFIG.siteUrl.replace(/^https:\/\//, '');
 
   protected readonly request = inject(Players).fwWar(this.id);
   protected readonly detail = computed(() =>

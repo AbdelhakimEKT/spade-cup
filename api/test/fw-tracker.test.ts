@@ -52,8 +52,12 @@ describe('fwClans et warKey', () => {
 describe('trackFriendlyWars', () => {
   it('enregistre une FW terminée UNE fois, avec ses 20 joueurs', async () => {
     const game = coc({ '#2JVUP2PGC': ok(REAL_FRIENDLY_WAR) });
-    expect((await trackFriendlyWars(db(), game, CLANS)).current).toBe('recorded');
-    expect((await trackFriendlyWars(db(), game, CLANS)).current).toBe('known'); // 5 minutes plus tard
+    const first = await trackFriendlyWars(db(), game, CLANS);
+    expect(first.current).toBe('recorded');
+    expect(first.added).toHaveLength(1); // une nouvelle FW : son identifiant
+    const again = await trackFriendlyWars(db(), game, CLANS); // 5 minutes plus tard
+    expect(again.current).toBe('known');
+    expect(again.added).toEqual([]);
 
     const [war] = await listFriendlyWars(db());
     expect(war).toMatchObject({
@@ -206,7 +210,8 @@ describe('filet de sécurité : une FW relancée aussitôt la précédente finie
       CLANS,
       END + 3 * 60_000,
     );
-    expect(later).toEqual({ current: 'nothing', recovered: 1 });
+    expect(later).toMatchObject({ current: 'nothing', recovered: 1 });
+    expect(later.added).toHaveLength(1);
 
     const [war] = await listFriendlyWars(db());
     expect(war).toMatchObject({ partial: true, home: { stars: 13 }, away: { stars: 11 } });

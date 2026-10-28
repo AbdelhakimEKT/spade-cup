@@ -14,12 +14,12 @@ import {
   listPlayers,
 } from './stats-repository';
 import { fwClans, trackFriendlyWars } from './fw-tracker';
-import { eveningsNeedingTeams, postWeeklyTop } from './fw-evenings';
+import { eveningsNeedingTeams, postFwRecaps, postWeeklyTop } from './fw-evenings';
 import { fwConfig, runFwSchedule } from './discord/fw';
 import { createDiscordApi } from './discord/rest';
 import { captureScreens } from './screens';
 import { getLiveWars } from './live';
-import { isMonday, weekRange } from '../../src/app/core/fw/evening';
+import { isMonday, isMonth, monthRange, weekRange } from '../../src/app/core/fw/evening';
 import { runWatch, type WatchDeps } from './watch';
 
 /**
@@ -33,8 +33,9 @@ import { runWatch, type WatchDeps } from './watch';
  *   GET /players[?tournament=slug]             classement des joueurs
  *   GET /players/:tag                          fiche d'un joueur (tag sans « # »)
  *   GET /clans/:tag                            fiche d'un clan (tag sans « # »)
- *   GET /fw/players · GET /fw/wars [?week=…]   FW classiques : classement, dernières guerres
- *                                              (?week=2026-10-26 : la semaine de ce lundi)
+ *   GET /fw/players · GET /fw/wars [?week=…|?month=…]  FW classiques : classement, guerres
+ *                                              (?week=2026-10-26 : la semaine de ce lundi ;
+ *                                               ?month=2026-10 : le mois)
  *   GET /fw/wars/:id                           une FW classique et ses joueurs
  *   GET /live                                  guerres en train de se jouer (en direct)
  *
@@ -77,13 +78,16 @@ export default {
    * sont suivies.
    */
   async scheduled(_event, env, ctx): Promise<void> {
-    // FW classiques : seulement des stats, aucune annonce.
+    // FW classiques : les stats, et le tableau de chaque FW finie dans
+    // #statistiques-joueurs (sans ping).
     ctx.waitUntil(
       trackFriendlyWars(env.DB, createCocClient(env), fwClans(env.FW_CLANS))
-        .then(({ current, recovered }) => {
+        .then(async ({ current, recovered, added }) => {
           if (current === 'recorded') console.log('FW classique enregistrée');
           if (recovered)
             console.log(`FW reconstituée(s) d'après le dernier état vu : ${recovered}`);
+          const posted = await postFwRecaps(env.DB, createAnnouncer(env), added, env.SITE_URL);
+          if (posted) console.log(`Récap de FW posté : ${posted}`);
         })
         .catch((error) => console.error('Suivi des FW en échec', error)),
     );
@@ -187,13 +191,16 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
   }
   // FW classiques (hors tournoi) : classement et dernières guerres.
   if (pathname === '/fw/players' || pathname === '/fw/wars') {
-    // ?week=2026-10-26 : seulement la semaine de ce lundi (lundi 0 h → lundi suivant, Paris).
+    // ?week=2026-10-26 : la semaine de ce lundi (lundi 0 h → lundi suivant, Paris) ;
+    // ?month=2026-10 : le mois.
     const week = params.get('week');
+    const month = params.get('month');
     if (week !== null && !isMonday(week)) return errorResponse(400, 'Semaine invalide (un lundi).');
-    const period = week ? weekRange(week) : undefined;
+    if (month !== null && !isMonth(month)) return errorResponse(400, 'Mois invalide (2026-10).');
+    const period = week ? weekRange(week) : month ? monthRange(month) : undefined;
     return pathname === '/fw/players'
       ? json(await listFwPlayers(env.DB, period), 200, SHORT_CACHE)
-      : json(await listFriendlyWars(env.DB, week ? 100 : 30, period), 200, SHORT_CACHE);
+      : json(await listFriendlyWars(env.DB, period ? 300 : 30, period), 200, SHORT_CACHE);
   }
   if ((m = /^\/fw\/wars\/(\d{1,9})$/.exec(pathname))) {
     return found(await getFriendlyWar(env.DB, Number(m[1])), 'FW introuvable.');

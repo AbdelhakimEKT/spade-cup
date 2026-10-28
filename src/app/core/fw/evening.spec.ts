@@ -1,4 +1,8 @@
 import {
+  isMonth,
+  monthLabel,
+  monthOf,
+  monthRange,
   isMonday,
   previousWeek,
   rankPlayers,
@@ -8,7 +12,13 @@ import {
   type FwLine,
 } from './evening';
 
-const line = (tag: string, stars: number, attacks = 1, destruction = 90, duration = 150): FwLine => ({
+const line = (
+  tag: string,
+  stars: number,
+  attacks = 1,
+  destruction = 90,
+  duration = 150,
+): FwLine => ({
   tag,
   name: `Joueur ${tag}`,
   attacks,
@@ -41,10 +51,16 @@ describe('classement d’une soirée FW', () => {
     expect(ranked.map((p) => p.tag)).toEqual(['#VITE', '#LENT', '#MOINS']);
   });
 
-  it('il faut 2 attaques au moins pour être classé', () => {
-    expect(rankPlayers([line('#UNE', 3), line('#DEUX', 2), line('#DEUX', 2)]).map((p) => p.tag)).toEqual([
-      '#DEUX',
-    ]);
+  it('une attaque suffit ; les comptes sans attaque ne sont pas classés', () => {
+    expect(
+      rankPlayers([line('#UNE', 3), line('#DEUX', 2), line('#DEUX', 2), line('#ZERO', 0, 0)]).map(
+        (p) => p.tag,
+      ),
+    ).toEqual(['#UNE', '#DEUX']);
+    // Avec un minimum (le top de la semaine) : seulement ceux qui l'atteignent.
+    expect(
+      rankPlayers([line('#UNE', 3), line('#DEUX', 2), line('#DEUX', 2)], 2).map((p) => p.tag),
+    ).toEqual(['#DEUX']);
   });
 });
 
@@ -71,5 +87,19 @@ describe('semaines FW (lundi → lundi, heure de Paris)', () => {
     expect(isMonday('2026-10-27')).toBe(false);
     expect(isMonday('2026-13-01')).toBe(false);
     expect(weekLabel('2026-10-26')).toBe('du 26/10 au 01/11');
+  });
+});
+
+describe('mois FW (heure de Paris)', () => {
+  it('le mois, ses limites, son nom', () => {
+    // Le 31/10 à 23 h 30 à Paris (22 h 30 UTC) : encore octobre.
+    expect(monthOf(Date.UTC(2026, 9, 31, 22, 30))).toBe('2026-10');
+    expect(monthOf(Date.UTC(2026, 9, 31, 23, 30))).toBe('2026-11');
+    const { start, end } = monthRange('2026-10');
+    expect(new Date(start).toISOString()).toBe('2026-09-30T22:00:00.000Z'); // été
+    expect(new Date(end).toISOString()).toBe('2026-10-31T23:00:00.000Z'); // hiver
+    expect(monthLabel('2026-10')).toBe('octobre 2026');
+    expect(isMonth('2026-10')).toBe(true);
+    expect(isMonth('2026-13')).toBe(false);
   });
 });
