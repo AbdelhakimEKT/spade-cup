@@ -52,6 +52,8 @@ export interface Evening {
   /** Bilan publié ou soirée annulée : la soirée est finie. */
   readonly closed: boolean;
   readonly cancelled: boolean;
+  /** Soirée d'essai : tout dans un seul salon, sans ping, sans numéro. */
+  readonly test: boolean;
 }
 
 export interface Account {
@@ -86,6 +88,7 @@ interface EveningRow {
   teams_at: string | null;
   recap_posted_at: string | null;
   cancelled: number;
+  test: number;
 }
 
 const message = (channel: string | null, id: string | null) =>
@@ -111,6 +114,7 @@ const toEvening = (r: EveningRow): Evening => ({
   teamsAt: r.teams_at ? sqliteTime(r.teams_at) : null,
   closed: r.recap_posted_at !== null || r.cancelled === 1,
   cancelled: r.cancelled === 1,
+  test: r.test === 1,
 });
 
 // ------------------------------------------------------------ soirées
@@ -118,7 +122,6 @@ const toEvening = (r: EveningRow): Evening => ({
 /** Le numéro de la prochaine soirée : le dernier + 1 (ou `first` pour la toute première). */
 export async function nextNumber(db: D1Database, first: number): Promise<number> {
   const row = await db
-    // Les soirées d'essai (colonne `test`, ancien mode essai) ne prennent pas de numéro.
     .prepare('SELECT MAX(number) AS last FROM fw_evenings WHERE cancelled = 0 AND test = 0')
     .first<{ last: number | null }>();
   return row?.last ? row.last + 1 : first;
@@ -132,14 +135,15 @@ export interface EveningInput {
   readonly mode: TeamMode;
   readonly details: SessionDetails;
   readonly createdBy: string;
+  readonly test?: boolean;
 }
 
 export async function createEvening(db: D1Database, e: EveningInput): Promise<number> {
   const row = await db
     .prepare(
       `INSERT INTO fw_evenings (number, starts_at, date_label, time_label, mode, format,
-         preparation, war_length, attacks, rounds, accepted, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         preparation, war_length, attacks, rounds, accepted, created_by, test)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .bind(
       e.number,
@@ -154,6 +158,7 @@ export async function createEvening(db: D1Database, e: EveningInput): Promise<nu
       e.details.rounds,
       e.details.accepted,
       e.createdBy,
+      e.test ? 1 : 0,
     )
     .first<{ id: number }>();
   return row!.id;
@@ -163,7 +168,7 @@ export async function createEvening(db: D1Database, e: EveningInput): Promise<nu
 export async function updateEvening(
   db: D1Database,
   id: number,
-  e: Omit<EveningInput, 'createdBy'>,
+  e: Omit<EveningInput, 'createdBy' | 'test'>,
 ): Promise<void> {
   await db
     .prepare(
