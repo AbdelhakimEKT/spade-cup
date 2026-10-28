@@ -22,6 +22,7 @@ import {
   dayLabel,
   escapeMarkdown,
   eveningLines,
+  lastFinishedEvening,
   eveningRecapText,
   getEvening,
   markTeams,
@@ -624,9 +625,15 @@ async function move(ctx: BotContext, options: Options): Promise<Reply> {
   return done(`✅ **${escapeMarkdown(signup.name)}** passe dans la ${TEAM_LABEL[team]}.`);
 }
 
-/** Le bilan : top 5 de la soirée dans #résultats ; la soirée est finie. */
+/**
+ * Le bilan : top 5 de la soirée dans #résultats ; la soirée est finie.
+ * Sans soirée en cours, republie celui de la dernière (image ratée, bilan à refaire).
+ */
 async function recap(ctx: BotContext): Promise<Reply> {
-  const e = await current(ctx);
+  const e =
+    (await currentEvening(ctx.db)) ??
+    (await lastFinishedEvening(ctx.db)) ??
+    fail("Aucune FW n'est en cours : lance-en une avec /fw lancer.");
   const now = ctx.now();
   const { wars, lines } = await eveningLines(ctx.db, e, now);
   if (wars === 0) fail('Aucune FW de cette soirée n’a encore été enregistrée : rien à publier.');
@@ -665,6 +672,7 @@ async function recap(ctx: BotContext): Promise<Reply> {
     ...(png ? { files: [{ name: `bilan-fw-${e.number}.png`, data: png }] } : {}),
   });
   if (!posted) fail(`Impossible de poster dans <#${channel}> (droits du bot ?).`);
+  if (e.closed) return done(`✅ Bilan de la FW #${e.number} republié dans <#${channel}>.`);
   await closeEvening(ctx.db, e.id, now);
   await refreshSignup(ctx, e.id);
   return done(`✅ Bilan de la FW #${e.number} publié dans <#${channel}>.`);

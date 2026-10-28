@@ -6,6 +6,7 @@
  *   puis ouvrir http://localhost:8799/?tournoi=demo (l'arbre)
  *   ou http://localhost:8799/?tournoi=demo&match=R1-M3 (le récap d'un match)
  *   ou http://localhost:8799/?affiche=<paramètres de /affiche> (une affiche)
+ *   ou http://localhost:8799/?bilan=<paramètres de /affiche/bilan> (le bilan d'une soirée)
  */
 import { captureScreens } from '../src/screens';
 
@@ -15,9 +16,12 @@ export default {
     const slug = params.get('tournoi') ?? 'demo';
     const matchId = params.get('match');
     const poster = params.get('affiche');
+    const recap = params.get('bilan');
     const started = Date.now();
     const [png] = await captureScreens(env.BROWSER, env.SITE_URL, [
-      poster !== null
+      recap !== null
+        ? { kind: 'recap', query: recap }
+        : poster !== null
         ? { kind: 'poster', query: poster }
         : matchId
           ? { kind: 'match', slug, matchId }

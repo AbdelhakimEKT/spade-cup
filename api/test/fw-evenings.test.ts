@@ -469,6 +469,30 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     expect(await textOf(await fwComponent(click(`fw:join:${e.id}`), ctx))).toMatch(/est terminée/);
   });
 
+  it('bilan à refaire : sans soirée en cours, republie celui de la dernière', async () => {
+    const { ctx, discord } = await launched();
+    await threeWars();
+    const later = { ...ctx, now: () => START + 2 * 3_600_000 };
+    await runCommand(fw('bilan'), later);
+    // Une FW le lendemain : elle ne compte pas dans le bilan de la soirée.
+    await addWar(START + 24 * 3_600_000, [
+      { tag: '#LENDEMAIN', name: 'Lendemain', attacks: 1, stars: 3, destruction: 100 },
+    ]);
+    const shots: Shot[] = [];
+    const nextDay = {
+      ...ctx,
+      now: () => START + 26 * 3_600_000,
+      capture: async (list: readonly Shot[]) => (shots.push(...list), [FAKE_PNG]),
+    };
+    const reply = await runCommand(fw('bilan'), nextDay);
+    expect(reply.content).toContain('Bilan de la FW #41 republié dans <#c-resultats>');
+    expect(discord.sent.filter((s) => s.channel === 'c-resultats')).toHaveLength(2);
+    const shot = shots.find((x) => x.kind === 'recap');
+    const q = new URLSearchParams(shot?.kind === 'recap' ? shot.query : '');
+    expect(q.get('w')).toBe('3');
+    expect(q.get('top')).not.toContain('Lendemain');
+  });
+
   it('bilan sans image (navigateur en panne) : le top 5 en texte', async () => {
     const { ctx, discord } = await launched();
     await threeWars();

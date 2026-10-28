@@ -48,14 +48,36 @@
   }
 }
 
+// Chaque ligne est une grille (et non une ligne de tableau) : elle est peinte
+// d'un seul bloc. Le navigateur du bot peignait les cellules une à une, avec
+// des cassures visibles dans le fond du podium.
+table,
+thead,
+tbody {
+  display: block;
+}
+
 table {
-  width: 100%;
   margin-top: 30px;
-  border-collapse: collapse;
   font-size: 26px;
 }
 
+tr {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) 136px 130px 142px 122px 135px;
+  align-items: center;
+}
+
+thead tr {
+  border-bottom: 2px solid rgb(255 255 255 / 0.12);
+}
+
+tbody tr {
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+}
+
 caption {
+  display: block;
   padding-bottom: 14px;
   color: var(--muted);
   font-size: 16px;
@@ -67,7 +89,6 @@ caption {
 
 th {
   padding: 0 14px 12px;
-  border-bottom: 2px solid rgb(255 255 255 / 0.12);
   color: var(--muted);
   font-size: 16px;
   font-weight: 600;
@@ -78,7 +99,6 @@ th {
 
 td {
   padding: 16px 14px;
-  border-bottom: 1px solid rgb(255 255 255 / 0.07);
   color: #fff;
   font-weight: 600;
   text-align: right;
@@ -91,14 +111,12 @@ td.name {
 }
 
 td.name {
-  max-width: 400px;
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;
 }
 
 td.rank {
-  width: 56px;
   font-size: 30px;
   text-align: center;
 }
@@ -129,11 +147,8 @@ td.th {
 
 // Le podium : or, argent, bronze. Une barre de couleur à gauche, un fond
 // teinté, et le 1er un peu plus grand.
-tr.podium td {
+tr.podium {
   background-color: rgb(var(--podium) / 0.1);
-}
-
-tr.podium td:first-child {
   box-shadow: inset 6px 0 0 rgb(var(--podium));
 }
 

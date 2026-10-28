@@ -52,6 +52,8 @@ export interface Evening {
   readonly teamsAt: number | null;
   /** Bilan publié ou soirée annulée : la soirée est finie. */
   readonly closed: boolean;
+  /** Bilan publié (ms), ou `null`. */
+  readonly recapPostedAt: number | null;
   readonly cancelled: boolean;
   /** Soirée d'essai : tout dans un seul salon, sans ping, sans numéro. */
   readonly test: boolean;
@@ -114,6 +116,7 @@ const toEvening = (r: EveningRow): Evening => ({
   announce: message(r.announce_channel, r.announce_message),
   teamsAt: r.teams_at ? sqliteTime(r.teams_at) : null,
   closed: r.recap_posted_at !== null || r.cancelled === 1,
+  recapPostedAt: r.recap_posted_at ? sqliteTime(r.recap_posted_at) : null,
   cancelled: r.cancelled === 1,
   test: r.test === 1,
 });
@@ -231,6 +234,17 @@ export async function currentEvening(db: D1Database): Promise<Evening | null> {
   const row = await db
     .prepare(
       `SELECT * FROM fw_evenings WHERE recap_posted_at IS NULL AND cancelled = 0
+       ORDER BY id DESC LIMIT 1`,
+    )
+    .first<EveningRow>();
+  return row ? toEvening(row) : null;
+}
+
+/** La dernière soirée dont le bilan est publié (pour le republier). */
+export async function lastFinishedEvening(db: D1Database): Promise<Evening | null> {
+  const row = await db
+    .prepare(
+      `SELECT * FROM fw_evenings WHERE recap_posted_at IS NOT NULL AND cancelled = 0
        ORDER BY id DESC LIMIT 1`,
     )
     .first<EveningRow>();
@@ -437,9 +451,12 @@ export async function fwLines(
   };
 }
 
-/** Les FW de la soirée : lancées depuis 1 h avant son début, jusqu'à maintenant. */
+/**
+ * Les FW de la soirée : lancées depuis 1 h avant son début, jusqu'à maintenant
+ * (ou jusqu'au bilan, si elle est déjà finie : les FW du lendemain n'en font pas partie).
+ */
 export function eveningLines(db: D1Database, evening: Evening, now: number) {
-  return fwLines(db, evening.startsAt - EARLY_MS, now + 1);
+  return fwLines(db, evening.startsAt - EARLY_MS, (evening.recapPostedAt ?? now) + 1);
 }
 
 // ------------------------------------------------------------ textes
