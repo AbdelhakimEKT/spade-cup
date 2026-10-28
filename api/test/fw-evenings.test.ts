@@ -76,6 +76,7 @@ function fw(sub: string, values: Record<string, string | number> = {}, who: Who 
     type: 2,
     token: 'jeton',
     application_id: 'app',
+    channel_id: 'c-ici',
     member: {
       user: { id: who.id, username: who.name },
       permissions: who.permissions,
@@ -151,7 +152,8 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     expect(reply.ephemeral).toBe(true);
     expect(reply.content).toContain('**FW #41** lancée pour le mercredi 28/10 à 21h00');
 
-    const [signup, announce] = discord.sent;
+    // L'annonce d'abord, puis la fiche d'inscription.
+    const [announce, signup] = discord.sent;
     expect(signup.channel).toBe('c-inscription');
     expect(signup.reply.content).toContain('📝 **FW #41** · mercredi 28/10 à 21h00');
     expect(signup.reply.content).toContain('Fin des inscriptions : **20h45**');
@@ -198,9 +200,10 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
       }),
       ctx,
     );
-    expect(discord.sent[0].reply.content).toContain('**FW #50**');
-    expect(discord.sent[0].reply.content).toContain('4 rounds · HDV 17 accepté');
-    expect(discord.sent[0].reply.content).toContain('Fin des inscriptions : **20h15**');
+    const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply.content;
+    expect(fiche).toContain('**FW #50**');
+    expect(fiche).toContain('4 rounds · HDV 17 accepté');
+    expect(fiche).toContain('Fin des inscriptions : **20h15**');
   });
 
   it('date passée ou heure illisible : refusée', async () => {
@@ -211,6 +214,27 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     expect((await runCommand(fw('lancer', { date: '28/10', heure: 'tôt' }), ctx)).content).toMatch(
       /Heure illisible/,
     );
+  });
+
+  it('essai : tout dans le salon de la commande, sans ping, sans prendre de numéro', async () => {
+    const { ctx, discord } = setup();
+    const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h', test: 'oui' }), ctx);
+    expect(reply.content).toMatch(/^🧪 Essai : ✅ \*\*FW #41\*\*/);
+    expect(discord.sent.map((m) => m.channel)).toEqual(['c-ici', 'c-ici']);
+    const [announce, signup] = discord.sent;
+    expect(announce.reply.content).toMatch(/^🧪 \*\*ESSAI\*\*/);
+    expect(announce.reply.mentionRoles).toBeUndefined(); // personne n'est notifié
+    expect(signup.reply.content).toMatch(/^🧪 \*\*ESSAI\*\*/);
+
+    // Le bilan de l'essai reste dans ce salon.
+    await threeWars();
+    await runCommand(fw('bilan'), { ...ctx, now: () => START + 2 * 3_600_000 });
+    expect(discord.sent.some((m) => m.channel === 'c-resultats')).toBe(false);
+    expect(discord.sent.at(-1)?.channel).toBe('c-ici');
+
+    // La vraie suivante reste la #41.
+    await runCommand(fw('lancer', { date: '29/10', heure: '21h' }), ctx);
+    expect((await currentEvening(db()))?.number).toBe(41);
   });
 
   it('sans jeton du bot : refusé, avec l’explication', async () => {
@@ -320,10 +344,9 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
 describe('équipes libres : chacun choisit la sienne', () => {
   it('deux boutons ; un compte dans chaque équipe ; passer de l’une à l’autre', async () => {
     const { ctx, discord, settle, e, signupId } = await launched('libre');
-    expect(JSON.stringify(discord.sent[0].reply.components)).toMatch(
-      /fw:join:\d+:violet.*fw:join:\d+:vert/,
-    );
-    expect(discord.sent[0].reply.content).toContain('Choisis ton équipe');
+    const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply;
+    expect(JSON.stringify(fiche.components)).toMatch(/fw:join:\d+:violet.*fw:join:\d+:vert/);
+    expect(fiche.content).toContain('Choisis ton équipe');
 
     await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
     await signTag(ctx, e.id, '#PQ8', MEMBER, ':vert');

@@ -84,6 +84,8 @@ export interface Interaction {
   readonly type: number;
   readonly token: string;
   readonly application_id: string;
+  /** Le salon où la commande a été tapée (ou le bouton cliqué). */
+  readonly channel_id?: string;
   /** Présent quand la commande est tapée sur un serveur (pas en message privé). */
   readonly member?: {
     readonly user: DiscordUser;
