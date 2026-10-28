@@ -12,7 +12,23 @@ import {
   type PlayerProfile,
   type PlayerTotals,
 } from '../../src/app/core/tournament/stats';
-import { getTournament, type ResultSource } from './repository';
+import { getTournament, toSqliteTime, type ResultSource } from './repository';
+
+/** Une période (ms, [début, fin[) : une semaine de FW, par exemple. */
+export interface Period {
+  readonly start: number;
+  readonly end: number;
+}
+
+/** Filtre SQL sur l'heure de lancement des FW (`w.started_at`), ou aucun filtre. */
+function periodFilter(period: Period | undefined): { sql: string; params: string[] } {
+  return period
+    ? {
+        sql: 'WHERE w.started_at >= ? AND w.started_at < ?',
+        params: [toSqliteTime(period.start), toSqliteTime(period.end)],
+      }
+    : { sql: '', params: [] };
+}
 
 /**
  * Les statistiques : lectures seules, à partir de la table `match_players`.
@@ -239,11 +255,16 @@ function fwClanOf(w: PlayerFwWar): ClanRef {
   return { tag: side.tag, name: side.name };
 }
 
-/** Les dernières FW classiques, de la plus récente à la plus ancienne. */
-export async function listFriendlyWars(db: D1Database, limit = 30): Promise<FriendlyWarSummary[]> {
+/** Les dernières FW classiques (toutes, ou celles d'une période), la plus récente d'abord. */
+export async function listFriendlyWars(
+  db: D1Database,
+  limit = 30,
+  period?: Period,
+): Promise<FriendlyWarSummary[]> {
+  const filter = periodFilter(period);
   const { results } = await db
-    .prepare('SELECT * FROM friendly_wars ORDER BY ended_at DESC, id DESC LIMIT ?')
-    .bind(limit)
+    .prepare(`SELECT * FROM friendly_wars w ${filter.sql} ORDER BY ended_at DESC, id DESC LIMIT ?`)
+    .bind(...filter.params, limit)
     .all<FwRow>();
   return results.map(toFwSummary);
 }
@@ -269,17 +290,19 @@ export async function getFriendlyWar(db: D1Database, id: number): Promise<FwWarD
 }
 
 /**
- * Classement des joueurs en FW classiques (séparé de la Spade Cup).
- * Les joueurs à 0 étoile en sont exclus : ce sont les comptes qui complètent
- * les équipes pour lancer la FW, ils n'attaquent pas.
+ * Classement des joueurs en FW classiques (séparé de la Spade Cup), depuis le
+ * début ou sur une période (une semaine). Les joueurs à 0 étoile en sont
+ * exclus : ce sont les comptes qui complètent les équipes pour lancer la FW.
  */
-export async function listFwPlayers(db: D1Database): Promise<PlayerTotals[]> {
+export async function listFwPlayers(db: D1Database, period?: Period): Promise<PlayerTotals[]> {
+  const filter = periodFilter(period);
   const { results } = await db
     .prepare(
       `WITH lines AS (
          SELECT p.*, w.home_tag, w.home_name, w.away_tag, w.away_name,
                 ROW_NUMBER() OVER (PARTITION BY p.player_tag ORDER BY w.ended_at DESC, w.id DESC) AS recency
          FROM fw_players p JOIN friendly_wars w ON w.id = p.war_id
+         ${filter.sql}
        )
        SELECT player_tag,
               MAX(CASE WHEN recency = 1 THEN player_name END) AS name,
@@ -294,6 +317,7 @@ export async function listFwPlayers(db: D1Database): Promise<PlayerTotals[]> {
        ORDER BY stars DESC, wars DESC, name
        LIMIT 500`,
     )
+    .bind(...filter.params)
     .all<{
       player_tag: string;
       name: string;

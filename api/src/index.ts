@@ -14,7 +14,9 @@ import {
   listPlayers,
 } from './stats-repository';
 import { fwClans, trackFriendlyWars } from './fw-tracker';
+import { postDueRecaps, postWeeklyTop } from './fw-evenings';
 import { getLiveWars } from './live';
+import { isMonday, weekRange } from '../../src/app/core/fw/evening';
 import { runWatch, type WatchDeps } from './watch';
 
 /**
@@ -28,7 +30,8 @@ import { runWatch, type WatchDeps } from './watch';
  *   GET /players[?tournament=slug]             classement des joueurs
  *   GET /players/:tag                          fiche d'un joueur (tag sans « # »)
  *   GET /clans/:tag                            fiche d'un clan (tag sans « # »)
- *   GET /fw/players · GET /fw/wars             FW classiques : classement, dernières guerres
+ *   GET /fw/players · GET /fw/wars [?week=…]   FW classiques : classement, dernières guerres
+ *                                              (?week=2026-10-26 : la semaine de ce lundi)
  *   GET /fw/wars/:id                           une FW classique et ses joueurs
  *   GET /live                                  guerres en train de se jouer (en direct)
  *
@@ -80,6 +83,17 @@ export default {
             console.log(`FW reconstituée(s) d'après le dernier état vu : ${recovered}`);
         })
         .catch((error) => console.error('Suivi des FW en échec', error)),
+    );
+    // Soirées FW : le bilan (top 5) après la soirée ; le lundi, le top de la semaine.
+    ctx.waitUntil(
+      (async () => {
+        const announcer = createAnnouncer(env);
+        const recaps = await postDueRecaps(env.DB, announcer, env.SITE_URL);
+        if (recaps) console.log(`Bilan de soirée FW publié : ${recaps}`);
+        if (await postWeeklyTop(env.DB, announcer, env.SITE_URL)) {
+          console.log('Top FW de la semaine publié');
+        }
+      })().catch((error) => console.error('Soirées FW en échec', error)),
     );
     ctx.waitUntil(
       runWatch(watchDeps(env))
@@ -160,11 +174,14 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
     return json(wars, 200, { 'Cache-Control': 'no-store' });
   }
   // FW classiques (hors tournoi) : classement et dernières guerres.
-  if (pathname === '/fw/players') {
-    return json(await listFwPlayers(env.DB), 200, SHORT_CACHE);
-  }
-  if (pathname === '/fw/wars') {
-    return json(await listFriendlyWars(env.DB), 200, SHORT_CACHE);
+  if (pathname === '/fw/players' || pathname === '/fw/wars') {
+    // ?week=2026-10-26 : seulement la semaine de ce lundi (lundi 0 h → lundi suivant, Paris).
+    const week = params.get('week');
+    if (week !== null && !isMonday(week)) return errorResponse(400, 'Semaine invalide (un lundi).');
+    const period = week ? weekRange(week) : undefined;
+    return pathname === '/fw/players'
+      ? json(await listFwPlayers(env.DB, period), 200, SHORT_CACHE)
+      : json(await listFriendlyWars(env.DB, week ? 100 : 30, period), 200, SHORT_CACHE);
   }
   if ((m = /^\/fw\/wars\/(\d{1,9})$/.exec(pathname))) {
     return found(await getFriendlyWar(env.DB, Number(m[1])), 'FW introuvable.');

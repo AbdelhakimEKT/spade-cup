@@ -46,7 +46,7 @@ import {
   slugExists,
   type StoredTournament,
 } from '../repository';
-import { ADMINISTRATOR, MANAGE_GUILD } from './commands';
+import { fwCommand, isManager } from './fw';
 import type { Choice, CommandOption, Interaction } from './types';
 
 /**
@@ -63,6 +63,10 @@ export interface BotContext {
   readonly siteUrl: string;
   /** Hasard du tirage : injectable pour des tests reproductibles. */
   readonly random: () => number;
+  /** L'heure actuelle (ms) : injectable pour les tests. */
+  readonly now: () => number;
+  /** Rôles Discord qui gèrent les soirées FW et l'arbitrage (FW_MANAGER_ROLES). */
+  readonly managerRoles: readonly string[];
   /** Images des pages du site (PNG) : un vrai navigateur en production. */
   readonly capture: (shots: readonly Shot[]) => Promise<Uint8Array[]>;
   /**
@@ -83,6 +87,8 @@ export interface Reply {
   readonly ephemeral?: boolean;
   /** Pièces jointes (l'image de l'arbre). */
   readonly files?: readonly { readonly name: string; readonly data: Uint8Array }[];
+  /** Boutons et listes sous le message (voir discord/fw.ts). */
+  readonly components?: readonly unknown[];
 }
 
 const ORGANIZER = 'Friendly Wars';
@@ -104,6 +110,7 @@ export function needsDefer(interaction: Interaction): boolean {
   const { command, sub } = parse(interaction);
   return (
     command === 'inscription' ||
+    (command === 'fw' && sub === 'soiree') ||
     (command === 'arbitre' && ['resultat', 'tirage', 'arbre', 'affiche'].includes(sub ?? ''))
   );
 }
@@ -122,6 +129,8 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
         return await status(ctx);
       case 'arbitre':
         return await referee(interaction, ctx, sub ?? '', options);
+      case 'fw':
+        return await fwCommand(interaction, ctx, sub ?? '', options);
       default:
         return fail('Commande inconnue.');
     }
@@ -135,8 +144,13 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
 export async function autocomplete(interaction: Interaction, ctx: BotContext): Promise<Choice[]> {
   const { command, sub, options, focused } = parse(interaction);
   if (!focused) return [];
-  // Les suggestions de /arbitre ne sont proposées qu'aux admins.
-  if (command === 'arbitre' && !isAdmin(interaction.member?.permissions ?? '0')) return [];
+  // Les suggestions de /arbitre ne sont proposées qu'aux admins et aux modos.
+  if (
+    command === 'arbitre' &&
+    (!interaction.member || !isManager(interaction.member, ctx.managerRoles))
+  ) {
+    return [];
+  }
 
   if (focused.name === 'tournoi') {
     const typed = String(focused.value ?? '').toLowerCase();
@@ -208,7 +222,7 @@ async function unregister(
   if (!registration) fail(`Le clan ${tag} n'est pas inscrit.`);
 
   const member = interaction.member!;
-  if (registration!.by !== member.user.id && !isAdmin(member.permissions)) {
+  if (registration!.by !== member.user.id && !isManager(member, ctx.managerRoles)) {
     fail('Seule la personne qui a inscrit ce clan, ou un admin, peut le retirer.');
   }
   await removeRegistration(ctx.db, id, tag);
@@ -261,10 +275,10 @@ async function referee(
   options: Map<string, string | number>,
 ): Promise<Reply> {
   const member = interaction.member!;
-  // Double sécurité : Discord cache déjà /arbitre aux non-admins, mais le bot
+  // Double sécurité : Discord cache /arbitre aux autres membres, mais le bot
   // vérifie aussi, au cas où un réglage du serveur serait changé par erreur.
-  if (!isAdmin(member.permissions)) {
-    fail('Les commandes /arbitre sont réservées aux admins du serveur.');
+  if (!isManager(member, ctx.managerRoles)) {
+    fail('Les commandes /arbitre sont réservées aux admins et aux modos.');
   }
   const refereeName = member.nick ?? member.user.global_name ?? member.user.username;
 
@@ -664,11 +678,6 @@ function checkedTag(raw: string): string {
     );
   }
   return tag;
-}
-
-function isAdmin(permissions: string): boolean {
-  const bits = BigInt(permissions || '0');
-  return (bits & (ADMINISTRATOR | MANAGE_GUILD)) !== 0n;
 }
 
 /** Les fonctions de l'arbre lèvent des erreurs en français : on les montre telles quelles. */

@@ -8,6 +8,8 @@ import {
   PlayerTotals,
 } from '../../../core/tournament/stats';
 
+const weekQuery = (week: string | null) => (week ? `?week=${encodeURIComponent(week)}` : '');
+
 /** Statistiques des joueurs, lues sur le serveur. Même principe que `Tournaments`. */
 @Service()
 export class Players {
@@ -29,17 +31,26 @@ export class Players {
     });
   }
 
-  /** Classement des FW classiques (hors tournoi), demandé seulement si `active()`. */
-  fwRanking(active: () => boolean): HttpResourceRef<readonly PlayerTotals[] | undefined> {
+  /**
+   * Classement des FW classiques (hors tournoi), demandé seulement si `active()` :
+   * depuis le début, ou la semaine du lundi `week()` (« 2026-10-26 »).
+   */
+  fwRanking(
+    active: () => boolean,
+    week: () => string | null = () => null,
+  ): HttpResourceRef<readonly PlayerTotals[] | undefined> {
     return httpResource<readonly PlayerTotals[]>(() =>
-      active() ? `${this.api}/fw/players` : undefined,
+      active() ? `${this.api}/fw/players${weekQuery(week())}` : undefined,
     );
   }
 
-  /** Les dernières FW classiques, demandées seulement si `active()`. */
-  fwWars(active: () => boolean): HttpResourceRef<readonly FriendlyWarSummary[] | undefined> {
+  /** Les dernières FW classiques (ou celles de la semaine), demandées seulement si `active()`. */
+  fwWars(
+    active: () => boolean,
+    week: () => string | null = () => null,
+  ): HttpResourceRef<readonly FriendlyWarSummary[] | undefined> {
     return httpResource<readonly FriendlyWarSummary[]>(() =>
-      active() ? `${this.api}/fw/wars` : undefined,
+      active() ? `${this.api}/fw/wars${weekQuery(week())}` : undefined,
     );
   }
 

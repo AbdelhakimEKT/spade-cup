@@ -59,6 +59,28 @@ describe('RankingPage', () => {
     expect(el.querySelector('sc-fw-war-list .war')).not.toBeNull();
   });
 
+  it('?type=fw&semaine=… : le classement et les FW de cette semaine seulement', async () => {
+    const { el, answer, reply } = await openPage(RankingPage, {
+      type: 'fw',
+      semaine: '2026-10-26',
+    });
+    answer('/fw/players?week=2026-10-26', [player(1)]);
+    await reply('/fw/wars?week=2026-10-26', [friendlyWar()]);
+    expect(el.querySelector<HTMLSelectElement>('.period select')?.value).toBe('2026-10-26');
+    expect(el.querySelector('caption')?.textContent).toContain('du 26/10 au 01/11');
+    expect(el.querySelector('.section-title')?.textContent).toBe('Les FW de la semaine');
+  });
+
+  it('?type=fw&semaine=… sans FW cette semaine : le dit', async () => {
+    const { el, answer, reply } = await openPage(RankingPage, {
+      type: 'fw',
+      semaine: '2026-10-19',
+    });
+    answer('/fw/players?week=2026-10-19', []);
+    await reply('/fw/wars?week=2026-10-19', []);
+    expect(el.textContent).toContain('Aucune FW classique jouée du 19/10 au 25/10');
+  });
+
   it('?type=fw sans aucune FW : message d’attente', async () => {
     const { el, answer, reply } = await openPage(RankingPage, { type: 'fw' });
     answer('/fw/players', []);

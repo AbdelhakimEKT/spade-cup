@@ -32,14 +32,34 @@
     figurent pas.
   </p>
 
+  <label class="period">
+    <span>Période</span>
+    <select
+      name="semaine"
+      [value]="week() ?? ''"
+      (change)="chooseWeek($any($event.target).value)"
+    >
+      <option value="">Depuis le début</option>
+      @for (w of weeks(); track w.value) {
+        <option [value]="w.value" [selected]="w.value === week()">{{ w.label }}</option>
+      }
+    </select>
+  </label>
+
   @if (fwPlayers.hasValue()) {
     @if (fwPlayers.value().length) {
       <sc-ranking-table
         [players]="fwPlayers.value()"
         [showClan]="false"
         [limit]="15"
-        caption="Classement des FW classiques"
+        [caption]="
+          weekText()
+            ? 'Classement des FW classiques ' + weekText()
+            : 'Classement des FW classiques'
+        "
       />
+    } @else if (weekText()) {
+      <p class="panel">Aucune FW classique jouée {{ weekText() }}.</p>
     } @else {
       <p class="panel">
         Aucune FW classique enregistrée pour l'instant : la première arrivera bientôt.
@@ -51,7 +71,7 @@
 
   @if (fwWars.hasValue() && fwWars.value().length) {
     <section class="section">
-      <h2 class="section-title">Dernières FW</h2>
+      <h2 class="section-title">{{ weekText() ? 'Les FW de la semaine' : 'Dernières FW' }}</h2>
       <sc-fw-war-list [wars]="fwWars.value()" />
     </section>
   }

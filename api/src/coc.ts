@@ -21,8 +21,16 @@ export type CocError =
 export type CocResult<T> =
   { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: CocError };
 
+/** Un compte du jeu (inscription aux soirées FW). */
+export interface CocPlayer {
+  readonly tag: string;
+  readonly name: string;
+  readonly townHall: number;
+}
+
 export interface CocClient {
   clan(tag: string): Promise<CocResult<ClanRef>>;
+  player(tag: string): Promise<CocResult<CocPlayer>>;
   currentWar(tag: string): Promise<CocResult<CocWar>>;
 }
 
@@ -74,6 +82,14 @@ export function createCocClient(
         ok: true,
         value: badgeUrls?.medium ? { tag, name, badgeUrl: badgeUrls.medium } : { tag, name },
       };
+    },
+    async player(tag) {
+      const result = await get<{ tag: string; name: string; townHallLevel: number }>(
+        `/players/${encode(tag)}`,
+      );
+      if (!result.ok) return result;
+      const { name, townHallLevel } = result.value;
+      return { ok: true, value: { tag, name, townHall: townHallLevel } };
     },
     currentWar: (tag) => get<CocWar>(`/clans/${encode(tag)}/currentwar`),
   };

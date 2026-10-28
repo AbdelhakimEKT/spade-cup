@@ -3,8 +3,9 @@ import { captureScreens } from '../screens';
 import { createCocClient } from '../coc';
 import { json } from '../http';
 import { autocomplete, needsDefer, runCommand, type BotContext, type Reply } from './bot';
+import { fwComponent } from './fw';
 import { editBody, message } from './payload';
-import { InteractionType, ResponseType, type Interaction } from './types';
+import { EPHEMERAL, InteractionType, ResponseType, type Interaction } from './types';
 import { verifyDiscordSignature } from './verify';
 
 /**
@@ -42,6 +43,11 @@ export async function handleDiscord(
       ),
     // Hasard cryptographique pour le tirage : impossible à prédire ou à orienter.
     random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
+    now: () => Date.now(),
+    managerRoles: (env.FW_MANAGER_ROLES ?? '')
+      .split(',')
+      .map((r) => r.trim())
+      .filter(Boolean),
   };
 
   switch (interaction.type) {
@@ -64,6 +70,40 @@ export async function handleDiscord(
         return json({ type: ResponseType.Deferred });
       }
       return json({ type: ResponseType.Message, data: message(await safeRun(interaction, bot)) });
+
+    // Boutons et liste sous les messages des soirées FW, formulaire du tag.
+    case InteractionType.Component:
+    case InteractionType.ModalSubmit: {
+      let response;
+      try {
+        response = await fwComponent(interaction, bot);
+      } catch (error) {
+        console.error('Bouton Discord en échec', interaction.data?.custom_id, error);
+        const reply = { content: '💥 Erreur interne, réessaie dans un instant.', ephemeral: true };
+        return json({ type: ResponseType.Message, data: message(reply) });
+      }
+      switch (response.kind) {
+        case 'reply':
+          return json({ type: ResponseType.Message, data: message(response.reply) });
+        case 'update':
+          return json({ type: ResponseType.UpdateMessage, data: message(response.reply) });
+        case 'modal':
+          return json({ type: ResponseType.Modal, data: response.modal });
+        case 'deferred': {
+          const run = response.run;
+          ctx.waitUntil(
+            run()
+              .catch((error): Reply => {
+                console.error('Formulaire Discord en échec', error);
+                return { content: '💥 Erreur interne, réessaie dans un instant.', ephemeral: true };
+              })
+              .then((reply) => editOriginal(interaction, reply)),
+          );
+          // « Je réfléchis », dans un message visible seulement par la personne.
+          return json({ type: ResponseType.Deferred, data: { flags: EPHEMERAL } });
+        }
+      }
+    }
 
     default:
       return new Response('Interaction non gérée.', { status: 400 });

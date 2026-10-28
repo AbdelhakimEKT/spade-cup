@@ -19,7 +19,9 @@ export type Shot =
   | { readonly kind: 'bracket'; readonly slug: string }
   | { readonly kind: 'match'; readonly slug: string; readonly matchId: string }
   /** Affiche d'un match : `query` = paramètres de /affiche (voir posterQuery). */
-  | { readonly kind: 'poster'; readonly query: string };
+  | { readonly kind: 'poster'; readonly query: string }
+  /** Affiche d'une soirée FW : `query` = paramètres de /affiche/soiree (j, h, n). */
+  | { readonly kind: 'evening'; readonly query: string };
 
 /**
  * Ce que chaque image doit montrer : l'élément photographié, celui dont on
@@ -32,6 +34,15 @@ function plan(shot: Shot): {
   width: number;
   scale: number;
 } {
+  if (shot.kind === 'evening') {
+    return {
+      path: `/affiche/soiree?${shot.query}`,
+      selector: 'sc-evening-poster-page .poster',
+      ready: 'sc-evening-poster-page .poster[data-ready]',
+      width: 1080,
+      scale: 1,
+    };
+  }
   if (shot.kind === 'poster') {
     return {
       path: `/affiche?${shot.query}`,

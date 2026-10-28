@@ -4,7 +4,7 @@ import type { Announcer, Channel, Outcome } from '../src/announcements';
 import type { BotContext, Reply } from '../src/discord/bot';
 import type { Shot } from '../src/screens';
 import type { Interaction } from '../src/discord/types';
-import type { CocClient, CocResult } from '../src/coc';
+import type { CocClient, CocPlayer, CocResult } from '../src/coc';
 
 /** Clans de test (tags valides : alphabet du jeu). */
 export const CLANS: readonly ClanRef[] = [
@@ -13,6 +13,16 @@ export const CLANS: readonly ClanRef[] = [
   { tag: '#2RRR', name: 'Orion' },
   { tag: '#2UUU', name: 'Vega' },
   { tag: '#2VVV', name: 'Lyra' },
+];
+
+/** « Maintenant » pour les soirées FW : mardi 27/10/2026, 18 h (heure de Paris). */
+export const NOW_FW = Date.UTC(2026, 9, 27, 17);
+
+/** Comptes du jeu de test (inscriptions aux soirées FW). */
+export const PLAYERS: readonly CocPlayer[] = [
+  { tag: '#PQ2', name: 'Rags', townHall: 18 },
+  { tag: '#PQ8', name: 'Rags 2', townHall: 17 },
+  { tag: '#PQ9', name: 'Fight', townHall: 18 },
 ];
 
 /** Hasard reproductible (générateur congruentiel) : même tirage à chaque test. */
@@ -83,6 +93,7 @@ export function fakeWar(
 export function fakeCoc(
   wars: Record<string, CocResult<CocWar>> = {},
   clans: readonly ClanRef[] = CLANS,
+  players: readonly CocPlayer[] = PLAYERS,
 ): CocClient & { calls: string[] } {
   const calls: string[] = [];
   return {
@@ -91,6 +102,11 @@ export function fakeCoc(
       calls.push(`clan ${tag}`);
       const clan = clans.find((c) => c.tag === tag);
       return clan ? { ok: true, value: clan } : { ok: false, error: 'not-found' };
+    },
+    async player(tag) {
+      calls.push(`player ${tag}`);
+      const player = players.find((x) => x.tag === tag);
+      return player ? { ok: true, value: player } : { ok: false, error: 'not-found' };
     },
     async currentWar(tag) {
       calls.push(`war ${tag}`);
@@ -116,6 +132,8 @@ export function botContext(
     coc,
     siteUrl: 'https://site.test',
     random: seededRandom(),
+    now: () => NOW_FW,
+    managerRoles: ['r-admin', 'r-modo'],
     capture: async (shots) => shots.map(() => FAKE_PNG),
     publish: (_t, _bracket, outcome) => void published.push(outcome),
     published,
@@ -134,6 +152,7 @@ export function fakeAnnouncer(options: { failCapture?: boolean } = {}) {
   const shots: Shot[][] = [];
   const announcer: Announcer = {
     post: async (channel, reply) => void posted.push({ channel, reply }),
+    can: () => true,
     capture: async (list) => {
       shots.push([...list]);
       if (options.failCapture) throw new Error('quota du navigateur épuisé');
@@ -151,8 +170,15 @@ export function fakeAnnouncer(options: { failCapture?: boolean } = {}) {
 export const MEMBER = { id: 'u-chef', name: 'Chef', permissions: '0' };
 export const OTHER_MEMBER = { id: 'u-autre', name: 'Autre', permissions: '0' };
 export const ADMIN = { id: 'u-admin', name: 'Zeus', permissions: '32' };
+/** Un modo : aucune permission particulière, mais le rôle Modo (FW_MANAGER_ROLES). */
+export const MODO = { id: 'u-modo', name: 'Athena', permissions: '0', roles: ['r-modo'] };
 
-type Who = typeof MEMBER;
+export interface Who {
+  readonly id: string;
+  readonly name: string;
+  readonly permissions: string;
+  readonly roles?: readonly string[];
+}
 type Values = Record<string, string | number>;
 
 const toOptions = (values: Values, focused?: string) =>
@@ -166,6 +192,7 @@ const toOptions = (values: Values, focused?: string) =>
 const memberOf = (who: Who) => ({
   user: { id: who.id, username: who.name },
   permissions: who.permissions,
+  ...(who.roles ? { roles: who.roles } : {}),
 });
 
 /** « /inscription tag:… » tapé par `who`. */

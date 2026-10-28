@@ -16,5 +16,8 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM live_cache'),
     env.DB.prepare('DELETE FROM fw_snapshots'),
     env.DB.prepare('DELETE FROM admin_attempts'),
+    env.DB.prepare('DELETE FROM fw_evenings'),
+    env.DB.prepare('DELETE FROM discord_accounts'),
+    env.DB.prepare('DELETE FROM fw_weekly_posts'),
   ]);
 });

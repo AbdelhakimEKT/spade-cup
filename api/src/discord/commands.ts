@@ -7,8 +7,10 @@ import { OptionType } from './types';
  *
  * QUI PEUT FAIRE QUOI : `/arbitre` est réservé par défaut aux membres qui
  * peuvent « Gérer le serveur ». C'est Discord qui applique cette règle ; les
- * admins peuvent ensuite l'ouvrir à un rôle « Arbitre » dans
- * Paramètres du serveur → Intégrations → Spade Cup.
+ * admins peuvent ensuite l'ouvrir au rôle Modo dans
+ * Paramètres du serveur → Intégrations → Spade Cup (le bot accepte aussi les
+ * rôles de FW_MANAGER_ROLES). `/fw` est visible de tous, mais le bot ne
+ * l'exécute que pour les admins et les modos.
  */
 
 /** Permission Discord « Gérer le serveur » (bit 5). */
@@ -79,6 +81,47 @@ const posterTeam = (n: 1 | 2) => [
 ];
 
 export const COMMANDS = [
+  {
+    // Visible de tous (les modos n'ont pas « Gérer le serveur ») : le bot
+    // vérifie lui-même que la personne est admin ou modo (FW_MANAGER_ROLES).
+    name: 'fw',
+    description: 'Soirées FW chill (admins et modos)',
+    ...GUILD_ONLY,
+    options: [
+      {
+        name: 'soiree',
+        description: 'Publier l’affiche d’une soirée FW et ouvrir les inscriptions',
+        type: OptionType.Subcommand,
+        options: [
+          {
+            name: 'date',
+            description: 'Jour de la soirée, par exemple 28/10',
+            type: OptionType.String,
+            required: true,
+            max_length: 8,
+          },
+          {
+            name: 'heure',
+            description: 'Heure de France, par exemple 20h30',
+            type: OptionType.String,
+            required: true,
+            max_length: 8,
+          },
+          {
+            name: 'programme',
+            description: 'Facultatif, par exemple « 3 FW · 15v15 »',
+            type: OptionType.String,
+            max_length: 40,
+          },
+        ],
+      },
+      {
+        name: 'annuler',
+        description: 'Annuler la dernière soirée FW (plus d’inscriptions ni de bilan)',
+        type: OptionType.Subcommand,
+      },
+    ],
+  },
   {
     name: 'inscription',
     description: 'Inscrire ton clan au tournoi en cours',

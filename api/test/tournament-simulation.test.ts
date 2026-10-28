@@ -52,6 +52,7 @@ class Game {
     const base = fakeCoc();
     return {
       clan: base.clan,
+      player: async () => ({ ok: false as const, error: 'not-found' as const }),
       currentWar: async (tag) => {
         this.calls++;
         const war = this.wars.get(tag);

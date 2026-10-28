@@ -1,0 +1,71 @@
+<!-- data-ready : rien à charger (pas de logo d'équipe) ; le bot l'attend quand même. -->
+<article class="poster" data-ready aria-label="Affiche de la soirée FW">
+  <div class="shards" aria-hidden="true">
+    @for (corner of corners; track corner) {
+      <div [class]="'shards__corner shards__corner--' + corner">
+        <div class="shards__tilt">
+          <span class="shard shard--a"></span>
+          <span class="shard shard--b"></span>
+          <span class="shard shard--c"></span>
+          <span class="shard shard--d"></span>
+          <span class="streak streak--a"></span>
+          <span class="streak streak--b"></span>
+          <span class="streak streak--c"></span>
+          <span class="streak streak--d"></span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <header class="poster__head">
+    <img class="poster__brand" src="brand/friendly-wars-512.webp" width="170" height="170" alt="" />
+    <p class="poster__name">Friendly Wars</p>
+    <p class="poster__kind"><span>Soirée FW chill</span></p>
+  </header>
+
+  <section class="call">
+    <h1 class="call__title">
+      Inscriptions
+      <span class="call__open">ouvertes</span>
+    </h1>
+    <p class="call__how">
+      Clique sur <strong>« Je m'inscris »</strong> sous l'affiche, sur Discord.<br />
+      Plusieurs comptes ? Inscris-les tous.
+    </p>
+    <p class="call__late">
+      <span class="call__dot" aria-hidden="true"></span>
+      Tu peux nous rejoindre en cours de route
+    </p>
+  </section>
+
+  <dl class="facts">
+    <div class="fact">
+      <dt>Date</dt>
+      <dd>
+        @if (weekday(); as day) {
+          <span class="fact__day">{{ day }}</span>
+        }
+        {{ shownDate() }}
+      </dd>
+    </div>
+    <div class="fact">
+      <dt>Heure</dt>
+      <dd>{{ shownTime() }}</dd>
+      <p class="fact__note">Heure de France ({{ offset() }})</p>
+    </div>
+    <div class="fact">
+      <dt>Programme</dt>
+      <dd class="fact__programme">{{ programme() }}</dd>
+    </div>
+  </dl>
+
+  <footer class="poster__foot">
+    <span>Friendly Wars</span>
+    @if (discord) {
+      <span class="poster__discord">
+        <span class="poster__discord-label">Discord</span>
+        {{ discord }}
+      </span>
+    }
+  </footer>
+</article>

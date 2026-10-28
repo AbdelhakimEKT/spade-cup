@@ -27,6 +27,7 @@ import {
   referee,
   seededRandom,
   typing,
+  MODO,
 } from './helpers';
 
 const db = () => env.DB;
@@ -811,11 +812,18 @@ describe('autorisations : /arbitre réservé aux admins', () => {
     for (const sub of ['creer', 'tirage', 'annuler']) {
       const reply = await runCommand(referee(sub, { nom: 'Pirate' }, MEMBER), ctx);
       expect(reply, sub).toEqual({
-        content: '❌ Les commandes /arbitre sont réservées aux admins du serveur.',
+        content: '❌ Les commandes /arbitre sont réservées aux admins et aux modos.',
         ephemeral: true,
       });
     }
     expect(await getCurrentTournament(db())).toBeNull();
+  });
+
+  it('un modo (rôle Modo) peut arbitrer, comme un admin', async () => {
+    const ctx = botContext(db());
+    const reply = await runCommand(referee('creer', { nom: 'Coupe des modos' }, MODO), ctx);
+    expect(reply.ephemeral).toBeFalsy();
+    expect((await getCurrentTournament(db()))?.tournament.name).toBe('Coupe des modos');
   });
 
   it('un membre simple ne peut pas saisir un résultat', async () => {

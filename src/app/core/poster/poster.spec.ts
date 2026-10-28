@@ -1,4 +1,5 @@
 import {
+  franceDateTime,
   franceOffset,
   initialsOf,
   isAllowedLogo,
@@ -69,6 +70,20 @@ describe('affiche : mise en forme', () => {
     expect(q.get('gl')).toBe('https://cdn.discordapp.com/a.png?ex=1&is=2');
     expect(q.get('r')).toBe('Esport — BO3');
     expect(q.get('d')).toBe('Spartiates');
+  });
+
+  it('date + heure de France → instant exact (hiver et été)', () => {
+    const now = new Date('2026-10-27T12:00:00Z');
+    // Hiver (UTC+1) : 20h30 à Paris = 19h30 UTC.
+    expect(new Date(franceDateTime('28/10', '20h30', now)!).toISOString()).toBe(
+      '2026-10-28T19:30:00.000Z',
+    );
+    // Été (UTC+2), l'an prochain.
+    expect(new Date(franceDateTime('15/06', '21h', now)!).toISOString()).toBe(
+      '2027-06-15T19:00:00.000Z',
+    );
+    expect(franceDateTime('32/10', '20h', now)).toBeNull();
+    expect(franceDateTime('28/10', 'demain', now)).toBeNull();
   });
 
   it('initiales de secours', () => {

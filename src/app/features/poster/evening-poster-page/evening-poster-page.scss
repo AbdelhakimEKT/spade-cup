@@ -1,0 +1,79 @@
+// L'affiche d'une soirée FW : la charte de l'affiche d'un match (poster-view.scss),
+// avec, à la place du duel, l'appel aux inscriptions.
+:host {
+  display: block;
+}
+
+.call {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 34px;
+  text-align: center;
+}
+
+.call__title {
+  display: grid;
+  margin: 0;
+  color: #fff;
+  font-size: 104px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+// « OUVERTES », du violet au vert (les deux équipes).
+.call__open {
+  padding-right: 0.04em;
+  background: linear-gradient(90deg, var(--violet), var(--green));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.call__how {
+  margin: 0;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.45;
+
+  strong {
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+// Le rappel : on peut arriver en cours de soirée.
+.call__late {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 6px 0 0;
+  padding: 16px 34px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(#0d0c16, #0d0c16) padding-box,
+    linear-gradient(90deg, var(--violet), var(--green)) border-box;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.call__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 12px var(--green);
+}
+
+// Programme libre (« 3 FW · 15v15 ») : plus petit que l'heure, sur deux lignes au plus.
+.fact .fact__programme {
+  font-size: 34px;
+  white-space: normal;
+  text-transform: uppercase;
+}

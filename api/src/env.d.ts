@@ -10,6 +10,8 @@ interface SpadeCupSecrets {
   DISCORD_WEBHOOK_RESULTATS?: string;
   DISCORD_WEBHOOK_CLASSEMENT?: string;
   DISCORD_WEBHOOK_ARBITRES?: string;
+  /** Salon des stats (top FW de la semaine, chaque lundi). */
+  DISCORD_WEBHOOK_STATS?: string;
   /** Ancien webhook unique : sert de secours si un salon n'a pas le sien. */
   DISCORD_ANNOUNCE_WEBHOOK?: string;
   /** Code des admins du site (page « Créer une affiche »), vérifié par POST /admin/unlock. */

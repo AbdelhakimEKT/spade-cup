@@ -75,6 +75,25 @@ export function franceOffset(date: string, now = new Date()): string {
   return label?.replace('GMT', 'UTC') ?? 'UTC+1';
 }
 
+/**
+ * « 28/10 » + « 20H30 » (heure de France) → l'instant exact, en millisecondes.
+ * `null` si la date ou l'heure est illisible.
+ */
+export function franceDateTime(date: string, time: string, now = new Date()): number | null {
+  const noon = matchDay(date, now);
+  const clock = normalizeTime(time);
+  if (!noon || !clock) return null;
+  const [hours, minutes] = clock.split('H').map(Number);
+  const offset = Number(/UTC([+-]\d+)/.exec(franceOffset(date, now))?.[1] ?? 1);
+  return Date.UTC(
+    noon.getUTCFullYear(),
+    noon.getUTCMonth(),
+    noon.getUTCDate(),
+    hours - offset,
+    minutes,
+  );
+}
+
 /** Le jour de la semaine du match : « Samedi ». `null` si la date est illisible. */
 export function weekdayOf(date: string, now = new Date()): string | null {
   const noon = matchDay(date, now);

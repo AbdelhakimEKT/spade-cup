@@ -34,6 +34,12 @@
     "DISCORD_CHANNEL_RESULTATS": "",
     "DISCORD_CHANNEL_CLASSEMENT": "",
     "DISCORD_CHANNEL_ARBITRES": "",
+    // Salon des stats : le top FW de la semaine, chaque lundi à 10 h (ou par webhook,
+    // secret DISCORD_WEBHOOK_STATS). Vide : rien n'est publié.
+    "DISCORD_CHANNEL_STATS": "",
+    // Rôles qui gèrent les soirées FW (/fw) et l'arbitrage (/arbitre), en plus
+    // des membres qui peuvent « Gérer le serveur » : Admin, puis Modo.
+    "FW_MANAGER_ROLES": "1517890929611116696,1517890701399035924",
     // Les deux clans des FW classiques (hors tournoi), suivis pour les stats :
     // team 1 (FW-team1) puis team 2 (FW-team2), comme sur le site.
     "FW_CLANS": "#2CYJPRCG8,#2JVUP2PGC",

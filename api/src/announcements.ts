@@ -10,16 +10,19 @@ import { captureScreens, type Shot } from './screens';
  *   #résultats   🏆 victoire (la phrase des organisateurs + le récap en image)
  *   #classement  l'image de l'arbre à jour, sans texte
  *   arbitres     ⚖️ égalité parfaite : à eux de trancher
+ *   stats        📅 top FW de la semaine, chaque lundi (src/fw-evenings.ts)
  *
  * Utilisé par l'arbitre automatique (toutes les minutes) ET par les
  * commandes d'arbitre : un résultat saisi à la main est annoncé pareil.
  */
 
-export type Channel = 'results' | 'bracket' | 'referees';
+export type Channel = 'results' | 'bracket' | 'referees' | 'stats';
 
 export interface Announcer {
   /** Poste dans un salon ; ne fait rien si aucun webhook ne le dessert. */
   post(channel: Channel, reply: Reply): Promise<void>;
+  /** Ce salon est-il configuré ? */
+  can(channel: Channel): boolean;
   /** Images des pages du site (récap d'un match, arbre). */
   capture(shots: readonly Shot[]): Promise<Uint8Array[]>;
 }
@@ -39,9 +42,11 @@ type Config = Partial<
     | 'DISCORD_CHANNEL_RESULTATS'
     | 'DISCORD_CHANNEL_CLASSEMENT'
     | 'DISCORD_CHANNEL_ARBITRES'
+    | 'DISCORD_CHANNEL_STATS'
     | 'DISCORD_WEBHOOK_RESULTATS'
     | 'DISCORD_WEBHOOK_CLASSEMENT'
     | 'DISCORD_WEBHOOK_ARBITRES'
+    | 'DISCORD_WEBHOOK_STATS'
     | 'DISCORD_ANNOUNCE_WEBHOOK'
   >
 >;
@@ -62,11 +67,13 @@ export function destinationFor(env: Config, channel: Channel): Destination | nul
     results: env.DISCORD_CHANNEL_RESULTATS,
     bracket: env.DISCORD_CHANNEL_CLASSEMENT,
     referees: env.DISCORD_CHANNEL_ARBITRES,
+    stats: env.DISCORD_CHANNEL_STATS,
   };
   const hooks = {
     results: env.DISCORD_WEBHOOK_RESULTATS || env.DISCORD_ANNOUNCE_WEBHOOK,
     bracket: env.DISCORD_WEBHOOK_CLASSEMENT || env.DISCORD_ANNOUNCE_WEBHOOK,
     referees: env.DISCORD_WEBHOOK_ARBITRES,
+    stats: env.DISCORD_WEBHOOK_STATS,
   };
   const own = (c: Channel): Destination | null => {
     if (env.DISCORD_BOT_TOKEN && ids[c]) {
@@ -84,6 +91,7 @@ export function createAnnouncer(env: Env): Announcer {
       if (to?.by === 'bot') await postAsBot(to.token, to.channelId, reply);
       else if (to?.by === 'webhook') await postToWebhook(to.url, reply);
     },
+    can: (channel) => destinationFor(env, channel) !== null,
     capture: (shots) => captureScreens(env.BROWSER, env.SITE_URL, shots),
   };
 }

@@ -90,6 +90,15 @@ export const routes: Routes = [
           import('./features/poster/poster-page/poster-page').then((m) => m.PosterPage),
       },
       {
+        // Affiche d'une soirée FW, photographiée par le bot (/fw soiree).
+        path: 'soiree',
+        title: 'Soirée FW',
+        loadComponent: () =>
+          import('./features/poster/evening-poster-page/evening-poster-page').then(
+            (m) => m.EveningPosterPage,
+          ),
+      },
+      {
         // Le générateur des admins (code d'accès vérifié par le serveur).
         path: 'creer',
         title: 'Créer une affiche',
