@@ -289,7 +289,7 @@ export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | nul
       `・ <#${cfg.signupChannel}> ouvertes jusqu’à **${c.close}**.`,
       e.mode === 'random'
         ? `・ Tirage des équipes à **${c.teams}**`
-        : `・ Équipes au choix (FW-Team 1 ou FW-Team 2), affichées à **${c.teams}**`,
+        : `・ Équipes au choix, affichées à **${c.teams}**`,
       '・ Plusieurs comptes autorisés par joueur',
       `・ En cas de difficulté, ouvrez un <#${cfg.ticketsChannel}>`,
     ].join('\n'),
