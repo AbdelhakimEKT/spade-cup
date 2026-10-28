@@ -152,8 +152,8 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     expect(reply.ephemeral).toBe(true);
     expect(reply.content).toContain('**FW #41** lancée pour le mercredi 28/10 à 21h00');
 
-    // L'annonce d'abord, puis la fiche d'inscription.
-    const [announce, signup] = discord.sent;
+    // La fiche d'inscription d'abord, puis l'annonce (le ping seulement si la fiche est là).
+    const [signup, announce] = discord.sent;
     expect(signup.channel).toBe('c-inscription');
     expect(signup.reply.content).toContain('📝 **FW #41** · mercredi 28/10 à 21h00');
     expect(signup.reply.content).toContain('Fin des inscriptions : **20h45**');
@@ -246,12 +246,34 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     expect(reply.content).toMatch(/DISCORD_BOT_TOKEN/);
   });
 
-  it('#inscription inaccessible : rien n’est publié', async () => {
-    const { ctx } = setup();
-    const blocked = { ...ctx, discord: { ...ctx.discord!, send: async () => null } };
+  it('#inscription inaccessible : pas d’annonce (pas de ping sans fiche)', async () => {
+    const { ctx, discord } = setup();
+    const blocked = {
+      ...ctx,
+      discord: {
+        ...ctx.discord!,
+        send: async (channel: string, reply: Reply) =>
+          channel === 'c-inscription' ? null : ctx.discord!.send(channel, reply),
+      },
+    };
     const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), blocked);
-    expect(reply.content).toMatch(/Impossible de poster dans <#c-inscription>/);
+    expect(reply.content).toMatch(/Impossible de poster dans <#c-inscription>.*Rien n’a été annoncé/);
+    expect(discord.sent).toEqual([]);
     expect(await currentEvening(db())).toBeNull();
+  });
+
+  it('fiche manquante : /fw modifier la poste, sans refaire l’annonce', async () => {
+    const { ctx, discord } = setup();
+    const id = await db()
+      .prepare(
+        `INSERT INTO fw_evenings (number, starts_at, date_label, time_label, mode, created_by)
+         VALUES (41, '2026-10-28 20:00:00', '28/10', '21H00', 'libre', 'Athena') RETURNING id`,
+      )
+      .first<{ id: number }>();
+    const reply = await runCommand(fw('modifier'), ctx);
+    expect(reply.content).toContain('postée dans <#c-inscription> (sans nouveau ping)');
+    expect(discord.sent.map((m) => m.channel)).toEqual(['c-inscription']);
+    expect((await getEvening(db(), id!.id))?.signup?.channel).toBe('c-inscription');
   });
 });
 

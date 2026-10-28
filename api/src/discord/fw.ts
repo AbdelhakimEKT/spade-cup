@@ -497,17 +497,27 @@ async function launch(interaction: Interaction, ctx: BotContext, options: Option
   const e = (await getEvening(ctx.db, id))!;
 
   const emojis = await discord.emojis();
-  // L'annonce d'abord, puis la fiche d'inscription : dans un même salon (essai),
-  // la fiche, tenue à jour, reste en dessous.
   const png = await posterOf(ctx, e);
-  const announceId = await discord.send(announceChannel, announceMessage(e, ctx.fw, png));
-  const signupId = await discord.send(signupChannel, signupMessage(e, [], emojis, ctx.fw));
+  const postSignup = () => discord.send(signupChannel, signupMessage(e, [], emojis, ctx.fw));
+  const postAnnounce = () => discord.send(announceChannel, announceMessage(e, ctx.fw, png));
+  // Pour de vrai : la fiche d'inscription d'abord, et l'annonce (avec le ping)
+  // seulement si la fiche est bien là. En essai (un seul salon) : l'annonce
+  // d'abord, pour que la fiche, tenue à jour, reste en dessous.
+  let signupId: string | null;
+  let announceId: string | null = null;
+  if (test) {
+    announceId = await postAnnounce();
+    signupId = await postSignup();
+  } else {
+    signupId = await postSignup();
+    if (signupId) announceId = await postAnnounce();
+  }
   if (!signupId) {
     await cancelEvening(ctx.db, id);
     fail(
       `Impossible de poster dans <#${signupChannel}> : vérifie que le bot voit ce salon ` +
-        'et peut y écrire.' +
-        (announceId ? ' (L’annonce, elle, est partie : supprime-la à la main.)' : ''),
+        'et peut y écrire (« Voir le salon », « Envoyer des messages », « Joindre des ' +
+        'fichiers »). Rien n’a été annoncé.',
     );
   }
   await saveMessages(ctx.db, id, {
@@ -550,6 +560,29 @@ async function modify(ctx: BotContext, options: Options): Promise<Reply> {
     details: detailsFrom(options, e.details),
   });
   const updated = (await getEvening(ctx.db, e.id))!;
+
+  // Fiche d'inscription manquante (le bot n'avait pas pu poster dans
+  // #inscription) : on la poste maintenant, sans refaire l'annonce ni le ping.
+  if (!updated.signup) {
+    const posted = await ctx.discord!.send(
+      ctx.fw.signupChannel,
+      signupMessage(updated, await signupsOf(ctx.db, e.id), await ctx.discord!.emojis(), ctx.fw),
+    );
+    if (!posted) {
+      fail(
+        `Impossible de poster dans <#${ctx.fw.signupChannel}> : vérifie que le bot voit ce ` +
+          'salon et peut y écrire.',
+      );
+    }
+    await saveMessages(ctx.db, e.id, {
+      signup: { channel: ctx.fw.signupChannel, message: posted! },
+      announce: updated.announce,
+    });
+    return done(
+      `✅ Fiche d'inscription de la **FW #${updated.number}** postée dans ` +
+        `<#${ctx.fw.signupChannel}> (sans nouveau ping).`,
+    );
+  }
 
   await refreshSignup(ctx, e.id);
   if (updated.announce) {
