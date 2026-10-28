@@ -76,6 +76,15 @@ export interface FwConfig {
   readonly resultsChannel: string;
   /** Numéro de la toute première soirée suivie par le bot (41). */
   readonly firstNumber: number;
+  /** Lien qui ouvre le clan de chaque équipe dans le jeu (pour le rejoindre). */
+  readonly clanLinks: Readonly<Record<Team, string>>;
+}
+
+/** « #2CYJPRCG8 » → le lien qui ouvre ce clan dans le jeu. */
+export function clanLink(tag: string | undefined): string {
+  return tag
+    ? `https://link.clashofclans.com/en?action=OpenClanProfile&tag=${tag.replace('#', '')}`
+    : '';
 }
 
 /** Les réglages du serveur Discord (wrangler.jsonc), lus une fois par requête. */
@@ -86,7 +95,10 @@ export function fwConfig(env: {
   DISCORD_ROLE_FW?: string;
   DISCORD_CHANNEL_FW_RESULTATS?: string;
   FW_FIRST_NUMBER?: string;
+  FW_CLANS?: string;
 }): FwConfig {
+  // FW_CLANS : FW-Team 1 puis FW-Team 2.
+  const [team1, team2] = (env.FW_CLANS ?? '').split(',').map((t) => t.trim());
   return {
     signupChannel: env.DISCORD_CHANNEL_INSCRIPTION ?? '',
     announceChannel: env.DISCORD_CHANNEL_ANNONCE_FW ?? '',
@@ -94,6 +106,7 @@ export function fwConfig(env: {
     role: env.DISCORD_ROLE_FW ?? '',
     resultsChannel: env.DISCORD_CHANNEL_FW_RESULTATS ?? '',
     firstNumber: Number(env.FW_FIRST_NUMBER) || 1,
+    clanLinks: { violet: clanLink(team1), vert: clanLink(team2) },
   };
 }
 
@@ -193,7 +206,7 @@ export function signupMessage(
     `🛡️ ${[d.format, d.preparation, d.war, d.attacks, d.rounds, d.accepted].map(escapeMarkdown).join(' · ')}`,
     e.mode === 'random'
       ? `🎲 Équipes tirées au sort à ${c.teams}.`
-      : '🎯 Équipes au choix : 🟣 violette ou 🟢 verte.',
+      : '🎯 Équipes au choix : 🟣 FW-Team 1 ou 🟢 FW-Team 2.',
     '👥 Plusieurs comptes ? Inscris-les tous. Tu arrives en cours de route ? Inscris-toi quand même.',
     `🎫 Un souci ? Ouvre un ticket dans <#${cfg.ticketsChannel}>.`,
   ].join('\n');
@@ -210,10 +223,10 @@ export function signupMessage(
   const loose = signups.filter((s) => s.team === null);
   if (teams && loose.length) sections.push({ title: '**Sans équipe**', lines: roster(loose, emojis) });
 
-  return { content: fit(header, sections), components: e.closed ? [] : signupButtons(e) };
+  return { content: fit(header, sections), components: e.closed ? [] : signupButtons(e, cfg) };
 }
 
-function signupButtons(e: Evening): unknown[] {
+function signupButtons(e: Evening, cfg: FwConfig): unknown[] {
   const buttons =
     e.mode === 'random'
       ? [
@@ -221,15 +234,36 @@ function signupButtons(e: Evening): unknown[] {
           button(`fw:add:${e.id}`, 'Ajouter un compte', ButtonStyle.Primary, '➕'),
         ]
       : [
-          button(`fw:join:${e.id}:violet`, 'Équipe violette', ButtonStyle.Primary, '🟣'),
-          button(`fw:join:${e.id}:vert`, 'Équipe verte', ButtonStyle.Success, '🟢'),
+          button(`fw:join:${e.id}:violet`, TEAM_LABEL.violet, ButtonStyle.Primary, '🟣'),
+          button(`fw:join:${e.id}:vert`, TEAM_LABEL.vert, ButtonStyle.Success, '🟢'),
         ];
-  return [
+  const rows: unknown[] = [
     {
       type: ComponentType.Row,
       components: [...buttons, button(`fw:leave:${e.id}`, 'Me désinscrire', ButtonStyle.Secondary)],
     },
   ];
+  // Équipes faites : un bouton par équipe ouvre son clan dans le jeu, pour le rejoindre.
+  const links = TEAMS.filter((t) => cfg.clanLinks[t]).map((t) => ({
+    type: ComponentType.Button,
+    style: ButtonStyle.Link,
+    label: `Rejoindre la ${TEAM_LABEL[t]}`,
+    url: cfg.clanLinks[t],
+    emoji: { name: TEAM_DOT[t] },
+  }));
+  if (e.teamsAt !== null && links.length) rows.push({ type: ComponentType.Row, components: links });
+  return rows;
+}
+
+const TEAMS = ['violet', 'vert'] as const;
+
+/** « 👉 Rejoins le clan de ta team : FW-Team 2 » (liens), une fois les équipes faites. */
+function clanLine(e: Evening, signed: readonly Signup[], cfg: FwConfig): string {
+  if (e.teamsAt === null) return '';
+  const teams = TEAMS.filter((t) => cfg.clanLinks[t] && signed.some((s) => s.team === t));
+  if (teams.length === 0) return '';
+  const links = teams.map((t) => `[${TEAM_LABEL[t]}](${cfg.clanLinks[t]})`).join(' · ');
+  return `\n👉 Rejoins le clan de ta team : ${links}`;
 }
 
 function button(customId: string, label: string, style: number, emoji?: string) {
@@ -256,7 +290,7 @@ export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | nul
       `・ <#${cfg.signupChannel}> ouvertes jusqu’à **${c.close}**.`,
       e.mode === 'random'
         ? `・ Tirage des équipes à **${c.teams}**`
-        : `・ Équipes au choix (violette ou verte), affichées à **${c.teams}**`,
+        : `・ Équipes au choix (FW-Team 1 ou FW-Team 2), affichées à **${c.teams}**`,
       '・ Plusieurs comptes autorisés par joueur',
       `・ En cas de difficulté, ouvrez un <#${cfg.ticketsChannel}>`,
     ].join('\n'),
@@ -315,7 +349,8 @@ export async function makeTeams(deps: FwDeps, e: Evening, redraw: boolean): Prom
     await deps.discord.send(e.signup.channel, {
       content:
         `⚔️ **Les équipes de la FW #${e.number} sont ${first ? 'prêtes' : 'refaites'} !** ` +
-        'Retrouve ta team sur la fiche juste au-dessus. Rééquilibrages possibles par les modos.',
+        'Retrouve ta team sur la fiche juste au-dessus, et clique sur « Rejoindre » pour ' +
+        'rejoindre son clan. Rééquilibrages possibles par les modos.',
     });
   }
 }
@@ -506,7 +541,7 @@ async function move(ctx: BotContext, options: Options): Promise<Reply> {
     fail('Ce compte n’est pas inscrit à la FW en cours (choisis-le dans la liste).');
   await setTeams(ctx.db, e.id, new Map([[signup.tag, team]]));
   await refreshSignup(ctx, e.id);
-  return done(`✅ **${escapeMarkdown(signup.name)}** passe dans l'${TEAM_LABEL[team].toLowerCase()}.`);
+  return done(`✅ **${escapeMarkdown(signup.name)}** passe dans la ${TEAM_LABEL[team]}.`);
 }
 
 /** Le bilan : top 5 de la soirée dans #résultats ; la soirée est finie. */
@@ -589,7 +624,7 @@ function refreshLater(ctx: BotContext, e: Evening): void {
 const mine = async (ctx: BotContext, e: Evening, who: Who) =>
   (await signupsOf(ctx.db, e.id)).filter((s) => s.discordId === who.id);
 
-/** « Je m'inscris » (ou « Équipe violette / verte »). */
+/** « Je m'inscris » (ou « FW-Team 1 / FW-Team 2 »). */
 async function join(
   ctx: BotContext,
   e: Evening,
@@ -609,15 +644,17 @@ async function join(
       signupStatement(ctx.db, e.id, who, accounts[0], await teamFor(ctx, e, team)),
     ]);
     refreshLater(ctx, e);
+    const now = await mine(ctx, e, who);
     return {
       kind: 'reply',
       reply: picker(
         e,
         accounts,
-        await mine(ctx, e, who),
+        now,
         team,
         `✅ **${escapeMarkdown(accounts[0].name)}** est inscrit à la FW #${e.number}` +
-          (team ? ` (${TEAM_LABEL[team].toLowerCase()}).` : '.'),
+          (team ? ` (${TEAM_LABEL[team]}).` : '.') +
+          clanLine(e, now, ctx.fw),
       ),
     };
   }
@@ -629,7 +666,7 @@ async function join(
       signed,
       team,
       `Quels comptes inscris-tu à la FW #${e.number}` +
-        (team ? ` dans l'${TEAM_LABEL[team].toLowerCase()}` : '') +
+        (team ? ` dans la ${TEAM_LABEL[team]}` : '') +
         ' ? Coche-les dans la liste (décocher un compte le retire).',
     ),
   };
@@ -710,14 +747,15 @@ async function pick(
   const now = await mine(ctx, e, who);
   const inHere = now.filter((s) => e.mode === 'random' || s.team === team);
   const names = inHere.map((s) => `**${escapeMarkdown(s.name)}**`).join(', ');
-  const where = team ? ` dans l'${TEAM_LABEL[team].toLowerCase()}` : '';
+  const where = team ? ` dans la ${TEAM_LABEL[team]}` : '';
   return picker(
     e,
     accounts,
     now,
     team,
     inHere.length
-      ? `✅ Inscrit${inHere.length > 1 ? 's' : ''} à la FW #${e.number}${where} : ${names}.`
+      ? `✅ Inscrit${inHere.length > 1 ? 's' : ''} à la FW #${e.number}${where} : ${names}.` +
+          clanLine(e, inHere, ctx.fw)
       : `Aucun de tes comptes n'est inscrit à la FW #${e.number}${where}.`,
   );
 }
@@ -774,14 +812,20 @@ function tagSubmitted(
       await saveAccount(ctx.db, who.id, found.value);
       await run(ctx.db, [signupStatement(ctx.db, e.id, who, found.value, await teamFor(ctx, e, team))]);
       await refreshSignup(ctx, e.id);
+      const now = await mine(ctx, e, who);
       return picker(
         e,
         await accountsOf(ctx.db, who.id),
-        await mine(ctx, e, who),
+        now,
         team,
         `✅ **${escapeMarkdown(found.value.name)}** (\`${tag}\`, HDV ${found.value.townHall}) ` +
           `est inscrit à la FW #${e.number}` +
-          (team ? ` (${TEAM_LABEL[team].toLowerCase()}).` : '.'),
+          (team ? ` (${TEAM_LABEL[team]}).` : '.') +
+          clanLine(
+            e,
+            now.filter((x) => x.tag === found.value.tag),
+            ctx.fw,
+          ),
       );
     },
   };

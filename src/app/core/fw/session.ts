@@ -7,7 +7,7 @@
 
 /** Équipes tirées au hasard à H − 10, ou chacun choisit la sienne. */
 export type TeamMode = 'random' | 'libre';
-/** Violette = FW-team1, verte = FW-team2 (couleurs du site). */
+/** 'violet' = FW-Team 1, 'vert' = FW-Team 2 (couleurs du site). */
 export type Team = 'violet' | 'vert';
 
 /** Les infos de la fiche, modifiables par les modos. */
@@ -84,7 +84,7 @@ export function sessionPosterQuery(input: SessionPosterInput): string {
 
 /**
  * Les équipes, tirées au hasard : on mélange, puis on distribue une fois à
- * gauche, une fois à droite. Nombre impair : la violette a un joueur de plus
+ * gauche, une fois à droite. Nombre impair : la FW-Team 1 a un joueur de plus
  * (les modos comblent les trous). `random` : un nombre dans [0, 1[.
  */
 export function drawTeams<T>(players: readonly T[], random: () => number): Map<T, Team> {
@@ -103,6 +103,6 @@ export function smallerTeam(violet: number, vert: number, random: () => number):
 }
 
 export const TEAM_LABEL: Record<Team, string> = {
-  violet: 'Équipe violette',
-  vert: 'Équipe verte',
+  violet: 'FW-Team 1',
+  vert: 'FW-Team 2',
 };

@@ -23,6 +23,7 @@ export const FW_CONFIG = {
   role: 'r-fw',
   resultsChannel: 'c-resultats',
   firstNumber: 41,
+  clanLinks: { violet: 'https://clan.test/1', vert: 'https://clan.test/2' },
 };
 
 /** « Maintenant » pour les soirées FW : mardi 27/10/2026, 18 h (heure de Paris). */

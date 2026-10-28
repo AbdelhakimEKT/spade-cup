@@ -296,9 +296,13 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
     expect(teams.filter((t) => t === 'violet')).toHaveLength(2);
     expect(teams.filter((t) => t === 'vert')).toHaveLength(1);
     const fiche = discord.latest(signupId)!.content;
-    expect(fiche).toContain('🟣 **Équipe violette (2)**');
-    expect(fiche).toContain('🟢 **Équipe verte (1)**');
+    expect(fiche).toContain('🟣 **FW-Team 1 (2)**');
+    expect(fiche).toContain('🟢 **FW-Team 2 (1)**');
     expect(discord.sent.at(-1)?.reply.content).toContain('Les équipes de la FW #41 sont prêtes');
+    // Équipes faites : un bouton par équipe ouvre son clan dans le jeu.
+    const links = JSON.stringify(discord.latest(signupId)!.components);
+    expect(links).toContain('"label":"Rejoindre la FW-Team 1","url":"https://clan.test/1"');
+    expect(links).toContain('"label":"Rejoindre la FW-Team 2","url":"https://clan.test/2"');
 
     // Arrivé en cours de route : dans l'équipe la moins remplie.
     const late = { id: 'u-retard', name: 'Retard', permissions: '0' };
@@ -307,12 +311,14 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
         "INSERT INTO discord_accounts (discord_id, player_tag, player_name, town_hall) VALUES ('u-retard', '#LATE', 'Retard', 16)",
       )
       .run();
-    await fwComponent(click(`fw:join:${e.id}`, late), ctx);
+    const lateReply = await textOf(await fwComponent(click(`fw:join:${e.id}`, late), ctx));
     expect((await signupsOf(db(), e.id)).find((s) => s.tag === '#LATE')?.team).toBe('vert');
+    // Il reçoit le lien du clan de sa team.
+    expect(lateReply).toContain('👉 Rejoins le clan de ta team : [FW-Team 2](https://clan.test/2)');
 
     // Rééquilibrage par un modo.
     const moved = await runCommand(fw('deplacer', { compte: '#PQ9', equipe: 'violet' }), ctx);
-    expect(moved.content).toContain("passe dans l'équipe violette");
+    expect(moved.content).toContain('passe dans la FW-Team 1');
     await settle();
   });
 
@@ -346,7 +352,7 @@ describe('équipes libres : chacun choisit la sienne', () => {
     expect(await team('#PQ8')).toBeUndefined();
 
     await settle();
-    expect(discord.latest(signupId)!.content).toContain('🟢 **Équipe verte (1)**');
+    expect(discord.latest(signupId)!.content).toContain('🟢 **FW-Team 2 (1)**');
   });
 });
 

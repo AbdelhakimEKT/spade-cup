@@ -84,7 +84,7 @@ const fwTeams = {
   type: OptionType.String,
   choices: [
     { name: 'Tirées au sort (10 min avant le début)', value: 'random' },
-    { name: 'Au choix (chacun choisit violette ou verte)', value: 'libre' },
+    { name: 'Au choix (chacun choisit FW-Team 1 ou FW-Team 2)', value: 'libre' },
   ],
 };
 
@@ -182,8 +182,8 @@ export const COMMANDS = [
             type: OptionType.String,
             required: true,
             choices: [
-              { name: 'Équipe violette', value: 'violet' },
-              { name: 'Équipe verte', value: 'vert' },
+              { name: 'FW-Team 1', value: 'violet' },
+              { name: 'FW-Team 2', value: 'vert' },
             ],
           },
         ],

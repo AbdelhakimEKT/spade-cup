@@ -36,7 +36,7 @@ export const ComponentType = {
   TextInput: 4,
 } as const;
 
-export const ButtonStyle = { Primary: 1, Secondary: 2, Success: 3, Danger: 4 } as const;
+export const ButtonStyle = { Primary: 1, Secondary: 2, Success: 3, Danger: 4, Link: 5 } as const;
 
 export const OptionType = {
   Subcommand: 1,
