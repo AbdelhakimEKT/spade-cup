@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { recapQuery } from '../../../core/fw/evening';
+import { FRENCH_LOCALE } from '../../../../testing/french-locale';
 import { RecapPage } from './recap-page';
 
 describe('RecapPage (/affiche/bilan, photographiée par le bot)', () => {
   async function render(values: Record<string, unknown>, load = true) {
-    TestBed.configureTestingModule({ imports: [RecapPage] });
+    TestBed.configureTestingModule({ imports: [RecapPage], providers: [FRENCH_LOCALE] });
     const fixture = TestBed.createComponent(RecapPage);
     for (const [name, value] of Object.entries(values)) fixture.componentRef.setInput(name, value);
     await fixture.whenStable();
