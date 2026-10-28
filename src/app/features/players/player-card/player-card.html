@@ -59,7 +59,13 @@
     <div>
       <dt>Triples</dt>
       <dd>{{ c.tripleRate | percent: '1.0-0' }}</dd>
-      <p>{{ c.triples }} attaque{{ c.triples > 1 ? 's' : '' }} à 3 ★</p>
+      <p>
+        @if (c.triples) {
+          {{ c.triples }} attaque{{ c.triples > 1 ? 's' : '' }} à 3 ★
+        } @else {
+          aucun triple
+        }
+      </p>
     </div>
     <div>
       <dt>Destruction</dt>
@@ -83,8 +89,8 @@
     </div>
     <div>
       <dt>Série de triples</dt>
-      <dd>{{ c.bestTripleStreak }}</dd>
-      <p>record d'affilée</p>
+      <dd>{{ c.bestTripleStreak || '–' }}</dd>
+      <p>{{ c.bestTripleStreak > 1 ? 'triples d’affilée (record)' : 'record d’affilée' }}</p>
     </div>
   </dl>
 

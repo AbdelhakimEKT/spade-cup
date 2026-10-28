@@ -1,37 +1,50 @@
 :host {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   gap: var(--space-5);
-  max-width: 760px;
+  text-align: center;
 }
 
 // Mode capture (image pour Discord) : la carte seule, sans marge.
 :host(.capture) {
   display: block;
-  max-width: none;
+  text-align: left;
 }
 
 .crumb {
   justify-self: start;
 }
 
+.page-head {
+  justify-items: center;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
 }
 
 .message {
+  flex-basis: 100%;
   margin: 0;
   color: var(--color-muted);
 }
 
-// La carte garde sa vraie taille (1080 × 1350) et est simplement réduite à
-// l'écran : l'image téléchargée est donc exactement celle qu'on voit.
+// La carte, en grand et centrée. Elle garde sa vraie taille (1080 × 1350) et
+// est simplement réduite à la largeur de l'aperçu : l'image téléchargée est
+// exactement celle qu'on voit.
 .preview {
+  width: min(100%, 880px);
   overflow: hidden;
   border-radius: var(--radius-md);
+  box-shadow:
+    0 30px 80px rgb(0 0 0 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+  text-align: left;
 }
 
 .preview__stage {

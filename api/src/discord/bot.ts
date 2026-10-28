@@ -46,6 +46,7 @@ import {
   slugExists,
   type StoredTournament,
 } from '../repository';
+import { cardAutocomplete, cardCommand } from './card';
 import { fwAutocomplete, fwCommand, isManager, type FwConfig } from './fw';
 import type { DiscordApi } from './rest';
 import type { Choice, CommandOption, Interaction } from './types';
@@ -100,6 +101,11 @@ export interface Reply {
   readonly mentionRoles?: readonly string[];
   /** Membres notifiés par le message (rappel des équipes d'une FW). */
   readonly mentionUsers?: readonly string[];
+  /**
+   * Après un « je réfléchis » privé : poster ce message PUBLIC dans le salon
+   * (la carte de /carte ; ses erreurs, elles, restent privées).
+   */
+  readonly publicFollowUp?: boolean;
 }
 
 const ORGANIZER = 'Friendly Wars';
@@ -123,6 +129,7 @@ export function needsDefer(interaction: Interaction): boolean {
     command === 'inscription' ||
     // /fw : le bot poste et modifie des messages, et photographie la fiche.
     command === 'fw' ||
+    command === 'carte' ||
     (command === 'arbitre' && ['resultat', 'tirage', 'arbre', 'affiche'].includes(sub ?? ''))
   );
 }
@@ -143,6 +150,8 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
         return await referee(interaction, ctx, sub ?? '', options);
       case 'fw':
         return await fwCommand(interaction, ctx, sub ?? '', options);
+      case 'carte':
+        return await cardCommand(interaction, ctx, String(options.get('joueur') ?? ''));
       default:
         return fail('Commande inconnue.');
     }
@@ -156,6 +165,7 @@ export async function runCommand(interaction: Interaction, ctx: BotContext): Pro
 export async function autocomplete(interaction: Interaction, ctx: BotContext): Promise<Choice[]> {
   const { command, sub, options, focused } = parse(interaction);
   if (!focused) return [];
+  if (command === 'carte') return cardAutocomplete(interaction, ctx, String(focused.value ?? ''));
   if (command === 'fw') {
     if (!interaction.member || !isManager(interaction.member, ctx.managerRoles)) return [];
     return focused.name === 'compte' ? fwAutocomplete(ctx, String(focused.value ?? '')) : [];

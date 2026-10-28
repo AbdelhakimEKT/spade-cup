@@ -1,6 +1,5 @@
 import {
   Component,
-  DestroyRef,
   ElementRef,
   afterNextRender,
   booleanAttribute,
@@ -68,16 +67,19 @@ export class PlayerCardPage {
       const c = this.card();
       if (c) title.setTitle(fullTitle(`Carte de ${c.name}`));
     });
-    const destroyRef = inject(DestroyRef);
-    afterNextRender(() => {
-      this.canShare.set(typeof navigator !== 'undefined' && 'canShare' in navigator);
+    afterNextRender(() =>
+      this.canShare.set(typeof navigator !== 'undefined' && 'canShare' in navigator),
+    );
+    // L'aperçu n'existe qu'une fois la carte arrivée : on suit sa largeur dès
+    // qu'il apparaît, pour que la carte le remplisse.
+    effect((onCleanup) => {
       const box = this.previewBox()?.nativeElement;
       if (!box || typeof ResizeObserver === 'undefined') return;
       const observer = new ResizeObserver(([entry]) =>
         this.scale.set(Math.min(1, entry.contentRect.width / CARD_WIDTH)),
       );
       observer.observe(box);
-      destroyRef.onDestroy(() => observer.disconnect());
+      onCleanup(() => observer.disconnect());
     });
   }
 

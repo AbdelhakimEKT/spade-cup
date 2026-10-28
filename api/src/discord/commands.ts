@@ -210,6 +210,20 @@ export const COMMANDS = [
     ],
   },
   {
+    name: 'carte',
+    description: 'Poster la carte d’un joueur (sans rien : la tienne)',
+    ...GUILD_ONLY,
+    options: [
+      {
+        name: 'joueur',
+        description: 'Le tag du joueur (vide : ton compte enregistré pour les FW)',
+        type: OptionType.String,
+        autocomplete: true,
+        max_length: 15,
+      },
+    ],
+  },
+  {
     name: 'inscription',
     description: 'Inscrire ton clan au tournoi en cours',
     options: [tag('Le tag du clan, par exemple #2JU0GRG98')],

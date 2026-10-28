@@ -23,7 +23,9 @@ export type Shot =
   /** Affiche d'une soirée FW : `query` = paramètres de /affiche/soiree (j, h, n). */
   | { readonly kind: 'evening'; readonly query: string }
   /** Le récap joueur par joueur d'une FW classique (page /fw/:id). */
-  | { readonly kind: 'fw'; readonly id: number };
+  | { readonly kind: 'fw'; readonly id: number }
+  /** La carte d'un joueur (page /joueurs/:tag/carte). */
+  | { readonly kind: 'card'; readonly tag: string };
 
 /**
  * Ce que chaque image doit montrer : l'élément photographié, celui dont on
@@ -36,6 +38,16 @@ function plan(shot: Shot): {
   width: number;
   scale: number;
 } {
+  if (shot.kind === 'card') {
+    return {
+      path: `/joueurs/${encodeURIComponent(shot.tag.replace('#', ''))}/carte?capture`,
+      selector: 'sc-player-card .poster',
+      // data-ready : la fiche, le classement et l'image de l'HDV sont arrivés.
+      ready: 'sc-player-card .poster[data-ready]',
+      width: 1080, // la carte fait 1080 × 1350 : sa taille finale, telle quelle
+      scale: 1,
+    };
+  }
   if (shot.kind === 'fw') {
     return {
       path: `/fw/${shot.id}?capture`,

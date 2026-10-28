@@ -71,11 +71,21 @@ export async function handleDiscord(
         // Discord exige une réponse en 3 secondes ; l'API du jeu peut être plus
         // lente. On répond tout de suite « je réfléchis », et la vraie réponse
         // part après coup (`waitUntil` garde le Worker en vie jusque-là).
-        ctx.waitUntil(safeRun(interaction, bot).then((reply) => editOriginal(interaction, reply)));
-        // Les réponses de /fw ne sont visibles que par le modo : le « je réfléchis » aussi.
+        ctx.waitUntil(
+          safeRun(interaction, bot).then((reply) =>
+            reply.publicFollowUp
+              ? postFollowUp(interaction, reply).then(() =>
+                  editOriginal(interaction, { content: '✅ Posté.', ephemeral: true }),
+                )
+              : editOriginal(interaction, reply),
+          ),
+        );
+        // Réponses de /fw (et erreurs de /carte) : visibles seulement par la
+        // personne, le « je réfléchis » aussi.
+        const name = interaction.data?.name;
         return json({
           type: ResponseType.Deferred,
-          ...(interaction.data?.name === 'fw' ? { data: { flags: EPHEMERAL } } : {}),
+          ...(name === 'fw' || name === 'carte' ? { data: { flags: EPHEMERAL } } : {}),
         });
       }
       return json({ type: ResponseType.Message, data: message(await safeRun(interaction, bot)) });
@@ -125,6 +135,15 @@ async function safeRun(interaction: Interaction, bot: BotContext): Promise<Reply
   } catch (error) {
     console.error('Commande Discord en échec', interaction.data?.name, error);
     return { content: '💥 Erreur interne, réessaie dans un instant.', ephemeral: true };
+  }
+}
+
+/** Un message public de plus (la carte de /carte), après un « je réfléchis » privé. */
+async function postFollowUp(interaction: Interaction, reply: Reply): Promise<void> {
+  const url = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
+  const response = await fetch(url, { method: 'POST', ...editBody(reply) });
+  if (!response.ok) {
+    console.error('Message Discord refusé', response.status, await response.text());
   }
 }
 
