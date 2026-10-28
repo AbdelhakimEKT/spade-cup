@@ -99,6 +99,13 @@ export const routes: Routes = [
           import('./features/poster/poster-page/poster-page').then((m) => m.PosterPage),
       },
       {
+        // Bilan d'une soirée FW (tableau du top 5), photographié par le bot (/fw bilan).
+        path: 'bilan',
+        title: 'Bilan FW',
+        loadComponent: () =>
+          import('./features/poster/recap-page/recap-page').then((m) => m.RecapPage),
+      },
+      {
         // Affiche d'une soirée FW, photographiée par le bot (/fw soiree).
         path: 'soiree',
         title: 'Soirée FW',

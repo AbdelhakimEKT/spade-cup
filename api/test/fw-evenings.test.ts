@@ -5,6 +5,7 @@ import type { BotContext, Reply } from '../src/discord/bot';
 import { runCommand } from '../src/discord/bot';
 import { fwComponent, runFwSchedule, type ComponentResponse } from '../src/discord/fw';
 import type { DiscordApi } from '../src/discord/rest';
+import type { Shot } from '../src/screens';
 import type { Interaction } from '../src/discord/types';
 import {
   currentEvening,
@@ -16,7 +17,16 @@ import {
 } from '../src/fw-evenings';
 import { toSqliteTime } from '../src/repository';
 import { listFriendlyWars, listFwPlayers } from '../src/stats-repository';
-import { MEMBER, MODO, NOW_FW, OTHER_MEMBER, botContext, fakeAnnouncer, type Who } from './helpers';
+import {
+  FAKE_PNG,
+  MEMBER,
+  MODO,
+  NOW_FW,
+  OTHER_MEMBER,
+  botContext,
+  fakeAnnouncer,
+  type Who,
+} from './helpers';
 
 const db = () => env.DB;
 
@@ -427,22 +437,52 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     expect((await runCommand(fw('bilan'), ctx)).content).toMatch(/rien à publier/);
 
     await threeWars();
-    const later = { ...ctx, now: () => START + 2 * 3_600_000 };
+    const shots: Shot[] = [];
+    const later = {
+      ...ctx,
+      now: () => START + 2 * 3_600_000,
+      capture: async (list: readonly Shot[]) => (shots.push(...list), [FAKE_PNG]),
+    };
     const reply = await runCommand(fw('bilan'), later);
     expect(reply.content).toContain('publié dans <#c-resultats>');
 
-    const recap = discord.sent.find((s) => s.channel === 'c-resultats')!.reply.content;
-    const lines = recap.split('\n');
-    expect(lines[0]).toBe('🌙 **Bilan de la FW #41** du mercredi 28/10 · 3 FW jouées');
-    expect(lines[2]).toMatch(/^🥇 \*\*Joueur 0\*\* — 3,00 ★\/attaque · 3 attaques · 99,0 %$/);
-    expect(recap).not.toContain('Remplissage');
-    expect(recap).toContain('https://site.test/joueurs?type=fw&semaine=2026-10-26');
+    // Le tableau du top 5, en image, avec un mot et le lien des stats.
+    const recap = discord.sent.find((s) => s.channel === 'c-resultats')!.reply;
+    expect(recap.content).toBe(
+      '🌙 **Bilan de la FW #41** · 📊 Toutes les stats : ' +
+        'https://site.test/joueurs?type=fw&semaine=2026-10-26',
+    );
+    expect(recap.files?.[0].name).toBe('bilan-fw-41.png');
+    const shot = shots.find((x) => x.kind === 'recap');
+    const q = new URLSearchParams(shot?.kind === 'recap' ? shot.query : '');
+    expect(q.get('n')).toBe('41');
+    expect(q.get('w')).toBe('3');
+    const top = JSON.parse(q.get('top')!) as unknown[][];
+    expect(top).toHaveLength(5);
+    expect(top[0]).toEqual(['Joueur 0', 18, 3, 3, 99, 0]);
+    expect(JSON.stringify(top)).not.toContain('Remplissage');
 
     expect((await getEvening(db(), e.id))?.closed).toBe(true);
     const fiche = discord.latest(signupId)!;
     expect(fiche.content).toContain('Soirée terminée');
     expect(fiche.components).toEqual([]);
     expect(await textOf(await fwComponent(click(`fw:join:${e.id}`), ctx))).toMatch(/est terminée/);
+  });
+
+  it('bilan sans image (navigateur en panne) : le top 5 en texte', async () => {
+    const { ctx, discord } = await launched();
+    await threeWars();
+    const broken = {
+      ...ctx,
+      now: () => START + 2 * 3_600_000,
+      capture: async () => {
+        throw new Error('quota');
+      },
+    };
+    await runCommand(fw('bilan'), broken);
+    const recap = discord.sent.find((s) => s.channel === 'c-resultats')!.reply;
+    expect(recap.files).toBeUndefined();
+    expect(recap.content.split('\n')[2]).toMatch(/^🥇 \*\*Joueur 0\*\* — 3,00 ★\/attaque/);
   });
 
   it('annuler : la fiche le dit', async () => {

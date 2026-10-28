@@ -1,0 +1,62 @@
+<!-- data-ready : le bot attend cet attribut (images des HDV chargées) avant de photographier. -->
+<article class="recap" [attr.data-ready]="ready() ? '' : null" aria-label="Bilan de la soirée">
+  <header class="recap__head">
+    <img src="brand/friendly-wars-160.webp" width="64" height="64" alt="" />
+    <div>
+      <h1>Bilan · FW #{{ n() || '?' }}</h1>
+      <p>
+        {{ d() }} · {{ w() }} FW jouée{{ +w() > 1 ? 's' : '' }} · {{ a() }} attaques ·
+        {{ x() }} triple{{ +x() > 1 ? 's' : '' }}
+      </p>
+    </div>
+  </header>
+
+  <table>
+    <caption>
+      Top 5 de la soirée · moyenne d’étoiles par attaque
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col" class="name">Joueur</th>
+        <th scope="col">HDV</th>
+        <th scope="col">★ / att.</th>
+        <th scope="col">Attaques</th>
+        <th scope="col">Triples</th>
+        <th scope="col">Destr.</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (p of players(); track $index) {
+        <tr [class]="$index < 3 ? 'podium podium--' + ($index + 1) : ''">
+          <td class="rank">{{ medals[$index] ?? $index + 1 }}</td>
+          <td class="name">{{ p.name }}</td>
+          <td class="th">
+            @if (thImage(p.th); as src) {
+              <img
+                [src]="src"
+                width="40"
+                height="40"
+                alt=""
+                (load)="imageDone()"
+                (error)="imageDone()"
+              />
+            }
+            {{ p.th ?? '–' }}
+          </td>
+          <td>
+            <span class="spa">{{ p.spa | number: '1.2-2' }}</span>
+          </td>
+          <td>{{ p.attacks }}</td>
+          <td>{{ p.triples }}</td>
+          <td>{{ p.destruction | number: '1.1-1' }} %</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <footer class="recap__foot">
+    <span>Merci à tous ! ⚔️</span>
+    <span>{{ discord }}</span>
+  </footer>
+</article>

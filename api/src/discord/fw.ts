@@ -1,4 +1,4 @@
-import { rankPlayers } from '../../../src/app/core/fw/evening';
+import { rankPlayers, recapQuery, weekOf } from '../../../src/app/core/fw/evening';
 import {
   DEFAULT_DETAILS,
   TEAM_LABEL,
@@ -217,7 +217,8 @@ export function signupMessage(
     : [{ title: `**Inscrits (${signups.length})**`, lines: roster(signups, emojis) }];
   // Inscrits sans équipe après le tirage (cas rare) : listés à part.
   const loose = signups.filter((s) => s.team === null);
-  if (teams && loose.length) sections.push({ title: '**Sans équipe**', lines: roster(loose, emojis) });
+  if (teams && loose.length)
+    sections.push({ title: '**Sans équipe**', lines: roster(loose, emojis) });
 
   return { content: fit(header, sections), components: e.closed ? [] : signupButtons(e, cfg) };
 }
@@ -263,7 +264,6 @@ function linkButtons(teams: readonly Team[], cfg: FwConfig): unknown[] {
 
 const TEAMS = ['violet', 'vert'] as const;
 
-
 function button(customId: string, label: string, style: number, emoji?: string) {
   return {
     type: ComponentType.Button,
@@ -304,7 +304,11 @@ export async function refreshSignup(deps: FwDeps, eveningId: number): Promise<vo
   const e = await getEvening(deps.db, eveningId);
   if (!e?.signup || !deps.discord) return;
   const [signups, emojis] = await Promise.all([signupsOf(deps.db, e.id), deps.discord.emojis()]);
-  await deps.discord.edit(e.signup.channel, e.signup.message, signupMessage(e, signups, emojis, deps.fw));
+  await deps.discord.edit(
+    e.signup.channel,
+    e.signup.message,
+    signupMessage(e, signups, emojis, deps.fw),
+  );
 }
 
 /** La fiche en image (le site la dessine, un navigateur la photographie). */
@@ -533,7 +537,10 @@ async function launch(interaction: Interaction, ctx: BotContext, options: Option
 }
 
 async function current(ctx: BotContext): Promise<Evening> {
-  return (await currentEvening(ctx.db)) ?? fail("Aucune FW n'est en cours : lance-en une avec /fw lancer.");
+  return (
+    (await currentEvening(ctx.db)) ??
+    fail("Aucune FW n'est en cours : lance-en une avec /fw lancer.")
+  );
 }
 
 async function modify(ctx: BotContext, options: Options): Promise<Reply> {
@@ -623,11 +630,39 @@ async function recap(ctx: BotContext): Promise<Reply> {
   const now = ctx.now();
   const { wars, lines } = await eveningLines(ctx.db, e, now);
   if (wars === 0) fail('Aucune FW de cette soirée n’a encore été enregistrée : rien à publier.');
-  const content = eveningRecapText(e, wars, rankPlayers(lines), ctx.siteUrl);
+  const ranked = rankPlayers(lines);
+  // Le tableau du top 5 en image (le site le dessine, un navigateur le
+  // photographie) ; à défaut, le bilan en texte.
+  let png: Uint8Array | null = null;
+  try {
+    const query = recapQuery({
+      number: e.number,
+      day: dayLabel(e.startsAt),
+      wars,
+      attacks: lines.reduce((sum, l) => sum + l.attacks, 0),
+      triples: lines.reduce((sum, l) => sum + (l.triples ?? 0), 0),
+      top: ranked.slice(0, 5).map((p) => ({
+        name: p.name,
+        th: p.townHall,
+        spa: p.starsPerAttack,
+        attacks: p.attacks,
+        destruction: p.destruction,
+        triples: p.triples,
+      })),
+    });
+    [png] = await ctx.capture([{ kind: 'recap', query }]);
+  } catch (error) {
+    console.error('Image du bilan impossible', error);
+  }
+  const link = `${ctx.siteUrl}/joueurs?type=fw&semaine=${weekOf(e.startsAt)}`;
+  const content = png
+    ? `🌙 **Bilan de la FW #${e.number}** · 📊 Toutes les stats : ${link}`
+    : eveningRecapText(e, wars, ranked, ctx.siteUrl);
   // En essai, le bilan reste dans le salon de l'essai.
   const channel = e.test && e.signup ? e.signup.channel : ctx.fw.resultsChannel;
   const posted = await ctx.discord!.send(channel, {
     content: e.test ? `${TEST_BANNER}\n${content}` : content,
+    ...(png ? { files: [{ name: `bilan-fw-${e.number}.png`, data: png }] } : {}),
   });
   if (!posted) fail(`Impossible de poster dans <#${channel}> (droits du bot ?).`);
   await closeEvening(ctx.db, e.id, now);
@@ -669,7 +704,10 @@ export async function fwComponent(
       case 'add':
         return { kind: 'modal', modal: tagModal(e, team) };
       case 'pick':
-        return { kind: 'update', reply: await pick(ctx, e, who, team, interaction.data?.values ?? []) };
+        return {
+          kind: 'update',
+          reply: await pick(ctx, e, who, team, interaction.data?.values ?? []),
+        };
       case 'tag':
         return tagSubmitted(ctx, e, who, team, interaction);
     }
@@ -781,7 +819,8 @@ function picker(
             max_values: shown.length,
             options: shown.map((a) => {
               const s = signupOf(a);
-              const elsewhere = team && s?.team && s.team !== team ? ` · ${TEAM_LABEL[s.team]}` : '';
+              const elsewhere =
+                team && s?.team && s.team !== team ? ` · ${TEAM_LABEL[s.team]}` : '';
               return {
                 label: a.name.slice(0, 100),
                 value: a.tag,
@@ -897,7 +936,9 @@ function tagSubmitted(
         );
       }
       await saveAccount(ctx.db, who.id, found.value);
-      await run(ctx.db, [signupStatement(ctx.db, e.id, who, found.value, await teamFor(ctx, e, team))]);
+      await run(ctx.db, [
+        signupStatement(ctx.db, e.id, who, found.value, await teamFor(ctx, e, team)),
+      ]);
       await refreshSignup(ctx, e.id);
       const now = await mine(ctx, e, who);
       return picker(

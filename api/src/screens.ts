@@ -25,7 +25,9 @@ export type Shot =
   /** Le récap joueur par joueur d'une FW classique (page /fw/:id). */
   | { readonly kind: 'fw'; readonly id: number }
   /** La carte d'un joueur (page /joueurs/:tag/carte). */
-  | { readonly kind: 'card'; readonly tag: string };
+  | { readonly kind: 'card'; readonly tag: string }
+  /** Le bilan d'une soirée FW (page /affiche/bilan, voir recapQuery). */
+  | { readonly kind: 'recap'; readonly query: string };
 
 /**
  * Ce que chaque image doit montrer : l'élément photographié, celui dont on
@@ -38,6 +40,15 @@ function plan(shot: Shot): {
   width: number;
   scale: number;
 } {
+  if (shot.kind === 'recap') {
+    return {
+      path: `/affiche/bilan?${shot.query}`,
+      selector: 'sc-recap-page .recap',
+      ready: 'sc-recap-page .recap[data-ready]',
+      width: 1080,
+      scale: 1.5, // net sur téléphone, où on zoome sur le tableau
+    };
+  }
   if (shot.kind === 'card') {
     return {
       path: `/joueurs/${encodeURIComponent(shot.tag.replace('#', ''))}/carte?capture`,

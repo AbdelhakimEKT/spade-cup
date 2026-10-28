@@ -15,6 +15,10 @@ export interface FwLine {
   readonly destructionSum: number;
   /** Temps total de ses attaques, en secondes. */
   readonly duration: number;
+  /** Attaques à 3 étoiles. */
+  readonly triples?: number;
+  /** Son HDV dans cette guerre. */
+  readonly townHall?: number;
 }
 
 /** Un joueur classé sur une soirée ou une semaine. */
@@ -23,7 +27,9 @@ export interface RankedPlayer {
   readonly name: string;
   readonly attacks: number;
   readonly stars: number;
-  readonly triples?: number;
+  readonly triples: number;
+  /** Son HDV (à sa guerre la plus récente). */
+  readonly townHall: number | null;
   /** Étoiles par attaque : le critère du classement (au prorata des attaques). */
   readonly starsPerAttack: number;
   /** Destruction moyenne par attaque (départage n° 1). */
@@ -48,13 +54,25 @@ export function rankPlayers(
   lines: readonly FwLine[],
   minAttacks = EVENING_MIN_ATTACKS,
 ): RankedPlayer[] {
-  const byTag = new Map<string, { name: string; a: number; s: number; d: number; t: number }>();
+  const byTag = new Map<
+    string,
+    { name: string; th: number | null; a: number; s: number; d: number; t: number; x: number }
+  >();
   for (const l of lines) {
-    const p = byTag.get(l.tag) ?? { name: l.name, a: 0, s: 0, d: 0, t: 0 };
+    const p = byTag.get(l.tag) ?? {
+      name: l.name,
+      th: l.townHall ?? null,
+      a: 0,
+      s: 0,
+      d: 0,
+      t: 0,
+      x: 0,
+    };
     p.a += l.attacks;
     p.s += l.stars;
     p.d += l.destructionSum;
     p.t += l.duration;
+    p.x += l.triples ?? 0;
     byTag.set(l.tag, p);
   }
   return [...byTag]
@@ -62,8 +80,10 @@ export function rankPlayers(
     .map(([tag, p]) => ({
       tag,
       name: p.name,
+      townHall: p.th,
       attacks: p.a,
       stars: p.s,
+      triples: p.x,
       starsPerAttack: p.s / p.a,
       destruction: Math.round((p.d / p.a) * 10) / 10,
       durationPerAttack: Math.round(p.t / p.a),
@@ -208,4 +228,69 @@ export function periodRange(p: FwPeriod): { readonly start: number; readonly end
 /** « du 26/10 au 01/11 » ou « en octobre 2026 ». */
 export function periodLabel(p: FwPeriod): string {
   return p.kind === 'week' ? weekLabel(p.value) : `en ${monthLabel(p.value)}`;
+}
+
+// ------------------------------------------------------------ image du bilan
+
+/** Un joueur sur l'image du bilan. */
+export interface RecapPlayer {
+  readonly name: string;
+  readonly th: number | null;
+  /** Étoiles par attaque. */
+  readonly spa: number;
+  readonly attacks: number;
+  readonly destruction: number;
+  readonly triples: number;
+}
+
+/** L'image du bilan d'une soirée (page /affiche/bilan, photographiée par le bot). */
+export interface EveningRecap {
+  readonly number: number;
+  /** « mercredi 28/10 ». */
+  readonly day: string;
+  readonly wars: number;
+  readonly attacks: number;
+  readonly triples: number;
+  readonly top: readonly RecapPlayer[];
+}
+
+export function recapQuery(r: EveningRecap): string {
+  return new URLSearchParams({
+    n: String(r.number),
+    d: r.day,
+    w: String(r.wars),
+    a: String(r.attacks),
+    x: String(r.triples),
+    top: JSON.stringify(
+      r.top.map((p) => [
+        p.name,
+        p.th,
+        Math.round(p.spa * 100) / 100,
+        p.attacks,
+        p.destruction,
+        p.triples,
+      ]),
+    ),
+  }).toString();
+}
+
+/** Le top lu dans l'adresse ; illisible → vide (la page s'affiche quand même). */
+export function parseRecapTop(raw: string): RecapPlayer[] {
+  try {
+    const rows = JSON.parse(raw) as unknown;
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 5).map((row) => {
+      const [name, th, spa, attacks, destruction, triples] = row as unknown[];
+      return {
+        name: String(name ?? '?'),
+        th: typeof th === 'number' ? th : null,
+        spa: Number(spa) || 0,
+        attacks: Number(attacks) || 0,
+        destruction: Number(destruction) || 0,
+        triples: Number(triples) || 0,
+      };
+    });
+  } catch {
+    return [];
+  }
 }

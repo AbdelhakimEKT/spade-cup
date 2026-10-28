@@ -405,7 +405,7 @@ export async function fwLines(
   const { results } = await db
     .prepare(
       `SELECT w.id AS war_id, p.player_tag, p.player_name, p.attacks, p.stars,
-              p.destruction_sum, p.duration
+              p.destruction_sum, p.duration, p.triples, p.town_hall
        FROM friendly_wars w JOIN fw_players p ON p.war_id = w.id
        WHERE w.started_at >= ? AND w.started_at < ?
        ORDER BY w.started_at DESC, w.id DESC`,
@@ -419,6 +419,8 @@ export async function fwLines(
       stars: number;
       destruction_sum: number;
       duration: number;
+      triples: number;
+      town_hall: number;
     }>();
   return {
     wars: new Set(results.map((r) => r.war_id)).size,
@@ -429,6 +431,8 @@ export async function fwLines(
       stars: r.stars,
       destructionSum: r.destruction_sum,
       duration: r.duration,
+      triples: r.triples,
+      townHall: r.town_hall,
     })),
   };
 }

@@ -1,0 +1,177 @@
+// Le bilan d'une soirée FW : un tableau simple, aux couleurs des affiches.
+:host {
+  display: block;
+  width: fit-content;
+}
+
+.recap {
+  --violet: #8b2cff;
+  --green: #35e07a;
+  --ink: #f2f1f8;
+  --muted: #8d8ba6;
+
+  width: 1080px;
+  padding: 44px 52px 36px;
+  border-top: 4px solid transparent;
+  background:
+    linear-gradient(180deg, #11101c, #08080d) padding-box,
+    linear-gradient(90deg, var(--violet), var(--green)) border-box;
+  color: var(--ink);
+  font-family: var(--font-display);
+}
+
+.recap__head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+
+  img {
+    width: 64px;
+    height: 64px;
+  }
+
+  h1 {
+    margin: 0;
+    color: #fff;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 21px;
+    font-weight: 600;
+  }
+}
+
+table {
+  width: 100%;
+  margin-top: 30px;
+  border-collapse: collapse;
+  font-size: 26px;
+}
+
+caption {
+  padding-bottom: 14px;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+th {
+  padding: 0 14px 12px;
+  border-bottom: 2px solid rgb(255 255 255 / 0.12);
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+td {
+  padding: 16px 14px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+th.name,
+td.name {
+  text-align: left;
+}
+
+td.name {
+  max-width: 400px;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+td.rank {
+  width: 56px;
+  font-size: 30px;
+  text-align: center;
+}
+
+th:first-child {
+  text-align: center;
+}
+
+td.th {
+  img {
+    width: 40px;
+    height: 40px;
+    margin-right: 6px;
+    object-fit: contain;
+    vertical-align: middle;
+  }
+}
+
+// La stat du classement, du violet au vert.
+.spa {
+  background: linear-gradient(90deg, var(--violet), var(--green));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+// Le podium : or, argent, bronze. Une barre de couleur à gauche, un fond
+// teinté, et le 1er un peu plus grand.
+tr.podium td {
+  background-color: rgb(var(--podium) / 0.1);
+}
+
+tr.podium td:first-child {
+  box-shadow: inset 6px 0 0 rgb(var(--podium));
+}
+
+tr.podium .name {
+  color: rgb(var(--podium-text, 255 255 255));
+}
+
+.podium--1 {
+  --podium: 255 196 61;
+  --podium-text: 255 214 112;
+
+  td {
+    padding-block: 22px;
+    font-size: 30px;
+  }
+
+  td.rank {
+    font-size: 40px;
+  }
+
+  .spa {
+    font-size: 40px;
+  }
+}
+
+.podium--2 {
+  --podium: 200 206 222;
+}
+
+.podium--3 {
+  --podium: 214 134 74;
+}
+
+.recap__foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 600;
+}
