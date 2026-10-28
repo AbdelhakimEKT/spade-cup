@@ -1,0 +1,291 @@
+// La carte d'un joueur : la charte des affiches (poster-view.scss : fond,
+// éclats des coins), avec sa propre mise en page.
+.poster.pc {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px 70px 56px;
+  background:
+    radial-gradient(70% 30% at 0% 24%, rgb(139 44 255 / 0.24), transparent 70%),
+    radial-gradient(70% 30% at 100% 60%, rgb(53 224 122 / 0.14), transparent 70%),
+    linear-gradient(180deg, #0c0c16 0%, #07070c 100%);
+}
+
+.pc__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+
+  img {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+.pc__kind {
+  margin-left: auto;
+  padding: 10px 20px;
+  border: 1.5px solid rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 15px;
+  letter-spacing: 0.2em;
+}
+
+// ---- Le joueur
+.pc__hero {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  align-items: center;
+  gap: 36px;
+}
+
+.pc__th {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 270px;
+  height: 270px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(139 44 255 / 0.3), transparent);
+
+  img {
+    width: 250px;
+    height: 250px;
+    object-fit: contain;
+    filter: drop-shadow(0 16px 24px rgb(0 0 0 / 0.7));
+  }
+}
+
+// « HDV 18 », en étiquette sous l'image.
+.pc__th-level {
+  position: absolute;
+  bottom: -6px;
+  padding: 6px 18px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background:
+    linear-gradient(#0d0c16, #0d0c16) padding-box,
+    linear-gradient(90deg, var(--violet), var(--green)) border-box;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.pc__name {
+  margin: 0;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.pc__tag {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.pc__rank {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 22px 0 0;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgb(139 44 255 / 0.35), rgb(53 224 122 / 0.22));
+  color: #fff;
+  font-size: 24px;
+  font-weight: 600;
+
+  b {
+    font-size: 34px;
+  }
+
+  span {
+    flex-basis: 100%;
+    color: var(--ink);
+    font-size: 16px;
+    letter-spacing: 0.04em;
+  }
+}
+
+// ---- La stat principale
+.pc__main {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.pc__big {
+  margin: 0;
+  padding-right: 0.04em;
+  background: linear-gradient(90deg, var(--violet), var(--green));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 150px;
+  font-weight: 700;
+  line-height: 0.9;
+}
+
+.pc__big-label {
+  margin: 0;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pc__big-sub {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+// ---- Les autres stats, en tuiles
+.pc__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 0;
+
+  div {
+    padding: 18px 20px;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 14px;
+    background: rgb(255 255 255 / 0.035);
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 8px 0 4px;
+    color: #fff;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  p {
+    margin: 0;
+    color: var(--ink);
+    font-size: 17px;
+  }
+}
+
+.pc__stats .pc__time {
+  font-size: 34px;
+  line-height: 46px;
+}
+
+// ---- La forme
+.pc__label {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.pc__form ol {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Une pastille par guerre : 3 ★ en vert lumineux, 2 en violet, 1 et 0 en gris.
+.pip {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 52px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--muted);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pip--3 {
+  background: var(--green);
+  box-shadow: 0 0 16px rgb(53 224 122 / 0.5);
+  color: #06140c;
+}
+
+.pip--2 {
+  background: var(--violet);
+  color: #fff;
+}
+
+.pip--1 {
+  background: rgb(255 255 255 / 0.14);
+  color: var(--ink);
+}
+
+// ---- Le QR code et les liens
+.pc__foot {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding-top: 26px;
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.pc__qr {
+  flex: none;
+  width: 170px;
+  height: 170px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.pc__scan {
+  margin: 0;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.pc__url {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+.pc__discord {
+  margin: 14px 0 0;
+  color: #fff;
+  font-size: 26px;
+  font-weight: 600;
+
+  span {
+    margin-right: 10px;
+    color: var(--muted);
+    font-size: 15px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+}

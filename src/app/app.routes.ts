@@ -61,6 +61,15 @@ export const routes: Routes = [
           import('./features/players/ranking-page/ranking-page').then((m) => m.RankingPage),
       },
       {
+        // La carte d'un joueur, à partager (et photographiée par le bot : ?capture).
+        path: ':tag/carte',
+        title: 'Carte joueur',
+        loadComponent: () =>
+          import('./features/players/player-card-page/player-card-page').then(
+            (m) => m.PlayerCardPage,
+          ),
+      },
+      {
         path: ':tag',
         title: 'Joueur',
         loadComponent: () =>

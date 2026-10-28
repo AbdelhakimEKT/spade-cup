@@ -1,0 +1,111 @@
+@let c = card();
+<!-- data-ready : le bot attend cet attribut (image de l'HDV chargée) avant de photographier. -->
+<article class="poster pc" [attr.data-ready]="ready() ? '' : null" aria-label="Carte du joueur">
+  <div class="shards" aria-hidden="true">
+    @for (corner of corners; track corner) {
+      <div [class]="'shards__corner shards__corner--' + corner">
+        <div class="shards__tilt">
+          <span class="shard shard--a"></span>
+          <span class="shard shard--b"></span>
+          <span class="shard shard--c"></span>
+          <span class="shard shard--d"></span>
+          <span class="streak streak--a"></span>
+          <span class="streak streak--b"></span>
+          <span class="streak streak--c"></span>
+          <span class="streak streak--d"></span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <header class="pc__head">
+    <img src="brand/friendly-wars-160.webp" width="60" height="60" alt="" />
+    <span>Friendly Wars</span>
+    <span class="pc__kind">Carte joueur · {{ c.source }}</span>
+  </header>
+
+  <!-- Le joueur : son HDV, son nom, son tag, sa place au classement. -->
+  <section class="pc__hero">
+    <div class="pc__th">
+      @if (thImage(); as src) {
+        <img [src]="src" width="250" height="250" alt="" (load)="thLoaded()" (error)="thLoaded()" />
+      }
+      @if (c.townHall) {
+        <span class="pc__th-level">HDV {{ c.townHall }}</span>
+      }
+    </div>
+    <div class="pc__id">
+      <h1 class="pc__name" [style.font-size.px]="nameSize()">{{ c.name }}</h1>
+      <p class="pc__tag">{{ c.tag }}</p>
+      @if (c.rank; as r) {
+        <p class="pc__rank">
+          <b>#{{ r.position }}</b> du classement {{ c.source }}
+          <span>sur {{ r.total }} joueurs · étoiles par attaque</span>
+        </p>
+      }
+    </div>
+  </section>
+
+  <!-- La stat principale : étoiles par attaque. -->
+  <section class="pc__main">
+    <p class="pc__big">{{ c.starsPerAttack | number: '1.2-2' }}</p>
+    <div>
+      <p class="pc__big-label">Étoiles par attaque</p>
+      <p class="pc__big-sub">{{ c.stars }} étoiles en {{ c.attacks }} attaques</p>
+    </div>
+  </section>
+
+  <dl class="pc__stats">
+    <div>
+      <dt>Triples</dt>
+      <dd>{{ c.tripleRate | percent: '1.0-0' }}</dd>
+      <p>{{ c.triples }} attaque{{ c.triples > 1 ? 's' : '' }} à 3 ★</p>
+    </div>
+    <div>
+      <dt>Destruction</dt>
+      <dd>{{ c.destruction | number: '1.1-1' }} %</dd>
+      <p>en moyenne</p>
+    </div>
+    <div>
+      <dt>{{ c.source === 'FW' ? 'FW jouées' : 'Guerres' }}</dt>
+      <dd>{{ c.wars }}</dd>
+      <p>{{ c.wins }} gagnée{{ c.wins > 1 ? 's' : '' }}</p>
+    </div>
+    <div>
+      <dt>Victoires</dt>
+      <dd>{{ c.winRate === null ? '–' : (c.winRate | percent: '1.0-0') }}</dd>
+      <p>de son équipe</p>
+    </div>
+    <div>
+      <dt>Temps moyen</dt>
+      <dd class="pc__time">{{ c.avgDurationSec === null ? '–' : duration(c.avgDurationSec) }}</dd>
+      <p>par attaque</p>
+    </div>
+    <div>
+      <dt>Série de triples</dt>
+      <dd>{{ c.bestTripleStreak }}</dd>
+      <p>record d'affilée</p>
+    </div>
+  </dl>
+
+  <!-- La forme : les dernières guerres, une pastille par guerre. -->
+  @if (c.form.length) {
+    <section class="pc__form">
+      <p class="pc__label">Forme · {{ c.form.length }} dernières guerres</p>
+      <ol>
+        @for (s of c.form; track $index) {
+          <li [class]="'pip pip--' + s">{{ s }}★</li>
+        }
+      </ol>
+    </section>
+  }
+
+  <footer class="pc__foot">
+    <sc-qr-code class="pc__qr" [text]="profileUrl()" />
+    <div class="pc__links">
+      <p class="pc__scan">Scanne pour voir toutes mes stats</p>
+      <p class="pc__url">{{ shownUrl() }}</p>
+      <p class="pc__discord"><span>Discord</span> {{ discord }}</p>
+    </div>
+  </footer>
+</article>

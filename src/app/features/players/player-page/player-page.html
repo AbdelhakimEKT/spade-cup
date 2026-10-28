@@ -44,18 +44,16 @@
   <header class="page-head">
     <p class="eyebrow">Joueur · {{ p.totals.tag }}</p>
     <h1 class="page-title">{{ p.totals.name }}</h1>
+    <!-- Son clan de Spade Cup seulement : en FW, les équipes changent d'une soirée à l'autre. -->
     @if (p.history.length) {
       <a class="clan" [routerLink]="['/clans', url(p.totals.clan.tag)]">
         <sc-clan-avatar [clan]="p.totals.clan" />
         {{ p.totals.clan.name }}
       </a>
-    } @else {
-      <!-- Clan de FW (pas inscrit à un tournoi) : pas de fiche de clan, sa couleur d'équipe. -->
-      <span class="clan" [class]="'clan team--' + (teamColor(p.totals.clan.tag) ?? 'none')">
-        <sc-clan-avatar [clan]="p.totals.clan" />
-        {{ p.totals.clan.name }}
-      </span>
     }
+    <a class="button button--primary card-link" [routerLink]="['/joueurs', tag(), 'carte']">
+      🎴 Voir et partager sa carte
+    </a>
   </header>
 
   @if (p.history.length) {

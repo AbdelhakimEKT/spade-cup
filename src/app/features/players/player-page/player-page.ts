@@ -8,7 +8,7 @@ import { PlayerTotals } from '../../../core/tournament/stats';
 import { tagToUrl } from '../../../core/tournament/tags';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { ClanAvatar } from '../../../shared/ui/clan-avatar/clan-avatar';
-import { fwTeamColor, orderFw } from '../../../shared/ui/fw-teams';
+import { orderFw } from '../../../shared/ui/fw-teams';
 import { starsPerAttack } from '../../../shared/ui/labels';
 import { RequestState } from '../../../shared/request-state/request-state';
 import { Players } from '../data/players';
@@ -47,7 +47,6 @@ export class PlayerPage {
   protected readonly url = tagToUrl;
   /** FW classiques : team 1 (violet) à gauche, team 2 (vert) à droite. */
   protected readonly order = orderFw;
-  protected readonly teamColor = fwTeamColor;
 
   constructor() {
     const title = inject(Title);

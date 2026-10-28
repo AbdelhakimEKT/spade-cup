@@ -33,3 +33,9 @@
     text-decoration: underline;
   }
 }
+
+// Lien vers la carte à partager, sous le nom.
+.card-link {
+  justify-self: start;
+  margin-top: var(--space-3);
+}

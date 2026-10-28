@@ -1,0 +1,40 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  max-width: 760px;
+}
+
+// Mode capture (image pour Discord) : la carte seule, sans marge.
+:host(.capture) {
+  display: block;
+  max-width: none;
+}
+
+.crumb {
+  justify-self: start;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.message {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+// La carte garde sa vraie taille (1080 × 1350) et est simplement réduite à
+// l'écran : l'image téléchargée est donc exactement celle qu'on voit.
+.preview {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.preview__stage {
+  width: 1080px;
+  transform-origin: top left;
+}

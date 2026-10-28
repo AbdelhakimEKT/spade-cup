@@ -54,7 +54,7 @@ describe('PlayerPage', () => {
     expect(el.querySelector('a[href="/joueurs"]')).not.toBeNull();
   });
 
-  it('joueur de FW classiques seulement : sa section FW, pas de Spade Cup, pas de lien de clan', async () => {
+  it('joueur de FW classiques seulement : sa section FW, pas de Spade Cup, pas de clan, sa carte', async () => {
     const profile = fwOnlyProfile();
     const tag = profile.totals.tag.slice(1);
     const { el, reply } = await openPage(PlayerPage, { tag });
@@ -64,9 +64,9 @@ describe('PlayerPage', () => {
     expect(titles).toEqual(['En FW classiques']);
     // Ouverte directement : « ← » mène au classement des FW, pas au menu principal.
     expect(el.querySelector('.crumb')?.getAttribute('href')).toBe('/joueurs?type=fw');
-    expect(el.querySelector('a.clan')).toBeNull(); // FW-team2 n'a pas de fiche de clan
-    expect(el.querySelector('span.clan')?.textContent).toContain('FW-team2');
-    expect(el.querySelector('span.clan')?.classList).toContain('team--green');
+    // Pas de clan : en FW, les équipes changent d'une soirée à l'autre.
+    expect(el.querySelector('.clan')).toBeNull();
+    expect(el.querySelector('a.card-link')?.getAttribute('href')).toMatch(/\/joueurs\/.+\/carte$/);
     const row = el.querySelector('tbody tr')!;
     // Team 1 (violet) toujours à gauche, team 2 (vert) à droite.
     expect(row.textContent?.replace(/\s+/g, ' ')).toContain('FW-team1 11★ – 13★ FW-team2');

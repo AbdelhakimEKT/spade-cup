@@ -1,0 +1,51 @@
+@if (card(); as c) {
+  @if (capture()) {
+    <sc-player-card [card]="c" />
+  } @else {
+    <a class="crumb" [routerLink]="['/joueurs', tag()]">← Fiche de {{ c.name }}</a>
+    <header class="page-head">
+      <p class="eyebrow">Carte joueur</p>
+      <h1 class="page-title">Partage ta carte</h1>
+      <p class="lead">
+        Tes perfs en une image : télécharge-la ou partage-la. Le QR code mène à ta fiche.
+      </p>
+    </header>
+
+    <div class="actions">
+      @if (canShare()) {
+        <button type="button" class="button button--primary" [disabled]="busy()" (click)="share()">
+          Partager
+        </button>
+      }
+      <button
+        type="button"
+        class="button"
+        [class.button--primary]="!canShare()"
+        [disabled]="busy()"
+        (click)="download()"
+      >
+        {{ busy() ? 'Création de l’image…' : 'Télécharger (PNG)' }}
+      </button>
+      <button type="button" class="button" [disabled]="busy()" (click)="copyLink()">
+        Copier le lien
+      </button>
+      @if (message(); as m) {
+        <p class="message" role="status">{{ m }}</p>
+      }
+    </div>
+
+    <div #previewBox class="preview" [style.height.px]="previewHeight()">
+      <div class="preview__stage" [style.transform]="'scale(' + scale() + ')'">
+        <sc-player-card [card]="c" />
+      </div>
+    </div>
+  }
+} @else if (notFound()) {
+  <h1 class="page-title">Joueur introuvable</h1>
+  <p class="muted">
+    Aucun joueur avec ce tag n'a encore joué de guerre.
+    <a routerLink="/joueurs">Voir le classement</a>
+  </p>
+} @else {
+  <sc-request-state [resource]="request" />
+}
