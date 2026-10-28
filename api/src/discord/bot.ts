@@ -98,6 +98,8 @@ export interface Reply {
   readonly components?: readonly unknown[];
   /** Rôles notifiés par le message (ping de l'annonce d'une FW). */
   readonly mentionRoles?: readonly string[];
+  /** Membres notifiés par le message (rappel des équipes d'une FW). */
+  readonly mentionUsers?: readonly string[];
 }
 
 const ORGANIZER = 'Friendly Wars';

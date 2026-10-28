@@ -319,7 +319,12 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
     const fiche = discord.latest(signupId)!.content;
     expect(fiche).toContain('🟣 **FW-Team 1 (2)**');
     expect(fiche).toContain('🟢 **FW-Team 2 (1)**');
-    expect(discord.sent.at(-1)?.reply.content).toContain('Les équipes de la FW #41 sont prêtes');
+    // Le rappel : chaque joueur mentionné (notifié) sous son équipe, et les boutons des clans.
+    const notice = discord.sent.at(-1)!.reply;
+    expect(notice.content).toContain('Les équipes de la FW #41 sont prêtes');
+    expect(notice.content).toMatch(/🟣 \*\*FW-Team 1\*\*\n<@u-/);
+    expect([...(notice.mentionUsers ?? [])].sort()).toEqual(['u-autre', 'u-chef']);
+    expect(JSON.stringify(notice.components)).toContain('"url":"https://clan.test/2"');
     // Équipes faites : un bouton par équipe ouvre son clan dans le jeu.
     const links = JSON.stringify(discord.latest(signupId)!.components);
     expect(links).toContain('"label":"Rejoindre la FW-Team 1","url":"https://clan.test/1"');
@@ -332,10 +337,12 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
         "INSERT INTO discord_accounts (discord_id, player_tag, player_name, town_hall) VALUES ('u-retard', '#LATE', 'Retard', 16)",
       )
       .run();
-    const lateReply = await textOf(await fwComponent(click(`fw:join:${e.id}`, late), ctx));
+    const lateReply = await fwComponent(click(`fw:join:${e.id}`, late), ctx);
     expect((await signupsOf(db(), e.id)).find((s) => s.tag === '#LATE')?.team).toBe('vert');
-    // Il reçoit le lien du clan de sa team.
-    expect(lateReply).toContain('👉 Rejoins le clan de ta team : [FW-Team 2](https://clan.test/2)');
+    // Il reçoit le bouton pour rejoindre le clan de sa team.
+    const lateButtons = JSON.stringify(lateReply.kind === 'reply' && lateReply.reply.components);
+    expect(lateButtons).toContain('"label":"Rejoindre la FW-Team 2","url":"https://clan.test/2"');
+    expect(lateButtons).not.toContain('FW-Team 1');
 
     // Rééquilibrage par un modo.
     const moved = await runCommand(fw('deplacer', { compte: '#PQ9', equipe: 'violet' }), ctx);
@@ -358,7 +365,12 @@ describe('équipes libres : chacun choisit la sienne', () => {
     expect(JSON.stringify(fiche.components)).toMatch(/fw:join:\d+:violet.*fw:join:\d+:vert/);
     expect(fiche.content).toContain('Équipes au choix');
 
-    await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
+    // Équipes au choix : le lien du clan est là dès l'inscription.
+    const tagged = await fwComponent(click(`fw:tag:${e.id}:violet`, MEMBER, { tag: '#PQ2' }), ctx);
+    const reply = tagged.kind === 'deferred' ? await tagged.run() : null;
+    expect(JSON.stringify(reply?.components)).toContain(
+      '"label":"Rejoindre la FW-Team 1","url":"https://clan.test/1"',
+    );
     await signTag(ctx, e.id, '#PQ8', MEMBER, ':vert');
     const team = async (tag: string) =>
       (await signupsOf(db(), e.id)).find((s) => s.tag === tag)?.team;
@@ -374,6 +386,8 @@ describe('équipes libres : chacun choisit la sienne', () => {
 
     await settle();
     expect(discord.latest(signupId)!.content).toContain('🟢 **FW-Team 2 (1)**');
+    // Et sous la fiche, sans attendre le tirage.
+    expect(JSON.stringify(discord.latest(signupId)!.components)).toContain('Rejoindre la FW-Team 1');
   });
 });
 
