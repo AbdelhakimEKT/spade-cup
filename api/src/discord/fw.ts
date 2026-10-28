@@ -362,8 +362,8 @@ export async function makeTeams(deps: FwDeps, e: Evening, redraw: boolean): Prom
 /**
  * Le rappel « équipes prêtes » : chaque joueur est mentionné sous son équipe
  * (il est notifié, surtout utile quand les équipes sont tirées au sort), avec
- * les boutons pour rejoindre le clan de chaque équipe. En essai, personne
- * n'est notifié.
+ * les boutons pour rejoindre le clan de chaque équipe. En essai aussi : seuls
+ * les inscrits (les testeurs) sont notifiés, jamais le rôle.
  */
 export function teamsNotice(
   e: Evening,
@@ -390,7 +390,7 @@ export function teamsNotice(
   return {
     content: lines.join('\n'),
     ...(links.length ? { components: [{ type: ComponentType.Row, components: links }] } : {}),
-    ...(e.test ? {} : { mentionUsers: [...mentioned].slice(0, 100) }),
+    mentionUsers: [...mentioned].slice(0, 100),
   };
 }
 
