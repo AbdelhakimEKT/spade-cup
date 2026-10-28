@@ -1,5 +1,158 @@
-<!-- data-ready : rien à charger (pas de logo d'équipe) ; le bot l'attend quand même. -->
-<article class="poster session" data-ready aria-label="Fiche de la FW">
+<!-- data-ready : le bot attend cet attribut (images des HDV chargées) avant de photographier. Deux styles,
+     le temps de choisir : « a » (chronologie) et « b » (événement). -->
+@if (design() === 'b') {
+  <article class="poster ev" [attr.data-ready]="ready() ? '' : null" aria-label="Fiche de la FW">
+    <div class="ev__glow" aria-hidden="true"></div>
+    <ng-container *ngTemplateOutlet="shards" />
+
+    <header class="ev__head">
+      <img src="brand/friendly-wars-160.webp" width="64" height="64" alt="" />
+      <span>Friendly Wars présente</span>
+    </header>
+
+    <h1 class="ev__title">FW <span class="grad">#{{ number() }}</span></h1>
+
+    <!-- L'HDV du format, en héros, dans un anneau violet et vert. -->
+    <div class="ev__stage">
+      <div class="ev__ring" aria-hidden="true"><span></span></div>
+      @if (mainTh(); as th) {
+        <img class="ev__th" [src]="th.src" width="330" height="330" alt="" (load)="imageDone()" (error)="imageDone()" />
+      }
+      <p class="ev__format">{{ format() }}</p>
+    </div>
+
+    <p class="ev__when">
+      @if (weekday(); as day) {
+        <span class="ev__day">{{ day }}</span>
+      }
+      <span class="ev__date">{{ shownDate() }}</span>
+      <span class="ev__sep" aria-hidden="true"></span>
+      <span class="ev__date">{{ shownTime() }}</span>
+    </p>
+
+    <ul class="ev__cards">
+      @for (c of cards(); track $index) {
+        <li class="ev__card" [class.ev__card--text]="!c.unit && c.value.length > 3">
+          <span class="ev__value"
+            >{{ c.value }}@if (c.unit) {<small>{{ c.unit }}</small>}</span
+          >
+          @if (c.unit || !c.value.toLowerCase().includes(c.label.toLowerCase())) {
+            <span class="ev__label">{{ c.unit ? c.label : c.detail || c.label }}</span>
+          }
+        </li>
+      }
+    </ul>
+
+    <div class="ev__accepted">
+      @for (th of acceptedTh(); track th.level) {
+        <img [src]="th.src" width="60" height="60" alt="" (load)="imageDone()" (error)="imageDone()" />
+      }
+      <span>{{ rules()[4] }}</span>
+    </div>
+
+    <p class="ev__timeline">
+      <span><b>{{ clocks().close }}</b> fin des inscriptions</span>
+      <span><b>~ {{ clocks().teams }}</b> équipes {{ random() ? 'tirées au hasard' : 'libres' }}</span>
+      <span class="ev__late">Tu peux nous rejoindre en cours de route</span>
+    </p>
+
+    <footer class="poster__foot ev__foot">
+      <span>Inscriptions sur Discord</span>
+      @if (discord) {
+        <span class="poster__discord">
+          <span class="poster__discord-label">Discord</span>
+          {{ discord }}
+        </span>
+      }
+    </footer>
+  </article>
+} @else {
+  <article class="poster tl" [attr.data-ready]="ready() ? '' : null" aria-label="Fiche de la FW">
+    <ng-container *ngTemplateOutlet="shards" />
+    <!-- Le numéro en filigrane, géant, derrière le titre. -->
+    <span class="tl__ghost" aria-hidden="true">{{ number() }}</span>
+
+    <header class="tl__head">
+      <img src="brand/friendly-wars-160.webp" width="76" height="76" alt="" />
+      <div>
+        <p class="tl__org">Friendly Wars</p>
+        <p class="tl__kind">Soirée FW</p>
+      </div>
+      <p class="tl__mode">
+        <span class="tl__mode-dot" aria-hidden="true"></span>
+        {{ random() ? 'Équipes random' : 'Équipes libres' }}
+      </p>
+    </header>
+
+    <h1 class="tl__title">FW <span class="grad">#{{ number() }}</span></h1>
+
+    <p class="tl__band">
+      <span>
+        @if (weekday(); as day) {
+          {{ day }}
+        }
+        {{ shownDate() }} · {{ shownTime() }}
+      </span>
+    </p>
+    <p class="tl__tz">Heure de France ({{ offset() }})</p>
+
+    <!-- La soirée en trois temps. -->
+    <ol class="tl__steps">
+      <li>
+        <b>{{ clocks().close }}</b>
+        <span>Fin des inscriptions</span>
+      </li>
+      <li>
+        <b>~ {{ clocks().teams }}</b>
+        <span>Équipes affichées</span>
+        <small>Rééquilibrages possibles</small>
+      </li>
+      <li class="tl__go">
+        <b>{{ shownTime() }}</b>
+        <span>Début de la FW</span>
+      </li>
+    </ol>
+
+    <section class="tl__panel">
+      <div class="tl__ths">
+        @if (mainTh(); as th) {
+          <img class="tl__th-main" [src]="th.src" width="220" height="220" alt="" (load)="imageDone()" (error)="imageDone()" />
+        }
+        <div class="tl__th-more">
+          @for (th of acceptedTh(); track th.level) {
+            <img [src]="th.src" width="96" height="96" alt="" (load)="imageDone()" (error)="imageDone()" />
+          }
+        </div>
+      </div>
+      <div class="tl__format">
+        <p class="tl__label">Format</p>
+        <p class="tl__format-name">{{ format() }}</p>
+        <ul class="tl__rules">
+          @for (rule of rules(); track $index) {
+            <li>{{ rule }}</li>
+          }
+        </ul>
+      </div>
+    </section>
+
+    <p class="tl__late">
+      <span class="tl__live" aria-hidden="true"></span>
+      Tu peux nous rejoindre en cours de route
+    </p>
+
+    <footer class="poster__foot">
+      <span>Inscriptions sur Discord</span>
+      @if (discord) {
+        <span class="poster__discord">
+          <span class="poster__discord-label">Discord</span>
+          {{ discord }}
+        </span>
+      }
+    </footer>
+  </article>
+}
+
+<ng-template #shards>
   <div class="shards" aria-hidden="true">
     @for (corner of corners; track corner) {
       <div [class]="'shards__corner shards__corner--' + corner">
@@ -16,64 +169,4 @@
       </div>
     }
   </div>
-
-  <header class="session__head">
-    <img class="session__brand" src="brand/friendly-wars-512.webp" width="120" height="120" alt="" />
-    <div>
-      <p class="session__org">Friendly Wars</p>
-      <h1 class="session__title">FW <span class="session__number">#{{ number() }}</span></h1>
-    </div>
-  </header>
-
-  <p class="session__when">
-    @if (weekday(); as day) {
-      <span>{{ day }}</span>
-    }
-    <span>{{ shownDate() }}</span>
-    <span class="session__dot" aria-hidden="true"></span>
-    <span>{{ shownTime() }}</span>
-    <small>Heure de France ({{ offset() }})</small>
-  </p>
-
-  <dl class="facts session__facts">
-    <div class="fact">
-      <dt>Fin des inscriptions</dt>
-      <dd>{{ clocks().close }}</dd>
-    </div>
-    <div class="fact">
-      <dt>Équipes affichées</dt>
-      <dd>~ {{ clocks().teams }}</dd>
-      <p class="fact__note">Rééquilibrages possibles</p>
-    </div>
-    <div class="fact">
-      <dt>Équipes</dt>
-      <dd class="session__mode">{{ random() ? 'Random' : 'Libres' }}</dd>
-      <p class="fact__note">{{ random() ? 'Tirées au hasard' : 'Violette ou verte, au choix' }}</p>
-    </div>
-  </dl>
-
-  <section class="session__format">
-    <p class="session__label">Format</p>
-    <p class="session__format-name">{{ format() }}</p>
-    <ul class="session__rules">
-      @for (rule of rules(); track $index) {
-        <li>{{ rule }}</li>
-      }
-    </ul>
-  </section>
-
-  <p class="session__late">
-    <span class="session__live" aria-hidden="true"></span>
-    Tu peux nous rejoindre en cours de route
-  </p>
-
-  <footer class="poster__foot session__foot">
-    <span>Inscriptions sur Discord</span>
-    @if (discord) {
-      <span class="poster__discord">
-        <span class="poster__discord-label">Discord</span>
-        {{ discord }}
-      </span>
-    }
-  </footer>
-</article>
+</ng-template>
