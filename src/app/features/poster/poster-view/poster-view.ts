@@ -38,6 +38,10 @@ export class PosterView {
   /** Tel que tapé : « 22h », « 22:00 »… */
   readonly time = input('');
   readonly rules = input('');
+  /** Affiche de résultat : l'équipe qui a gagné (`null` : affiche d'annonce). */
+  readonly winner = input<'left' | 'right' | null>(null);
+  /** Le score, à la place du « VS » (« 2-1 », « 45★ – 40★ »…). */
+  readonly score = input('');
 
   protected readonly left = computed(() => this.side(this.leftName(), this.leftLogo()));
   protected readonly right = computed(() => this.side(this.rightName(), this.rightLogo()));
@@ -48,6 +52,20 @@ export class PosterView {
   protected readonly shownTime = computed(() => normalizeTime(this.time()) ?? (this.time() || '—'));
   protected readonly offset = computed(() => franceOffset(this.date()));
   protected readonly shownRules = computed(() => this.rules() || '—');
+  /** Le nom du gagnant, et les infos du match qui ont été données (résultat). */
+  protected readonly winnerName = computed(() => {
+    const w = this.winner();
+    return w ? (w === 'left' ? this.left() : this.right()).name : null;
+  });
+  protected readonly resultMeta = computed(() =>
+    [
+      this.format().toUpperCase(),
+      [this.weekday(), normalizeDate(this.date()) ?? this.date()].filter(Boolean).join(' '),
+      this.rules(),
+    ]
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
   /** Coins décorés : haut et bas, à gauche (violet) et à droite (vert). */
   protected readonly corners = ['tl', 'bl', 'tr', 'br'] as const;
   /** « discord.gg/… » : l'invitation du serveur, en bas de l'affiche (casse respectée). */

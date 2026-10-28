@@ -27,6 +27,8 @@ function text(value: unknown): string {
       [date]="j()"
       [time]="h()"
       [rules]="r()"
+      [winner]="v() === '1' ? 'left' : v() === '2' ? 'right' : null"
+      [score]="sc()"
     />
   `,
   styles: `
@@ -45,6 +47,9 @@ export class PosterPage {
   readonly j = input('', { transform: text });
   readonly h = input('', { transform: text });
   readonly r = input('', { transform: text });
+  /** Affiche de résultat : 1 (gauche) ou 2 (droite) a gagné, et le score. */
+  readonly v = input('', { transform: text });
+  readonly sc = input('', { transform: text });
 
   /**
    * Seuls les logos hébergés par Discord sont affichés : personne ne peut

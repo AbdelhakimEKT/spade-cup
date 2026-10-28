@@ -22,7 +22,9 @@
   <header class="poster__head">
     <img class="poster__brand" src="brand/friendly-wars-512.webp" width="170" height="170" alt="" />
     <p class="poster__name">Friendly Wars</p>
-    <p class="poster__kind"><span>Clan vs Clan</span></p>
+    <p class="poster__kind">
+      <span>{{ winner() ? 'Résultat · Clan vs Clan' : 'Clan vs Clan' }}</span>
+    </p>
   </header>
 
   <section class="duel">
@@ -31,7 +33,11 @@
     <ng-container
       *ngTemplateOutlet="team; context: { $implicit: left(), side: 'left', failed: leftFailed() }"
     />
-    <div class="duel__vs" aria-label="contre">VS</div>
+    @if (winner() && score()) {
+      <div class="duel__vs duel__score" aria-label="score">{{ score() }}</div>
+    } @else {
+      <div class="duel__vs" aria-label="contre">VS</div>
+    }
     <ng-container
       *ngTemplateOutlet="
         team;
@@ -40,30 +46,41 @@
     />
   </section>
 
-  <dl class="facts">
-    <div class="fact">
-      <dt>Format</dt>
-      <dd>{{ shownFormat() }}</dd>
-    </div>
-    <div class="fact">
-      <dt>Date</dt>
-      <dd>
-        @if (weekday(); as day) {
-          <span class="fact__day">{{ day }}</span>
-        }
-        {{ shownDate() }}
-      </dd>
-    </div>
-    <div class="fact">
-      <dt>Heure</dt>
-      <dd>{{ shownTime() }}</dd>
-      <p class="fact__note">Heure de France ({{ offset() }})</p>
-    </div>
-    <div class="fact fact--rules">
-      <dt>Règles</dt>
-      <dd>{{ shownRules() }}</dd>
-    </div>
-  </dl>
+  @if (winnerName(); as name) {
+    <!-- Affiche de résultat : le vainqueur en grand, à la place des infos du match. -->
+    <section class="victory" [class]="'victory victory--' + winner()">
+      <p class="victory__label">Victoire de</p>
+      <p class="victory__name">🏆 {{ name }}</p>
+      @if (resultMeta().length) {
+        <p class="victory__meta">{{ resultMeta().join(' · ') }}</p>
+      }
+    </section>
+  } @else {
+    <dl class="facts">
+      <div class="fact">
+        <dt>Format</dt>
+        <dd>{{ shownFormat() }}</dd>
+      </div>
+      <div class="fact">
+        <dt>Date</dt>
+        <dd>
+          @if (weekday(); as day) {
+            <span class="fact__day">{{ day }}</span>
+          }
+          {{ shownDate() }}
+        </dd>
+      </div>
+      <div class="fact">
+        <dt>Heure</dt>
+        <dd>{{ shownTime() }}</dd>
+        <p class="fact__note">Heure de France ({{ offset() }})</p>
+      </div>
+      <div class="fact fact--rules">
+        <dt>Règles</dt>
+        <dd>{{ shownRules() }}</dd>
+      </div>
+    </dl>
+  }
 
   <footer class="poster__foot">
     <span>Friendly Wars</span>
@@ -77,8 +94,16 @@
 </article>
 
 <ng-template #team let-t let-side="side" let-failed="failed">
-  <figure class="team" [class]="'team team--' + side">
+  <figure
+    class="team"
+    [class]="'team team--' + side"
+    [class.team--winner]="winner() === side"
+    [class.team--loser]="winner() && winner() !== side"
+  >
     <div class="team__logo-box">
+      @if (winner() === side) {
+        <span class="team__crown">👑 Vainqueur</span>
+      }
       @if (t.logo && !failed) {
         <img
           class="team__logo"

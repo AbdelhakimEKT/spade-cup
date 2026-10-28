@@ -51,6 +51,9 @@ export class PosterStudio {
   protected readonly date = signal('');
   protected readonly time = signal('');
   protected readonly rules = signal('');
+  /** Affiche de résultat : qui a gagné (vide : affiche d'annonce du match), et le score. */
+  protected readonly winner = signal<'' | 'left' | 'right'>('');
+  protected readonly score = signal('');
 
   /** Date ou heure tapée mais illisible : on le signale sous le champ. */
   protected readonly dateInvalid = computed(

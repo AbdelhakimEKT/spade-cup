@@ -67,4 +67,25 @@ describe('PosterView', () => {
     await fixture.whenStable();
     expect(el.querySelector('.poster')!.hasAttribute('data-ready')).toBe(false);
   });
+
+  it('affiche de résultat : le vainqueur en avant, le score à la place du VS, « Victoire de »', async () => {
+    const { el } = await render({
+      leftName: 'FR ESPORT',
+      rightName: 'Ci E-SPORTS',
+      format: '15v15',
+      date: '',
+      time: '',
+      rules: 'BO3 - ESPORT',
+      winner: 'right',
+      score: '1-2',
+    });
+    expect(el.querySelector('.poster__kind')?.textContent?.trim()).toBe('Résultat · Clan vs Clan');
+    expect(el.querySelector('.team--right')?.classList).toContain('team--winner');
+    expect(el.querySelector('.team--left')?.classList).toContain('team--loser');
+    expect(el.querySelector('.team--right .team__crown')?.textContent).toContain('Vainqueur');
+    expect(el.querySelector('.duel__score')?.textContent).toBe('1-2');
+    expect(el.querySelector('.victory__name')?.textContent).toContain('Ci E-SPORTS');
+    expect(el.querySelector('.victory__meta')?.textContent).toBe('15V15 · BO3 - ESPORT');
+    expect(el.querySelector('.facts')).toBeNull();
+  });
 });

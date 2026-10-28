@@ -584,16 +584,18 @@ describe('/arbitre affiche', () => {
   function posterCommand(
     values: Record<string, string> = {},
     files = [file('a1', 'invaders.png'), file('a2', 'spartiates.webp', 'image/webp')],
+    sub = 'affiche',
   ) {
-    const interaction = referee('affiche', {
+    const base: Record<string, string> =
+      sub === 'affiche'
+        ? { format: '5v5', date: '26-10', heure: '22h', regles: 'Esport — BO3' }
+        : {};
+    const interaction = referee(sub, {
       equipe_1: 'Clash Invaders',
       logo_1: 'a1',
       equipe_2: 'Spartiates',
       logo_2: 'a2',
-      format: '5v5',
-      date: '26-10',
-      heure: '22h',
-      regles: 'Esport — BO3',
+      ...base,
       ...values,
     });
     return {
@@ -632,6 +634,22 @@ describe('/arbitre affiche', () => {
   it('pas besoin d’un tournoi en cours, et la commande attend la capture (réponse différée)', async () => {
     expect(await getCurrentTournament(db())).toBeNull();
     expect(needsDefer(posterCommand())).toBe(true);
+  });
+
+  it('/arbitre victoire : le vainqueur et le score ; date, heure et format facultatifs', async () => {
+    const shots: Shot[] = [];
+    const ctx = {
+      ...botContext(db()),
+      capture: async (s: readonly Shot[]) => (shots.push(...s), [FAKE_PNG]),
+    };
+    const command = posterCommand({ vainqueur: '2', score: '2-1' }, undefined, 'victoire');
+    expect(needsDefer(command)).toBe(true);
+    const reply = await runCommand(command, ctx);
+    expect(reply.files).toEqual([{ name: 'victoire.png', data: FAKE_PNG }]);
+    const shot = shots[0];
+    if (shot.kind !== 'poster') throw new Error('pas une affiche');
+    const q = new URLSearchParams(shot.query);
+    expect([q.get('v'), q.get('sc'), q.get('j'), q.get('h')]).toEqual(['2', '2-1', '', '']);
   });
 
   it('date ou heure illisible : message clair, pas d’affiche', async () => {

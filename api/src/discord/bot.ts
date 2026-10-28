@@ -130,7 +130,8 @@ export function needsDefer(interaction: Interaction): boolean {
     // /fw : le bot poste et modifie des messages, et photographie la fiche.
     command === 'fw' ||
     command === 'carte' ||
-    (command === 'arbitre' && ['resultat', 'tirage', 'arbre', 'affiche'].includes(sub ?? ''))
+    (command === 'arbitre' &&
+      ['resultat', 'tirage', 'arbre', 'affiche', 'victoire'].includes(sub ?? ''))
   );
 }
 
@@ -313,6 +314,7 @@ async function referee(
   }
   if (sub === 'arbre') return bracketImage(ctx, options.get('tournoi'));
   if (sub === 'affiche') return matchPoster(ctx, interaction, options);
+  if (sub === 'victoire') return matchPoster(ctx, interaction, options, true);
 
   const active = await getCurrentTournament(ctx.db);
   if (!active) return fail('Aucun tournoi pour le moment. Crée-en un avec `/arbitre creer`.');
@@ -449,6 +451,8 @@ async function matchPoster(
   ctx: BotContext,
   interaction: Interaction,
   options: Map<string, string | number>,
+  /** Affiche de résultat (/arbitre victoire) : vainqueur et score ; date et heure facultatives. */
+  result = false,
 ): Promise<Reply> {
   const logo = (n: 1 | 2): string => {
     const id = String(options.get(`logo_${n}`) ?? '');
@@ -466,9 +470,13 @@ async function matchPoster(
   };
   const text = (name: string) => String(options.get(name) ?? '').trim();
 
-  const date = normalizeDate(text('date')) ?? fail('Date illisible : écris-la comme ceci, 26/10.');
-  const time =
-    normalizeTime(text('heure')) ?? fail('Heure illisible : écris-la comme ceci, 22h00.');
+  const optional = (name: string) => result && !text(name);
+  const date = optional('date')
+    ? ''
+    : (normalizeDate(text('date')) ?? fail('Date illisible : écris-la comme ceci, 26/10.'));
+  const time = optional('heure')
+    ? ''
+    : (normalizeTime(text('heure')) ?? fail('Heure illisible : écris-la comme ceci, 22h00.'));
   const query = posterQuery({
     leftName: text('equipe_1'),
     leftLogo: logo(1),
@@ -478,6 +486,12 @@ async function matchPoster(
     date,
     time,
     rules: text('regles'),
+    ...(result
+      ? {
+          winner: text('vainqueur') === '2' ? ('right' as const) : ('left' as const),
+          score: text('score'),
+        }
+      : {}),
   });
 
   let png: Uint8Array;
@@ -487,7 +501,7 @@ async function matchPoster(
     console.error('Capture de l’affiche impossible', error);
     return fail("Impossible de générer l'affiche pour le moment. Réessaie dans une minute.");
   }
-  return { content: '', files: [{ name: 'affiche.png', data: png }] };
+  return { content: '', files: [{ name: result ? 'victoire.png' : 'affiche.png', data: png }] };
 }
 
 /**

@@ -322,6 +322,49 @@ export const COMMANDS = [
         ],
       },
       {
+        name: 'victoire',
+        description: 'Affiche du résultat d’un match : le vainqueur et le score (avec les logos)',
+        type: OptionType.Subcommand,
+        options: [
+          ...posterTeam(1),
+          ...posterTeam(2),
+          {
+            name: 'vainqueur',
+            description: 'L’équipe qui a gagné',
+            type: OptionType.String,
+            required: true,
+            choices: [
+              { name: 'Équipe 1 (à gauche)', value: '1' },
+              { name: 'Équipe 2 (à droite)', value: '2' },
+            ],
+          },
+          {
+            name: 'score',
+            description: 'Le score, par exemple 2-1 (à la place du « VS »)',
+            type: OptionType.String,
+            max_length: 12,
+          },
+          {
+            name: 'format',
+            description: 'Taille des équipes (facultatif)',
+            type: OptionType.String,
+            choices: POSTER_FORMATS.map((f) => ({ name: f, value: f })),
+          },
+          {
+            name: 'date',
+            description: 'Jour du match, par exemple 28/10 (facultatif)',
+            type: OptionType.String,
+            max_length: 8,
+          },
+          {
+            name: 'regles',
+            description: 'Les règles, par exemple « BO3 - ESPORT » (facultatif)',
+            type: OptionType.String,
+            max_length: 40,
+          },
+        ],
+      },
+      {
         name: 'annuler',
         description: 'Supprimer le tournoi en cours (test, erreur). Irréversible.',
         type: OptionType.Subcommand,

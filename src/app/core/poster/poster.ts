@@ -22,6 +22,9 @@ export interface PosterInput {
   /** « 22H00 » */
   readonly time: string;
   readonly rules: string;
+  /** Affiche de résultat : l'équipe qui a gagné, et le score (« 2-1 »). */
+  readonly winner?: 'left' | 'right';
+  readonly score?: string;
 }
 
 /** « 26-10 », « 26.10 », « 6/1 » → « 26/10 », « 06/01 ». `null` si ce n'est pas une date. */
@@ -133,6 +136,9 @@ export function posterQuery(input: PosterInput): string {
     j: input.date,
     h: input.time,
     r: input.rules,
+    // Affiche de résultat : v = 1 (gauche) ou 2 (droite), sc = le score.
+    ...(input.winner ? { v: input.winner === 'left' ? '1' : '2' } : {}),
+    ...(input.score ? { sc: input.score } : {}),
   }).toString();
 }
 

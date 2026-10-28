@@ -94,6 +94,30 @@
         />
       </label>
 
+      <div class="row">
+        <label>
+          <span>Résultat</span>
+          <select name="winner" [ngModel]="winner()" (ngModelChange)="winner.set($event)">
+            <option value="">Pas encore joué (annonce)</option>
+            <option value="left">Victoire de l’équipe de gauche</option>
+            <option value="right">Victoire de l’équipe de droite</option>
+          </select>
+        </label>
+        @if (winner()) {
+          <label>
+            <span>Score</span>
+            <input
+              type="text"
+              name="score"
+              maxlength="12"
+              placeholder="2-1"
+              [ngModel]="score()"
+              (ngModelChange)="score.set($event)"
+            />
+          </label>
+        }
+      </div>
+
       <button
         type="button"
         class="button button--primary download"
@@ -120,6 +144,8 @@
             [date]="date()"
             [time]="time()"
             [rules]="rules()"
+            [winner]="winner() || null"
+            [score]="score()"
           />
         </div>
       </div>
