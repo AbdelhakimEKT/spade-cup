@@ -19,5 +19,7 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM fw_evenings'),
     env.DB.prepare('DELETE FROM discord_accounts'),
     env.DB.prepare('DELETE FROM fw_weekly_posts'),
+    env.DB.prepare('DELETE FROM cvc_matches'),
+    env.DB.prepare("DELETE FROM sqlite_sequence WHERE name = 'cvc_matches'"),
   ]);
 });

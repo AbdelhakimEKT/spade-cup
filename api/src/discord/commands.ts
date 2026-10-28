@@ -323,11 +323,16 @@ export const COMMANDS = [
       },
       {
         name: 'victoire',
-        description: 'Affiche du résultat d’un match : le vainqueur et le score (avec les logos)',
+        description: 'Affiche du résultat d’un Clan vs Clan annoncé avec /arbitre affiche',
         type: OptionType.Subcommand,
         options: [
-          ...posterTeam(1),
-          ...posterTeam(2),
+          {
+            name: 'match',
+            description: 'Le match (choisis dans la liste des affiches)',
+            type: OptionType.String,
+            required: true,
+            autocomplete: true,
+          },
           {
             name: 'vainqueur',
             description: 'L’équipe qui a gagné',
@@ -345,22 +350,14 @@ export const COMMANDS = [
             max_length: 12,
           },
           {
-            name: 'format',
-            description: 'Taille des équipes (facultatif)',
-            type: OptionType.String,
-            choices: POSTER_FORMATS.map((f) => ({ name: f, value: f })),
+            name: 'logo_1',
+            description: 'Seulement si les logos ont expiré (plus de 24 h) : logo de gauche',
+            type: OptionType.Attachment,
           },
           {
-            name: 'date',
-            description: 'Jour du match, par exemple 28/10 (facultatif)',
-            type: OptionType.String,
-            max_length: 8,
-          },
-          {
-            name: 'regles',
-            description: 'Les règles, par exemple « BO3 - ESPORT » (facultatif)',
-            type: OptionType.String,
-            max_length: 40,
+            name: 'logo_2',
+            description: 'Seulement si les logos ont expiré (plus de 24 h) : logo de droite',
+            type: OptionType.Attachment,
           },
         ],
       },

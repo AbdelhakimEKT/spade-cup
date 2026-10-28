@@ -576,7 +576,8 @@ describe('/arbitre affiche', () => {
   const file = (id: string, name: string, type = 'image/png', size = 50_000) => ({
     id,
     filename: name,
-    url: `https://cdn.discordapp.com/attachments/1/${id}/${name}?ex=1`,
+    // ex : fin de validité du lien (secondes, hexadécimal) ; ici en 2106.
+    url: `https://cdn.discordapp.com/attachments/1/${id}/${name}?ex=ffffffff`,
     content_type: type,
     size,
   });
@@ -621,7 +622,7 @@ describe('/arbitre affiche', () => {
     if (shot.kind !== 'poster') throw new Error('pas une affiche');
     const q = new URLSearchParams(shot.query);
     expect(q.get('g')).toBe('Clash Invaders');
-    expect(q.get('gl')).toBe('https://cdn.discordapp.com/attachments/1/a1/invaders.png?ex=1');
+    expect(q.get('gl')).toBe('https://cdn.discordapp.com/attachments/1/a1/invaders.png?ex=ffffffff');
     expect(q.get('dl')).toContain('spartiates.webp');
     expect([q.get('f'), q.get('j'), q.get('h'), q.get('r')]).toEqual([
       '5v5',
@@ -636,20 +637,50 @@ describe('/arbitre affiche', () => {
     expect(needsDefer(posterCommand())).toBe(true);
   });
 
-  it('/arbitre victoire : le vainqueur et le score ; date, heure et format facultatifs', async () => {
+  it('/arbitre victoire : choisir le match annoncé, le vainqueur et le score', async () => {
     const shots: Shot[] = [];
     const ctx = {
       ...botContext(db()),
       capture: async (s: readonly Shot[]) => (shots.push(...s), [FAKE_PNG]),
     };
-    const command = posterCommand({ vainqueur: '2', score: '2-1' }, undefined, 'victoire');
-    expect(needsDefer(command)).toBe(true);
-    const reply = await runCommand(command, ctx);
+    // L'affiche du match : le match est retenu.
+    await runCommand(posterCommand(), ctx);
+    const choices = await autocomplete(typing('victoire', { match: '' }, 'match'), ctx);
+    expect(choices).toEqual([{ name: 'Clash Invaders vs Spartiates · 26/10 22H00', value: '1' }]);
+
+    // Le résultat : seulement le match, le vainqueur et le score.
+    const victory = referee('victoire', { match: '1', vainqueur: '2', score: '1-2' });
+    expect(needsDefer(victory)).toBe(true);
+    const reply = await runCommand(victory, ctx);
     expect(reply.files).toEqual([{ name: 'victoire.png', data: FAKE_PNG }]);
-    const shot = shots[0];
+    const shot = shots[1];
     if (shot.kind !== 'poster') throw new Error('pas une affiche');
     const q = new URLSearchParams(shot.query);
-    expect([q.get('v'), q.get('sc'), q.get('j'), q.get('h')]).toEqual(['2', '2-1', '', '']);
+    expect([q.get('g'), q.get('d'), q.get('v'), q.get('sc'), q.get('f'), q.get('j')]).toEqual([
+      'Clash Invaders',
+      'Spartiates',
+      '2',
+      '1-2',
+      '5v5',
+      '26/10',
+    ]);
+    expect(q.get('gl')).toContain('invaders.png');
+    // Déjà publié : signalé dans la liste.
+    expect((await autocomplete(typing('victoire', { match: '' }, 'match'), ctx))[0].name).toContain(
+      '(résultat publié)',
+    );
+  });
+
+  it('/arbitre victoire : logos expirés (plus de 24 h) → les rajouter', async () => {
+    const ctx = botContext(db());
+    const expired = 'https://cdn.discordapp.com/attachments/1/a1/old.png?ex=1';
+    await runCommand(posterCommand({}, [file('a1', 'old.png'), file('a2', 'old2.png')]), ctx);
+    await db()
+      .prepare('UPDATE cvc_matches SET left_logo = ?, right_logo = ?')
+      .bind(expired, expired)
+      .run();
+    const reply = await runCommand(referee('victoire', { match: '1', vainqueur: '1' }), ctx);
+    expect(reply.content).toMatch(/logos de ce match ont expiré/);
   });
 
   it('date ou heure illisible : message clair, pas d’affiche', async () => {

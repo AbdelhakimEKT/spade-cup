@@ -46,6 +46,13 @@ import {
   slugExists,
   type StoredTournament,
 } from '../repository';
+import {
+  clanMatchChoices,
+  getClanMatch,
+  linkExpired,
+  saveClanMatch,
+  saveClanResult,
+} from '../clan-matches';
 import { cardAutocomplete, cardCommand } from './card';
 import { fwAutocomplete, fwCommand, isManager, type FwConfig } from './fw';
 import type { DiscordApi } from './rest';
@@ -177,6 +184,11 @@ export async function autocomplete(interaction: Interaction, ctx: BotContext): P
     (!interaction.member || !isManager(interaction.member, ctx.managerRoles))
   ) {
     return [];
+  }
+
+  // /arbitre victoire : les matchs « Clan vs Clan » annoncés par une affiche.
+  if (sub === 'victoire' && focused.name === 'match') {
+    return clanMatchChoices(ctx.db, String(focused.value ?? ''));
   }
 
   if (focused.name === 'tournoi') {
@@ -314,7 +326,7 @@ async function referee(
   }
   if (sub === 'arbre') return bracketImage(ctx, options.get('tournoi'));
   if (sub === 'affiche') return matchPoster(ctx, interaction, options);
-  if (sub === 'victoire') return matchPoster(ctx, interaction, options, true);
+  if (sub === 'victoire') return victoryPoster(ctx, interaction, options);
 
   const active = await getCurrentTournament(ctx.db);
   if (!active) return fail('Aucun tournoi pour le moment. Crée-en un avec `/arbitre creer`.');
@@ -445,64 +457,111 @@ const LOGO_MAX_BYTES = 8 * 1024 * 1024;
  * Affiche d'un match entre deux équipes, avec leurs logos joints à la
  * commande. Le site la dessine (/affiche), un navigateur la photographie, et
  * l'image est publiée dans le salon. N'importe quelles deux équipes : pas
- * besoin d'un tournoi en cours.
+ * besoin d'un tournoi en cours. Le match est retenu, pour l'affiche du
+ * résultat (/arbitre victoire).
  */
 async function matchPoster(
   ctx: BotContext,
   interaction: Interaction,
   options: Map<string, string | number>,
-  /** Affiche de résultat (/arbitre victoire) : vainqueur et score ; date et heure facultatives. */
-  result = false,
 ): Promise<Reply> {
-  const logo = (n: 1 | 2): string => {
-    const id = String(options.get(`logo_${n}`) ?? '');
-    const file =
-      interaction.data?.resolved?.attachments?.[id] ??
-      fail(`Ajoute le logo de l'équipe ${n === 1 ? 'de gauche' : 'de droite'}.`);
-    const type = file.content_type?.split(';')[0] ?? '';
-    if (!LOGO_TYPES.includes(type)) {
-      fail(`« ${file.filename} » n'est pas une image PNG, JPG ou WebP.`);
-    }
-    if (file.size > LOGO_MAX_BYTES) fail(`« ${file.filename} » est trop lourd (8 Mo au plus).`);
-    if (!isAllowedLogo(file.url))
-      fail(`Logo « ${file.filename} » refusé : il doit venir de Discord.`);
-    return file.url;
-  };
   const text = (name: string) => String(options.get(name) ?? '').trim();
-
-  const optional = (name: string) => result && !text(name);
-  const date = optional('date')
-    ? ''
-    : (normalizeDate(text('date')) ?? fail('Date illisible : écris-la comme ceci, 26/10.'));
-  const time = optional('heure')
-    ? ''
-    : (normalizeTime(text('heure')) ?? fail('Heure illisible : écris-la comme ceci, 22h00.'));
-  const query = posterQuery({
+  const date = normalizeDate(text('date')) ?? fail('Date illisible : écris-la comme ceci, 26/10.');
+  const time =
+    normalizeTime(text('heure')) ?? fail('Heure illisible : écris-la comme ceci, 22h00.');
+  const match = {
     leftName: text('equipe_1'),
-    leftLogo: logo(1),
+    leftLogo:
+      attachedLogo(interaction, options, 1) ?? fail("Ajoute le logo de l'équipe de gauche."),
     rightName: text('equipe_2'),
-    rightLogo: logo(2),
+    rightLogo:
+      attachedLogo(interaction, options, 2) ?? fail("Ajoute le logo de l'équipe de droite."),
     format: text('format'),
     date,
     time,
     rules: text('regles'),
-    ...(result
-      ? {
-          winner: text('vainqueur') === '2' ? ('right' as const) : ('left' as const),
-          score: text('score'),
-        }
-      : {}),
-  });
+  };
+  const png = await capturePoster(ctx, posterQuery(match));
+  await saveClanMatch(ctx.db, match, displayName(interaction));
+  return { content: '', files: [{ name: 'affiche.png', data: png }] };
+}
 
-  let png: Uint8Array;
+/**
+ * L'affiche du résultat d'un match « Clan vs Clan » déjà annoncé : on choisit
+ * le match, le vainqueur et le score ; équipes, logos, format, date et règles
+ * viennent de son affiche. Les logos de Discord expirent au bout d'environ
+ * 24 heures : on peut alors les rejoindre à la commande.
+ */
+async function victoryPoster(
+  ctx: BotContext,
+  interaction: Interaction,
+  options: Map<string, string | number>,
+): Promise<Reply> {
+  const match =
+    (await getClanMatch(ctx.db, Number(options.get('match')))) ??
+    fail(
+      'Match introuvable : choisis-le dans la liste (les affiches faites avec /arbitre affiche).',
+    );
+  const logo = (n: 1 | 2, stored: string) => {
+    const attached = attachedLogo(interaction, options, n);
+    if (attached) return attached;
+    if (linkExpired(stored, ctx.now())) {
+      fail(
+        'Les logos de ce match ont expiré (Discord ne les garde que 24 h environ) : ' +
+          'rajoute-les avec les options logo_1 et logo_2.',
+      );
+    }
+    return stored;
+  };
+  const winner = String(options.get('vainqueur') ?? '') === '2' ? 'right' : 'left';
+  const score = String(options.get('score') ?? '').trim();
+  const query = posterQuery({
+    ...match,
+    leftLogo: logo(1, match.leftLogo),
+    rightLogo: logo(2, match.rightLogo),
+    winner,
+    score,
+  });
+  const png = await capturePoster(ctx, query);
+  await saveClanResult(ctx.db, match.id, winner, score);
+  return { content: '', files: [{ name: 'victoire.png', data: png }] };
+}
+
+/** Le logo n joint à la commande (option logo_n), vérifié ; `null` s'il n'y en a pas. */
+function attachedLogo(
+  interaction: Interaction,
+  options: Map<string, string | number>,
+  n: 1 | 2,
+): string | null {
+  const id = String(options.get(`logo_${n}`) ?? '');
+  if (!id) return null;
+  const file =
+    interaction.data?.resolved?.attachments?.[id] ??
+    fail(`Ajoute le logo de l'équipe ${n === 1 ? 'de gauche' : 'de droite'}.`);
+  const type = file.content_type?.split(';')[0] ?? '';
+  if (!LOGO_TYPES.includes(type)) {
+    fail(`« ${file.filename} » n'est pas une image PNG, JPG ou WebP.`);
+  }
+  if (file.size > LOGO_MAX_BYTES) fail(`« ${file.filename} » est trop lourd (8 Mo au plus).`);
+  if (!isAllowedLogo(file.url))
+    fail(`Logo « ${file.filename} » refusé : il doit venir de Discord.`);
+  return file.url;
+}
+
+async function capturePoster(ctx: BotContext, query: string): Promise<Uint8Array> {
   try {
-    [png] = await ctx.capture([{ kind: 'poster', query }]);
+    const [png] = await ctx.capture([{ kind: 'poster', query }]);
+    return png;
   } catch (error) {
     console.error('Capture de l’affiche impossible', error);
     return fail("Impossible de générer l'affiche pour le moment. Réessaie dans une minute.");
   }
-  return { content: '', files: [{ name: result ? 'victoire.png' : 'affiche.png', data: png }] };
 }
+
+const displayName = (interaction: Interaction) => {
+  const m = interaction.member!;
+  return m.nick ?? m.user.global_name ?? m.user.username;
+};
 
 /**
  * Supprime le tournoi courant (test, erreur de création…). Irréversible :
