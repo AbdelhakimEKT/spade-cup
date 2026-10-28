@@ -19,6 +19,7 @@ import { fwConfig, runFwSchedule } from './discord/fw';
 import { createDiscordApi } from './discord/rest';
 import { captureScreens } from './screens';
 import { getLiveWars } from './live';
+import { serveLogo } from './logos';
 import { isMonday, isMonth, monthRange, weekRange } from '../../src/app/core/fw/evening';
 import { runWatch, type WatchDeps } from './watch';
 
@@ -38,6 +39,7 @@ import { runWatch, type WatchDeps } from './watch';
  *                                               ?month=2026-10 : le mois)
  *   GET /fw/wars/:id                           une FW classique et ses joueurs
  *   GET /live                                  guerres en train de se jouer (en direct)
+ *   GET /logos/cvc-12-left                     logo d'un match « Clan vs Clan » (jusqu'au match)
  *
  * Écritures : uniquement par le bot Discord (POST /discord, requêtes signées).
  */
@@ -207,6 +209,10 @@ async function read(pathname: string, params: URLSearchParams, env: Env): Promis
   }
   if ((m = new RegExp(`^/players/${TAG}$`).exec(pathname))) {
     return found(await getPlayerProfile(env.DB, `#${m[1]}`), 'Joueur introuvable.');
+  }
+  // Les logos des matchs « Clan vs Clan », gardés jusqu'au match (src/logos.ts).
+  if ((m = /^\/logos\/(cvc-\d{1,9}-(?:left|right))$/.exec(pathname))) {
+    return serveLogo(env.LOGOS, m[1]);
   }
   if ((m = new RegExp(`^/clans/${TAG}$`).exec(pathname))) {
     return found(await getClanProfile(env.DB, `#${m[1]}`), 'Clan introuvable.');

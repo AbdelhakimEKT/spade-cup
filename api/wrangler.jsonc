@@ -14,6 +14,14 @@
   // (src/fw-tracker.ts). Toutes les 5 minutes, une FW relancée aussitôt la
   // précédente finie pouvait passer entre deux passages et être perdue.
   "triggers": { "crons": ["* * * * *"] },
+  // Les logos des matchs « Clan vs Clan » (copiés depuis Discord, dont les
+  // liens expirent en 24 h) : gardés jusqu'à l'heure du match + 12 h. Gratuit.
+  "kv_namespaces": [
+    {
+      "binding": "LOGOS",
+      "id": "43ace499f1454ea28fcbf39f0c21aed2"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

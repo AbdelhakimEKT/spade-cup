@@ -117,13 +117,17 @@ export function isAllowedLogo(url: string | null | undefined): boolean {
   if (!url) return false;
   try {
     const u = new URL(url);
-    return (
-      u.protocol === 'https:' && ['cdn.discordapp.com', 'media.discordapp.net'].includes(u.hostname)
-    );
+    if (u.protocol !== 'https:') return false;
+    // Les logos copiés par le serveur (gardés jusqu'au match), ou ceux de Discord.
+    if (u.hostname === LOGO_HOST) return u.pathname.startsWith('/logos/');
+    return ['cdn.discordapp.com', 'media.discordapp.net'].includes(u.hostname);
   } catch {
     return false;
   }
 }
+
+/** Le serveur qui garde les logos des matchs « Clan vs Clan » (GET /logos/…). */
+export const LOGO_HOST = 'spade-cup-api.popi-coc.workers.dev';
 
 /** Paramètres de l'adresse /affiche (courts : l'adresse contient deux URL d'images). */
 export function posterQuery(input: PosterInput): string {

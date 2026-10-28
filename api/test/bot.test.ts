@@ -622,7 +622,9 @@ describe('/arbitre affiche', () => {
     if (shot.kind !== 'poster') throw new Error('pas une affiche');
     const q = new URLSearchParams(shot.query);
     expect(q.get('g')).toBe('Clash Invaders');
-    expect(q.get('gl')).toBe('https://cdn.discordapp.com/attachments/1/a1/invaders.png?ex=ffffffff');
+    expect(q.get('gl')).toBe(
+      'https://cdn.discordapp.com/attachments/1/a1/invaders.png?ex=ffffffff',
+    );
     expect(q.get('dl')).toContain('spartiates.webp');
     expect([q.get('f'), q.get('j'), q.get('h'), q.get('r')]).toEqual([
       '5v5',
@@ -639,12 +641,20 @@ describe('/arbitre affiche', () => {
 
   it('/arbitre victoire : choisir le match annoncé, le vainqueur et le score', async () => {
     const shots: Shot[] = [];
-    const ctx = {
+    // L'affiche du match : le match est retenu, ses logos copiés chez nous
+    // jusqu'à l'heure du match + 12 h (26/10 22h00 à Paris = 21h00 UTC).
+    const kept: { key: string; until: number }[] = [];
+    const ctx: BotContext = {
       ...botContext(db()),
       capture: async (s: readonly Shot[]) => (shots.push(...s), [FAKE_PNG]),
+      keepLogo: async (key: string, _url: string, until: number) => (
+        kept.push({ key, until }),
+        `https://spade-cup-api.popi-coc.workers.dev/logos/${key}`
+      ),
     };
-    // L'affiche du match : le match est retenu.
     await runCommand(posterCommand(), ctx);
+    expect(kept.map((k) => k.key)).toEqual(['cvc-1-left', 'cvc-1-right']);
+    expect(new Date(kept[0].until).toISOString()).toMatch(/T09:00:00\.000Z$/);
     const choices = await autocomplete(typing('victoire', { match: '' }, 'match'), ctx);
     expect(choices).toEqual([{ name: 'Clash Invaders vs Spartiates · 26/10 22H00', value: '1' }]);
 
@@ -664,7 +674,8 @@ describe('/arbitre affiche', () => {
       '5v5',
       '26/10',
     ]);
-    expect(q.get('gl')).toContain('invaders.png');
+    // Le résultat utilise les logos gardés chez nous (pas ceux de Discord, qui expirent).
+    expect(q.get('gl')).toBe('https://spade-cup-api.popi-coc.workers.dev/logos/cvc-1-left');
     // Déjà publié : signalé dans la liste.
     expect((await autocomplete(typing('victoire', { match: '' }, 'match'), ctx))[0].name).toContain(
       '(résultat publié)',

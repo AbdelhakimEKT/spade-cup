@@ -146,6 +146,7 @@ export function botContext(
     now: () => NOW_FW,
     managerRoles: ['r-admin', 'r-modo'],
     discord: null,
+    keepLogo: async (key) => `https://spade-cup-api.popi-coc.workers.dev/logos/${key}`,
     fw: FW_CONFIG,
     background: () => undefined,
     capture: async (shots) => shots.map(() => FAKE_PNG),

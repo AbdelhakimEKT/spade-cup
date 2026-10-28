@@ -5,6 +5,7 @@ import { json } from '../http';
 import { autocomplete, needsDefer, runCommand, type BotContext, type Reply } from './bot';
 import { fwComponent, fwConfig } from './fw';
 import { createDiscordApi } from './rest';
+import { storeLogo } from '../logos';
 import { editBody, message } from './payload';
 import { EPHEMERAL, InteractionType, ResponseType, type Interaction } from './types';
 import { verifyDiscordSignature } from './verify';
@@ -50,6 +51,7 @@ export async function handleDiscord(
       .map((r) => r.trim())
       .filter(Boolean),
     discord: createDiscordApi(env),
+    keepLogo: (key, url, until) => storeLogo(env.LOGOS, key, url, until),
     fw: fwConfig(env),
     background: (task) =>
       ctx.waitUntil(task.catch((error) => console.error('Tâche Discord en échec', error))),

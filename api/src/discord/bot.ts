@@ -11,6 +11,7 @@ import {
 } from '../../../src/app/core/tournament/bracket';
 import { cocTime, readFriendlyWar } from '../../../src/app/core/tournament/coc-war';
 import {
+  franceDateTime,
   isAllowedLogo,
   normalizeDate,
   normalizeTime,
@@ -50,9 +51,11 @@ import {
   clanMatchChoices,
   getClanMatch,
   linkExpired,
+  saveClanLogos,
   saveClanMatch,
   saveClanResult,
 } from '../clan-matches';
+import { KEEP_AFTER_MATCH_MS } from '../logos';
 import { cardAutocomplete, cardCommand } from './card';
 import { fwAutocomplete, fwCommand, isManager, type FwConfig } from './fw';
 import type { DiscordApi } from './rest';
@@ -80,6 +83,11 @@ export interface BotContext {
   readonly discord: DiscordApi | null;
   /** Salons et rôle des soirées FW. */
   readonly fw: FwConfig;
+  /**
+   * Copie un logo de Discord chez nous jusqu'à `until` (ms) ; renvoie sa
+   * nouvelle adresse, ou `null` (voir src/logos.ts).
+   */
+  readonly keepLogo: (key: string, url: string, until: number) => Promise<string | null>;
   /** Tâche à finir après la réponse à Discord (mise à jour de la fiche d'inscription). */
   readonly background: (task: Promise<unknown>) => void;
   /** Images des pages du site (PNG) : un vrai navigateur en production. */
@@ -482,7 +490,16 @@ async function matchPoster(
     rules: text('regles'),
   };
   const png = await capturePoster(ctx, posterQuery(match));
-  await saveClanMatch(ctx.db, match, displayName(interaction));
+  // Le match est retenu pour /arbitre victoire, et ses logos copiés chez nous
+  // jusqu'à l'heure du match + 12 h (ceux de Discord expirent en 24 h).
+  const id = await saveClanMatch(ctx.db, match, displayName(interaction));
+  const start = franceDateTime(date, time, new Date(ctx.now())) ?? ctx.now();
+  const until = start + KEEP_AFTER_MATCH_MS;
+  const [left, right] = await Promise.all([
+    ctx.keepLogo(`cvc-${id}-left`, match.leftLogo, until),
+    ctx.keepLogo(`cvc-${id}-right`, match.rightLogo, until),
+  ]);
+  await saveClanLogos(ctx.db, id, { left, right });
   return { content: '', files: [{ name: 'affiche.png', data: png }] };
 }
 

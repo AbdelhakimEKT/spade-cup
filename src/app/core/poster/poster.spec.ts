@@ -48,6 +48,9 @@ describe('affiche : mise en forme', () => {
   it('logos : seulement ceux hébergés par Discord, en https', () => {
     expect(isAllowedLogo('https://cdn.discordapp.com/attachments/1/2/logo.png?ex=1')).toBe(true);
     expect(isAllowedLogo('https://media.discordapp.net/attachments/1/2/logo.webp')).toBe(true);
+    // Logos gardés par le serveur jusqu'au match : seulement sous /logos/.
+    expect(isAllowedLogo('https://spade-cup-api.popi-coc.workers.dev/logos/cvc-1-left')).toBe(true);
+    expect(isAllowedLogo('https://spade-cup-api.popi-coc.workers.dev/health')).toBe(false);
     expect(isAllowedLogo('http://cdn.discordapp.com/x.png')).toBe(false);
     expect(isAllowedLogo('https://evil.example/logo.png')).toBe(false);
     expect(isAllowedLogo('pas une adresse')).toBe(false);

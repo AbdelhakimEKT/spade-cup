@@ -38,16 +38,17 @@ const toMatch = (r: Row): ClanMatch => ({
   result: r.winner,
 });
 
+/** Retient le match ; renvoie son identifiant. */
 export async function saveClanMatch(
   db: D1Database,
   m: PosterInput,
   createdBy: string,
-): Promise<void> {
-  await db
+): Promise<number> {
+  const row = await db
     .prepare(
       `INSERT INTO cvc_matches (created_by, left_name, left_logo, right_name, right_logo,
          format, date_label, time_label, rules)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .bind(
       createdBy,
@@ -60,6 +61,22 @@ export async function saveClanMatch(
       m.time,
       m.rules,
     )
+    .first<{ id: number }>();
+  return row!.id;
+}
+
+/** Les logos copiés chez nous (gardés jusqu'au match) remplacent les liens de Discord. */
+export async function saveClanLogos(
+  db: D1Database,
+  id: number,
+  logos: { left: string | null; right: string | null },
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE cvc_matches SET left_logo = COALESCE(?, left_logo),
+         right_logo = COALESCE(?, right_logo) WHERE id = ?`,
+    )
+    .bind(logos.left, logos.right, id)
     .run();
 }
 
