@@ -1,0 +1,451 @@
+// Le bilan complet d'une soirée FW : score, FW une par une, puis un tableau
+// par équipe. Mêmes couleurs que les affiches : FW-Team 1 violet, FW-Team 2 vert.
+:host {
+  display: block;
+  width: fit-content;
+}
+
+.full {
+  --violet: #8b2cff;
+  --violet-soft: #b067ff;
+  --green: #35e07a;
+  --gold: #ffd23f;
+  --ink: #f2f1f8;
+  --muted: #8d8ba6;
+  --line: rgb(255 255 255 / 0.08);
+
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 44px 44px 34px;
+  border-top: 4px solid transparent;
+  background:
+    radial-gradient(ellipse 45% 30% at 0% 0%, rgb(139 44 255 / 0.18), transparent 70%) padding-box,
+    radial-gradient(ellipse 45% 30% at 100% 0%, rgb(53 224 122 / 0.12), transparent 70%) padding-box,
+    linear-gradient(180deg, #11101c, #08080d) padding-box,
+    linear-gradient(90deg, var(--violet), var(--green)) border-box;
+  color: var(--ink);
+  font-family: var(--font-display);
+}
+
+// ------------------------------------------------------------ en-tête
+
+.full__head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+
+  img {
+    width: 64px;
+    height: 64px;
+  }
+
+  h1 {
+    margin: 0;
+    color: #fff;
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 20px;
+    font-weight: 600;
+  }
+}
+
+// ------------------------------------------------------------ score de la soirée
+
+.score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.03);
+
+  &--violet {
+    border-left: 5px solid var(--violet);
+    background: linear-gradient(90deg, rgb(139 44 255 / 0.2), transparent 75%);
+  }
+
+  &--green {
+    align-items: flex-end;
+    border-right: 5px solid var(--green);
+    background: linear-gradient(270deg, rgb(53 224 122 / 0.16), transparent 75%);
+    text-align: right;
+  }
+
+  &--lost {
+    opacity: 0.55;
+  }
+}
+
+.side__name {
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.side__meta {
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.side__badge {
+  position: absolute;
+  top: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1a1400;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+
+  .side--violet & {
+    right: 14px;
+  }
+
+  .side--green & {
+    left: 14px;
+  }
+}
+
+.score__mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+}
+
+.score__value {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+
+  b {
+    color: var(--muted);
+  }
+
+  b.win {
+    color: #fff;
+  }
+
+  i {
+    color: var(--muted);
+    font-style: normal;
+    font-size: 40px;
+  }
+}
+
+.score__label {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+// ------------------------------------------------------------ les FW une par une
+
+.wars {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.war {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.03);
+
+  &--violet {
+    border-color: rgb(139 44 255 / 0.55);
+    box-shadow: inset 0 3px 0 var(--violet);
+  }
+
+  &--green {
+    border-color: rgb(53 224 122 / 0.45);
+    box-shadow: inset 0 3px 0 var(--green);
+  }
+}
+
+.war__label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.war__score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+
+  b {
+    opacity: 0.6;
+  }
+
+  b.v {
+    color: var(--violet-soft);
+  }
+
+  b.g {
+    color: var(--green);
+  }
+
+  b.win {
+    opacity: 1;
+  }
+
+  i {
+    color: var(--muted);
+    font-style: normal;
+  }
+
+  small {
+    color: var(--gold);
+    font-size: 20px;
+  }
+}
+
+.war__destr {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+// ------------------------------------------------------------ tableaux des équipes
+
+.team {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.02);
+}
+
+.team__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+
+  h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  span {
+    color: var(--muted);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .team--violet & {
+    border-left: 5px solid var(--violet);
+    background: linear-gradient(90deg, rgb(139 44 255 / 0.22), transparent 70%);
+  }
+
+  .team--green & {
+    border-left: 5px solid var(--green);
+    background: linear-gradient(90deg, rgb(53 224 122 / 0.16), transparent 70%);
+  }
+}
+
+// Chaque ligne est une grille (et non une ligne de tableau) : elle est peinte
+// d'un seul bloc par le navigateur du bot (sinon, cassures visibles).
+table,
+thead,
+tbody {
+  display: block;
+}
+
+tr {
+  display: grid;
+  align-items: center;
+}
+
+thead tr {
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--line);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &:nth-child(even) {
+    background: rgb(255 255 255 / 0.02);
+  }
+}
+
+th {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+td {
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 21px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+th.name,
+td.name {
+  text-align: left;
+}
+
+td.name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 700;
+
+  img {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+th.cell,
+td.cell {
+  text-align: center;
+}
+
+td.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.atk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+}
+
+.stars {
+  color: var(--gold);
+  font-size: 19px;
+  letter-spacing: 0.04em;
+
+  i {
+    color: rgb(255 255 255 / 0.16);
+    font-style: normal;
+  }
+
+  &--triple {
+    text-shadow: 0 0 10px rgb(255 210 63 / 0.55);
+  }
+}
+
+.atk__meta {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.missed {
+  padding: 2px 8px;
+  border: 1px solid rgb(255 92 92 / 0.45);
+  border-radius: 999px;
+  color: #ff8f8f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.absent {
+  color: rgb(255 255 255 / 0.28);
+  font-size: 22px;
+}
+
+td.total {
+  color: var(--gold);
+}
+
+.spa {
+  .team--violet & {
+    color: var(--violet-soft);
+  }
+
+  .team--green & {
+    color: var(--green);
+  }
+}
+
+// ------------------------------------------------------------ pied
+
+.full__foot {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.full__error {
+  color: var(--muted);
+  font-size: 22px;
+}

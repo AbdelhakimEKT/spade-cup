@@ -7,6 +7,7 @@ import {
   type FwLine,
   type RankedPlayer,
 } from '../../src/app/core/fw/evening';
+import type { PlayerRow, WarRow } from '../../src/app/core/fw/full-recap';
 import {
   DEFAULT_DETAILS,
   TEAMS_BEFORE_MS,
@@ -457,6 +458,99 @@ export async function fwLines(
  */
 export function eveningLines(db: D1Database, evening: Evening, now: number) {
   return fwLines(db, evening.startsAt - EARLY_MS, (evening.recapPostedAt ?? now) + 1);
+}
+
+/** Une soirée par son numéro (« FW #42 »), annulées exclues. */
+export async function eveningByNumber(db: D1Database, n: number): Promise<Evening | null> {
+  const row = await db
+    .prepare('SELECT * FROM fw_evenings WHERE number = ? AND cancelled = 0 ORDER BY id DESC LIMIT 1')
+    .bind(n)
+    .first<EveningRow>();
+  return row ? toEvening(row) : null;
+}
+
+/**
+ * Le bilan complet d'une soirée : chaque FW (dans l'ordre où elles ont été
+ * jouées) et la ligne de chaque joueur dans chacune, avec ses attaques.
+ */
+export async function eveningWarDetails(
+  db: D1Database,
+  evening: Evening,
+  now: number,
+): Promise<{ wars: WarRow[]; players: PlayerRow[] }> {
+  const start = toSqliteTime(evening.startsAt - EARLY_MS);
+  const end = toSqliteTime((evening.recapPostedAt ?? now) + 1);
+  const { results: wars } = await db
+    .prepare(
+      `SELECT id, home_tag, home_stars, home_destruction, away_stars, away_destruction, winner, team_size
+       FROM friendly_wars WHERE started_at >= ? AND started_at < ?
+       ORDER BY started_at, id`,
+    )
+    .bind(start, end)
+    .all<{
+      id: number;
+      home_tag: string;
+      home_stars: number;
+      home_destruction: number;
+      away_stars: number;
+      away_destruction: number;
+      winner: string | null;
+      team_size: number | null;
+    }>();
+  const { results: players } = await db
+    .prepare(
+      `SELECT p.war_id, p.clan_tag, p.player_tag, p.player_name, p.town_hall, p.attacks, p.stars,
+              p.destruction_sum, p.duration, p.targets
+       FROM fw_players p JOIN friendly_wars w ON w.id = p.war_id
+       WHERE w.started_at >= ? AND w.started_at < ?`,
+    )
+    .bind(start, end)
+    .all<{
+      war_id: number;
+      clan_tag: string;
+      player_tag: string;
+      player_name: string;
+      town_hall: number | null;
+      attacks: number;
+      stars: number;
+      destruction_sum: number;
+      duration: number;
+      targets: string | null;
+    }>();
+  return {
+    wars: wars.map((w) => ({
+      id: w.id,
+      homeTag: w.home_tag,
+      homeStars: w.home_stars,
+      homeDestruction: w.home_destruction,
+      awayStars: w.away_stars,
+      awayDestruction: w.away_destruction,
+      winner: w.winner === 'home' || w.winner === 'away' ? w.winner : null,
+      teamSize: w.team_size,
+    })),
+    players: players.map((p) => ({
+      warId: p.war_id,
+      clanTag: p.clan_tag,
+      tag: p.player_tag,
+      name: p.player_name,
+      townHall: p.town_hall,
+      attacks: p.attacks,
+      stars: p.stars,
+      destructionSum: p.destruction_sum,
+      duration: p.duration,
+      targets: parseTargets(p.targets),
+    })),
+  };
+}
+
+/** Le détail des attaques (JSON de fw_players.targets) ; illisible ou absent : aucun. */
+function parseTargets(raw: string | null): PlayerRow['targets'] {
+  try {
+    const list: unknown = JSON.parse(raw ?? '[]');
+    return Array.isArray(list) ? (list as PlayerRow['targets']) : [];
+  } catch {
+    return [];
+  }
 }
 
 // ------------------------------------------------------------ textes

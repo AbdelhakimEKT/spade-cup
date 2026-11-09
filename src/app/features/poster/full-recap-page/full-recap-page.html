@@ -1,0 +1,153 @@
+<!-- data-ready : le bot attend cet attribut (images des HDV chargées) avant de photographier. -->
+<article
+  class="full"
+  [style.width.px]="width()"
+  [attr.data-ready]="ready() ? '' : null"
+  aria-label="Bilan complet de la soirée"
+>
+  @if (recap(); as r) {
+    <header class="full__head">
+      <img src="brand/friendly-wars-160.webp" width="64" height="64" alt="" />
+      <div>
+        <h1>Bilan complet · FW #{{ r.number || '?' }}</h1>
+        <p>
+          {{ r.day }} · {{ r.wars.length }} FW jouée{{ r.wars.length > 1 ? 's' : '' }}
+          @if (r.size) {
+            · {{ r.size }} contre {{ r.size }}
+          }
+        </p>
+      </div>
+    </header>
+
+    @if (result(); as o) {
+      <section class="score" aria-label="Résultat de la soirée">
+        <div class="side side--violet" [class.side--lost]="o.winner === 2">
+          <span class="side__name">FW-Team 1</span>
+          <span class="side__meta">{{ o.stars[0] }} ★ au total</span>
+          @if (o.winner === 1) {
+            <span class="side__badge">Victoire</span>
+          }
+        </div>
+        <div class="score__mid">
+          <span class="score__value">
+            <b [class.win]="o.winner === 1">{{ o.wins[0] }}</b>
+            <i>–</i>
+            <b [class.win]="o.winner === 2">{{ o.wins[1] }}</b>
+          </span>
+          <span class="score__label">FW gagnées</span>
+        </div>
+        <div class="side side--green" [class.side--lost]="o.winner === 1">
+          <span class="side__name">FW-Team 2</span>
+          <span class="side__meta">{{ o.stars[1] }} ★ au total</span>
+          @if (o.winner === 2) {
+            <span class="side__badge">Victoire</span>
+          }
+        </div>
+      </section>
+    }
+
+    <ol class="wars" aria-label="Les FW de la soirée">
+      @for (w of r.wars; track $index) {
+        <li
+          class="war"
+          [class.war--violet]="w.winner === 1"
+          [class.war--green]="w.winner === 2"
+        >
+          <span class="war__label">FW {{ $index + 1 }}</span>
+          <span class="war__score">
+            <b class="v" [class.win]="w.winner === 1">{{ w.stars[0] }}</b>
+            <i>–</i>
+            <b class="g" [class.win]="w.winner === 2">{{ w.stars[1] }}</b>
+            <small>★</small>
+          </span>
+          <span class="war__destr">
+            {{ w.destruction[0] | number: '1.0-1' }} % · {{ w.destruction[1] | number: '1.0-1' }} %
+          </span>
+        </li>
+      }
+    </ol>
+
+    @for (team of teams(); track team.index) {
+      <section class="team" [class]="'team team--' + team.color" [attr.aria-label]="team.label">
+        <header class="team__head">
+          <h2>{{ team.label }}</h2>
+          <span>
+            {{ team.rows.length }} joueur{{ team.rows.length > 1 ? 's' : '' }} · {{ team.stars }} ★ ·
+            {{ team.triples }} triple{{ team.triples > 1 ? 's' : '' }}
+          </span>
+        </header>
+        <table>
+          <thead>
+            <tr [style.grid-template-columns]="columns()">
+              <th scope="col" class="name">Joueur</th>
+              @for (w of r.wars; track $index) {
+                <th scope="col" class="cell">FW {{ $index + 1 }}</th>
+              }
+              <th scope="col">Étoiles</th>
+              <th scope="col">★ / att.</th>
+              <th scope="col">Triples</th>
+              <th scope="col">Destr.</th>
+              <th scope="col">Temps</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of team.rows; track $index) {
+              <tr [style.grid-template-columns]="columns()">
+                <td class="name">
+                  @if (thImage(row.player.th); as src) {
+                    <img
+                      [src]="src"
+                      width="34"
+                      height="34"
+                      alt=""
+                      (load)="imageDone()"
+                      (error)="imageDone()"
+                    />
+                  }
+                  <span>{{ row.player.name }}</span>
+                </td>
+                @for (cell of row.player.wars; track $index) {
+                  <td class="cell">
+                    @if (cell === null) {
+                      <span class="absent">–</span>
+                    } @else if (cell.length === 0) {
+                      <span class="missed">pas attaqué</span>
+                    } @else {
+                      @for (a of cell; track $index) {
+                        <span class="atk">
+                          <span class="stars" [class.stars--triple]="a.stars === 3">
+                            {{ stars(a.stars).won }}<i>{{ stars(a.stars).missed }}</i>
+                          </span>
+                          <span class="atk__meta">
+                            {{ a.destruction }} %
+                            @if (a.target) {
+                              · n°{{ a.target }}
+                            }
+                          </span>
+                        </span>
+                      }
+                    }
+                  </td>
+                }
+                <td class="total">{{ row.totals.stars }}</td>
+                <td>
+                  <span class="spa">{{ row.totals.starsPerAttack | number: '1.2-2' }}</span>
+                </td>
+                <td>{{ row.totals.triples }}</td>
+                <td>{{ row.totals.destruction | number: '1.0-0' }} %</td>
+                <td>{{ time(row.totals.seconds) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <footer class="full__foot">
+      <span>Merci à tous ! ⚔️</span>
+      <span>{{ discord }}</span>
+    </footer>
+  } @else {
+    <p class="full__error">Bilan illisible.</p>
+  }
+</article>

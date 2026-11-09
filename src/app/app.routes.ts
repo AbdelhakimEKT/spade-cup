@@ -106,6 +106,14 @@ export const routes: Routes = [
           import('./features/poster/recap-page/recap-page').then((m) => m.RecapPage),
       },
       {
+        // Bilan COMPLET d'une soirée FW (chaque FW, chaque joueur, chaque attaque),
+        // photographié par le bot (/fw bilan-complet).
+        path: 'bilan-complet',
+        title: 'Bilan complet FW',
+        loadComponent: () =>
+          import('./features/poster/full-recap-page/full-recap-page').then((m) => m.FullRecapPage),
+      },
+      {
         // Affiche d'une soirée FW, photographiée par le bot (/fw soiree).
         path: 'soiree',
         title: 'Soirée FW',

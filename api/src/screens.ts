@@ -1,4 +1,5 @@
 import puppeteer from '@cloudflare/puppeteer';
+import { fullRecapWidth } from '../../src/app/core/fw/full-recap';
 
 /**
  * Images pour Discord : l'arbre d'un tournoi, le récap joueur par joueur
@@ -27,7 +28,9 @@ export type Shot =
   /** La carte d'un joueur (page /joueurs/:tag/carte). */
   | { readonly kind: 'card'; readonly tag: string }
   /** Le bilan d'une soirée FW (page /affiche/bilan, voir recapQuery). */
-  | { readonly kind: 'recap'; readonly query: string };
+  | { readonly kind: 'recap'; readonly query: string }
+  /** Le bilan COMPLET d'une soirée (page /affiche/bilan-complet, voir fullRecapQuery). */
+  | { readonly kind: 'fullRecap'; readonly query: string; readonly wars: number };
 
 /**
  * Ce que chaque image doit montrer : l'élément photographié, celui dont on
@@ -40,6 +43,17 @@ function plan(shot: Shot): {
   width: number;
   scale: number;
 } {
+  if (shot.kind === 'fullRecap') {
+    return {
+      path: `/affiche/bilan-complet?${shot.query}`,
+      selector: 'sc-full-recap-page .full',
+      // data-ready : les images des HDV sont chargées.
+      ready: 'sc-full-recap-page .full[data-ready]',
+      // Une colonne de plus par FW au-delà de 3 : la page a exactement cette largeur.
+      width: fullRecapWidth(shot.wars),
+      scale: 1.5,
+    };
+  }
   if (shot.kind === 'recap') {
     return {
       path: `/affiche/bilan?${shot.query}`,

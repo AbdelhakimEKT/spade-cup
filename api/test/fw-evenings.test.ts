@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import { weekRange } from '../../src/app/core/fw/evening';
+import { parseFullRecap } from '../../src/app/core/fw/full-recap';
 import type { BotContext, Reply } from '../src/discord/bot';
 import { runCommand } from '../src/discord/bot';
 import { fwComponent, runFwSchedule, type ComponentResponse } from '../src/discord/fw';
@@ -507,6 +508,66 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     const recap = discord.sent.find((s) => s.channel === 'c-resultats')!.reply;
     expect(recap.files).toBeUndefined();
     expect(recap.content.split('\n')[2]).toMatch(/^🥇 \*\*Joueur 0\*\* — 3,00 ★\/attaque/);
+  });
+
+  it('bilan complet : chaque joueur des deux équipes, en image, posté ici seulement', async () => {
+    const { ctx, discord, e } = await launched();
+    expect((await runCommand(fw('bilan-complet'), ctx)).content).toMatch(/rien à montrer/);
+
+    await threeWars();
+    // Un joueur de la FW-Team 2 (camp adverse), avec le détail de son attaque.
+    await db()
+      .prepare(
+        `INSERT INTO fw_players (war_id, side, clan_tag, player_tag, player_name, town_hall,
+           map_position, attacks, stars, destruction_sum, triples, duration, targets)
+         VALUES ((SELECT MIN(id) FROM friendly_wars), 'away', '#B', '#V1', 'Vert 1', 17, 1, 1, 2, 88, 0, 140, ?)`,
+      )
+      .bind(JSON.stringify([{ position: 2, stars: 2, destruction: 88, durationSec: 140 }]))
+      .run();
+    const shots: Shot[] = [];
+    const later = {
+      ...ctx,
+      now: () => START + 2 * 3_600_000,
+      capture: async (list: readonly Shot[]) => (shots.push(...list), [FAKE_PNG]),
+    };
+    const before = discord.sent.length;
+    const reply = await runCommand(fw('bilan-complet'), later);
+    expect(reply.content).toBe('📋 **Bilan complet de la FW #41** · mercredi 28/10');
+    expect(reply.publicFollowUp).toBe(true);
+    expect(reply.files?.[0].name).toBe('bilan-complet-fw-41.png');
+    // Rien posté ailleurs, et la soirée n'est pas fermée.
+    expect(discord.sent).toHaveLength(before);
+    expect((await getEvening(db(), e.id))?.closed).toBe(false);
+
+    const shot = shots.find((x) => x.kind === 'fullRecap');
+    expect(shot?.kind === 'fullRecap' && shot.wars).toBe(3);
+    const q = new URLSearchParams(shot?.kind === 'fullRecap' ? shot.query : '');
+    const full = parseFullRecap(q.get('n')!, q.get('d')!, q.get('s')!, q.get('b')!)!;
+    expect(full.number).toBe(41);
+    expect(full.wars.map((w) => w.winner)).toEqual([1, 1, 1]);
+    expect(full.teams[0].map((p) => p.name)).toContain('Joueur 0');
+    expect(full.teams[1]).toEqual([
+      { name: 'Vert 1', th: 17, wars: [[{ stars: 2, destruction: 88, target: 2, seconds: 140 }], null, null] },
+    ]);
+  });
+
+  it('bilan complet : par numéro ; numéro inconnu ou image impossible, réponse privée', async () => {
+    const { ctx } = await launched();
+    await threeWars();
+    const later = { ...ctx, now: () => START + 2 * 3_600_000 };
+    const unknown = await runCommand(fw('bilan-complet', { numero: 7 }), later);
+    expect(unknown.content).toMatch(/Pas de FW #7/);
+    expect(unknown.publicFollowUp).toBeUndefined();
+    const ok = await runCommand(fw('bilan-complet', { numero: 41 }), later);
+    expect(ok.publicFollowUp).toBe(true);
+    const broken = await runCommand(fw('bilan-complet'), {
+      ...later,
+      capture: async () => {
+        throw new Error('quota');
+      },
+    });
+    expect(broken.content).toMatch(/Impossible de créer l'image/);
+    expect(broken.publicFollowUp).toBeUndefined();
   });
 
   it('annuler : la fiche le dit', async () => {

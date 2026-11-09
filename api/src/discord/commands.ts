@@ -203,6 +203,20 @@ export const COMMANDS = [
         type: OptionType.Subcommand,
       },
       {
+        name: 'bilan-complet',
+        description: 'Chaque joueur des deux équipes, toutes ses stats, en image ici',
+        type: OptionType.Subcommand,
+        options: [
+          {
+            name: 'numero',
+            description: 'Numéro de la FW (défaut : la dernière)',
+            type: OptionType.Integer,
+            min_value: 1,
+            max_value: 9999,
+          },
+        ],
+      },
+      {
         name: 'annuler',
         description: 'Annuler la FW en cours',
         type: OptionType.Subcommand,

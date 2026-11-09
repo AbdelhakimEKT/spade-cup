@@ -1,4 +1,5 @@
 import { rankPlayers, recapQuery, weekOf } from '../../../src/app/core/fw/evening';
+import { buildFullRecap, fullRecapQuery } from '../../../src/app/core/fw/full-recap';
 import {
   DEFAULT_DETAILS,
   TEAM_LABEL,
@@ -21,7 +22,9 @@ import {
   currentEvening,
   dayLabel,
   escapeMarkdown,
+  eveningByNumber,
   eveningLines,
+  eveningWarDetails,
   lastFinishedEvening,
   eveningRecapText,
   getEvening,
@@ -57,6 +60,8 @@ import { ButtonStyle, ComponentType, type Choice, type Interaction } from './typ
  *   /fw equipes [refaire]   fait (ou refait) les équipes tout de suite ;
  *   /fw deplacer compte équipe   rééquilibrage ;
  *   /fw bilan               top 5 de la soirée dans #résultats, la soirée est finie ;
+ *   /fw bilan-complet [numero]   chaque joueur des deux équipes, en image, posté
+ *                        seulement dans le salon où la commande est tapée ;
  *   /fw annuler.
  *
  * Dans #inscription, la fiche montre les inscrits (avec l'icône de leur HDV),
@@ -79,6 +84,8 @@ export interface FwConfig {
   readonly firstNumber: number;
   /** Lien qui ouvre le clan de chaque équipe dans le jeu (pour le rejoindre). */
   readonly clanLinks: Readonly<Record<Team, string>>;
+  /** Clan de la FW-Team 1 (violet) : le bilan complet range chaque joueur dans son équipe. */
+  readonly team1Tag: string;
 }
 
 /** « #2CYJPRCG8 » → le lien qui ouvre ce clan dans le jeu. */
@@ -108,6 +115,7 @@ export function fwConfig(env: {
     resultsChannel: env.DISCORD_CHANNEL_FW_RESULTATS ?? '',
     firstNumber: Number(env.FW_FIRST_NUMBER) || 1,
     clanLinks: { violet: clanLink(team1), vert: clanLink(team2) },
+    team1Tag: team1 ?? '',
   };
 }
 
@@ -424,6 +432,8 @@ export async function fwCommand(
         return await move(ctx, options);
       case 'bilan':
         return await recap(ctx);
+      case 'bilan-complet':
+        return await fullRecap(ctx, options);
       case 'annuler':
         return await cancel(ctx);
     }
@@ -676,6 +686,46 @@ async function recap(ctx: BotContext): Promise<Reply> {
   await closeEvening(ctx.db, e.id, now);
   await refreshSignup(ctx, e.id);
   return done(`✅ Bilan de la FW #${e.number} publié dans <#${channel}>.`);
+}
+
+/**
+ * Le bilan COMPLET d'une soirée, en image : chaque FW, puis chaque joueur des
+ * deux équipes avec chacune de ses attaques et ses totaux. Posté dans le salon
+ * où la commande est tapée, et nulle part ailleurs ; la soirée n'est pas
+ * fermée (c'est le rôle de /fw bilan). Sans numéro : la soirée en cours,
+ * sinon la dernière finie.
+ */
+async function fullRecap(ctx: BotContext, options: Options): Promise<Reply> {
+  const n = Number(options.get('numero')) || 0;
+  const e = n
+    ? ((await eveningByNumber(ctx.db, n)) ?? fail(`Pas de FW #${n} (ou elle a été annulée).`))
+    : ((await currentEvening(ctx.db)) ??
+      (await lastFinishedEvening(ctx.db)) ??
+      fail("Aucune FW pour l'instant : lance-en une avec /fw lancer."));
+  if (!ctx.fw.team1Tag) fail('Clan de la FW-Team 1 inconnu (réglage FW_CLANS).');
+  const name = e.test ? "de l'essai" : `de la FW #${e.number}`;
+  const { wars, players } = await eveningWarDetails(ctx.db, e, ctx.now());
+  if (wars.length === 0) fail(`Aucune FW ${name} n'a été enregistrée : rien à montrer.`);
+  const full = buildFullRecap(
+    { number: e.number, day: dayLabel(e.startsAt) },
+    wars,
+    players,
+    ctx.fw.team1Tag,
+  );
+  let png: Uint8Array | null = null;
+  try {
+    [png] = await ctx.capture([
+      { kind: 'fullRecap', query: fullRecapQuery(full), wars: full.wars.length },
+    ]);
+  } catch (error) {
+    console.error('Image du bilan complet impossible', error);
+  }
+  if (!png) fail("Impossible de créer l'image pour le moment. Réessaie dans une minute.");
+  return {
+    content: `📋 **Bilan complet ${name}** · ${dayLabel(e.startsAt)}`,
+    files: [{ name: `bilan-complet-fw-${e.number}.png`, data: png! }],
+    publicFollowUp: true,
+  };
 }
 
 async function cancel(ctx: BotContext): Promise<Reply> {
