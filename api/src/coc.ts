@@ -32,6 +32,8 @@ export interface CocClient {
   clan(tag: string): Promise<CocResult<ClanRef>>;
   player(tag: string): Promise<CocResult<CocPlayer>>;
   currentWar(tag: string): Promise<CocResult<CocWar>>;
+  /** Les tags des membres d'un clan (qui a rejoint la team d'une FW ?). */
+  clanMembers(tag: string): Promise<CocResult<string[]>>;
 }
 
 /** Messages prêts à afficher dans Discord. */
@@ -92,6 +94,11 @@ export function createCocClient(
       return { ok: true, value: { tag, name, townHall: townHallLevel } };
     },
     currentWar: (tag) => get<CocWar>(`/clans/${encode(tag)}/currentwar`),
+    async clanMembers(tag) {
+      const result = await get<{ items?: { tag: string }[] }>(`/clans/${encode(tag)}/members`);
+      if (!result.ok) return result;
+      return { ok: true, value: (result.value.items ?? []).map((m) => m.tag) };
+    },
   };
 }
 

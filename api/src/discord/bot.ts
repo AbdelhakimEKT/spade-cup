@@ -112,6 +112,11 @@ export interface Reply {
   readonly files?: readonly { readonly name: string; readonly data: Uint8Array }[];
   /** Boutons et listes sous le message (voir discord/fw.ts). */
   readonly components?: readonly unknown[];
+  /**
+   * Message « en blocs » (Components V2) : `content` est ignoré, tout est dans
+   * `components` (la fiche d'inscription d'une FW, voir discord/blocks.ts).
+   */
+  readonly v2?: boolean;
   /** Rôles notifiés par le message (ping de l'annonce d'une FW). */
   readonly mentionRoles?: readonly string[];
   /** Membres notifiés par le message (rappel des équipes d'une FW). */

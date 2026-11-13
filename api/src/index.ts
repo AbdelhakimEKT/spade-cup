@@ -14,10 +14,15 @@ import {
   listPlayers,
 } from './stats-repository';
 import { fwClans, trackFriendlyWars } from './fw-tracker';
-import { eveningsNeedingTeams, postFwRecaps, postWeeklyTop } from './fw-evenings';
-import { fwConfig, runFwSchedule } from './discord/fw';
+import {
+  eveningsCheckingClans,
+  eveningsNeedingTeams,
+  postFwRecaps,
+  postWeeklyTop,
+} from './fw-evenings';
+import { checkClans, fwConfig, runFwSchedule } from './discord/fw';
 import { createDiscordApi } from './discord/rest';
-import { captureScreens } from './screens';
+import { captureScreens, type Shot } from './screens';
 import { getLiveWars } from './live';
 import { serveLogo } from './logos';
 import { isMonday, isMonth, monthRange, weekRange } from '../../src/app/core/fw/evening';
@@ -93,21 +98,24 @@ export default {
         })
         .catch((error) => console.error('Suivi des FW en échec', error)),
     );
-    // Soirées FW : les équipes à H − 10 ; le lundi, le top de la semaine.
+    // Soirées FW : les équipes à H − 10 ; qui a rejoint le clan de sa team ;
+    // le lundi, le top de la semaine.
     ctx.waitUntil(
       (async () => {
-        const teams = await runFwSchedule(
-          {
-            db: env.DB,
-            discord: createDiscordApi(env),
-            fw: fwConfig(env),
-            random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
-            now: () => Date.now(),
-            capture: (shots) => captureScreens(env.BROWSER, env.SITE_URL, shots),
-          },
-          (now) => eveningsNeedingTeams(env.DB, now),
-        );
+        const fwDeps = {
+          db: env.DB,
+          discord: createDiscordApi(env),
+          fw: fwConfig(env),
+          random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
+          now: () => Date.now(),
+          capture: (shots: readonly Shot[]) => captureScreens(env.BROWSER, env.SITE_URL, shots),
+        };
+        const teams = await runFwSchedule(fwDeps, (now) => eveningsNeedingTeams(env.DB, now));
         if (teams) console.log(`Équipes de FW faites : ${teams}`);
+        const moved = await checkClans(fwDeps, createCocClient(env), (now) =>
+          eveningsCheckingClans(env.DB, now),
+        );
+        if (moved) console.log(`Présence dans les clans des teams mise à jour : ${moved}`);
         if (await postWeeklyTop(env.DB, createAnnouncer(env), env.SITE_URL)) {
           console.log('Top FW de la semaine publié');
         }

@@ -17,6 +17,7 @@ function game(wars: Record<string, CocResult<CocWar>>): CocClient & { calls: num
     calls: 0,
     clan: async () => ({ ok: false as const, error: 'not-found' as const }),
     player: async () => ({ ok: false as const, error: 'not-found' as const }),
+    clanMembers: async () => ({ ok: true as const, value: [] }),
     currentWar: async (tag: string): Promise<CocResult<CocWar>> => {
       client.calls++;
       return wars[tag] ?? { ok: true, value: { state: 'notInWar' } };

@@ -14,6 +14,20 @@ function fakeFetch(status: number, body: unknown) {
 const env = { COC_API_TOKEN: 'cle', COC_API_BASE: 'https://relais.test/v1' };
 
 describe('client de l’API du jeu', () => {
+  it('membres d’un clan : leurs tags', async () => {
+    const { calls, fetcher } = fakeFetch(200, {
+      items: [
+        { tag: '#PQ2', name: 'Rags' },
+        { tag: '#PQ9', name: 'Fight' },
+      ],
+    });
+    expect(await createCocClient(env, fetcher).clanMembers('#2PPP')).toEqual({
+      ok: true,
+      value: ['#PQ2', '#PQ9'],
+    });
+    expect(calls[0].url).toBe('https://relais.test/v1/clans/%232PPP/members');
+  });
+
   it('lit un clan : nom et blason, tag encodé dans l’URL, clé envoyée', async () => {
     const { calls, fetcher } = fakeFetch(200, {
       tag: '#2PPP',

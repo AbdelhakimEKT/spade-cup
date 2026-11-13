@@ -53,6 +53,7 @@ class Game {
     return {
       clan: base.clan,
       player: async () => ({ ok: false as const, error: 'not-found' as const }),
+      clanMembers: base.clanMembers,
       currentWar: async (tag) => {
         this.calls++;
         const war = this.wars.get(tag);

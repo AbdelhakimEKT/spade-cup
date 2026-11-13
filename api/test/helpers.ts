@@ -25,6 +25,8 @@ export const FW_CONFIG = {
   firstNumber: 41,
   clanLinks: { violet: 'https://clan.test/1', vert: 'https://clan.test/2' },
   team1Tag: '#A',
+  teamTags: { violet: '#A', vert: '#B' },
+  bannerUrl: 'https://site.test/brand/discord/fw-inscriptions.jpg?v=1',
 };
 
 /** « Maintenant » pour les soirées FW : mardi 27/10/2026, 18 h (heure de Paris). */
@@ -106,6 +108,7 @@ export function fakeCoc(
   wars: Record<string, CocResult<CocWar>> = {},
   clans: readonly ClanRef[] = CLANS,
   players: readonly CocPlayer[] = PLAYERS,
+  members: Readonly<Record<string, readonly string[]>> = {},
 ): CocClient & { calls: string[] } {
   const calls: string[] = [];
   return {
@@ -123,6 +126,10 @@ export function fakeCoc(
     async currentWar(tag) {
       calls.push(`war ${tag}`);
       return wars[tag] ?? { ok: true, value: { state: 'notInWar' } };
+    },
+    async clanMembers(tag) {
+      calls.push(`members ${tag}`);
+      return { ok: true, value: [...(members[tag] ?? [])] };
     },
   };
 }

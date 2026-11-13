@@ -1,5 +1,5 @@
 import type { Reply } from './bot';
-import { EPHEMERAL, SUPPRESS_EMBEDS } from './types';
+import { EPHEMERAL, IS_COMPONENTS_V2, SUPPRESS_EMBEDS } from './types';
 
 /**
  * Ce qu'on envoie à Discord : utilisé pour répondre à une commande ET pour
@@ -12,9 +12,12 @@ import { EPHEMERAL, SUPPRESS_EMBEDS } from './types';
  * carte d'aperçu sous les liens du site : elle encombrerait le salon.
  */
 export function message(reply: Reply) {
+  const ephemeral = reply.ephemeral ? EPHEMERAL : 0;
   return {
-    content: reply.content.slice(0, 2000), // limite de Discord
-    flags: SUPPRESS_EMBEDS | (reply.ephemeral ? EPHEMERAL : 0),
+    // Message « en blocs » : pas de texte à part, tout est dans les composants.
+    ...(reply.v2
+      ? { flags: IS_COMPONENTS_V2 | ephemeral }
+      : { content: reply.content.slice(0, 2000), flags: SUPPRESS_EMBEDS | ephemeral }), // limite de Discord
     // Seuls les rôles et membres cités dans `mentionRoles` / `mentionUsers` sont
     // notifiés (annonce et équipes d'une FW).
     allowed_mentions: {

@@ -4,12 +4,14 @@ import { weekRange } from '../../src/app/core/fw/evening';
 import { parseFullRecap } from '../../src/app/core/fw/full-recap';
 import type { BotContext, Reply } from '../src/discord/bot';
 import { runCommand } from '../src/discord/bot';
-import { fwComponent, runFwSchedule, type ComponentResponse } from '../src/discord/fw';
+import { checkClans, fwComponent, runFwSchedule, type ComponentResponse } from '../src/discord/fw';
+import { textOf as blockText } from '../src/discord/blocks';
 import type { DiscordApi } from '../src/discord/rest';
 import type { Shot } from '../src/screens';
 import type { Interaction } from '../src/discord/types';
 import {
   currentEvening,
+  eveningsCheckingClans,
   eveningsNeedingTeams,
   getEvening,
   postFwRecaps,
@@ -26,6 +28,7 @@ import {
   OTHER_MEMBER,
   botContext,
   fakeAnnouncer,
+  fakeCoc,
   type Who,
 } from './helpers';
 
@@ -54,7 +57,9 @@ function fakeDiscord() {
   /** Le dernier état d'un message (envoyé puis modifié). */
   const latest = (id: string) =>
     [...edits].reverse().find((e) => e.id === id)?.reply ?? sent.find((s) => s.id === id)?.reply;
-  return { api, sent, edits, latest };
+  /** Tout le texte de ce message (la fiche est « en blocs »). */
+  const sheet = (id: string) => blockText(latest(id)!);
+  return { api, sent, edits, latest, sheet };
 }
 
 /** Contexte du bot avec un faux Discord ; les tâches de fond sont attendues par `settle`. */
@@ -163,11 +168,17 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     // La fiche d'inscription d'abord, puis l'annonce (le ping seulement si la fiche est là).
     const [signup, announce] = discord.sent;
     expect(signup.channel).toBe('c-inscription');
-    // Court : le titre et la liste (les infos sont sur l'affiche).
-    expect(signup.reply.content).toBe(
-      '📝 **FW #41** · mercredi 28/10 à 21h00\n\n**Inscrits (0)**\n_Personne pour l’instant._',
-    );
-    expect(JSON.stringify(signup.reply.components)).toMatch(/fw:join:\d+".*fw:add:\d+".*fw:leave/);
+    // En blocs : la bannière, le titre, la liste, les boutons dans le cadre.
+    expect(signup.reply.v2).toBe(true);
+    const sheet = blockText(signup.reply);
+    expect(sheet).toContain('## 📝 FW #41 · mercredi 28/10 à 21h00');
+    expect(sheet).toContain('Inscriptions jusqu’à **20h45** · début <t:');
+    expect(sheet).toContain('### Inscrits · 0\n-# Personne pour l’instant.');
+    const blocks = JSON.stringify(signup.reply.components);
+    expect(blocks).toContain('"url":"https://site.test/brand/discord/fw-inscriptions.jpg?v=1"');
+    expect(blocks).toMatch(/fw:join:\d+".*fw:add:\d+".*fw:leave/);
+    // Pas de lien du clan sur la fiche : il arrive avec l'annonce des équipes.
+    expect(blocks).not.toContain('Rejoindre');
 
     expect(announce.channel).toBe('c-annonce');
     expect(announce.reply.content).toBe(
@@ -206,8 +217,8 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
       }),
       ctx,
     );
-    const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply.content;
-    expect(fiche).toContain('**FW #50**');
+    const fiche = blockText(discord.sent.find((m) => m.channel === 'c-inscription')!.reply);
+    expect(fiche).toContain('FW #50');
     const e = (await currentEvening(db()))!;
     expect(e.details).toMatchObject({ rounds: '4 rounds', accepted: 'HDV 17 accepté' });
     const announce = discord.sent.find((m) => m.channel === 'c-annonce')!.reply.content;
@@ -232,7 +243,7 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
     const [announce, signup] = discord.sent;
     expect(announce.reply.content).toMatch(/^🧪 \*\*ESSAI\*\*/);
     expect(announce.reply.mentionRoles).toBeUndefined(); // personne n'est notifié
-    expect(signup.reply.content).toMatch(/^🧪 \*\*ESSAI\*\*/);
+    expect(blockText(signup.reply)).toMatch(/^🧪 \*\*ESSAI\*\*/);
 
     // Le bilan de l'essai reste dans ce salon.
     await threeWars();
@@ -248,6 +259,24 @@ describe('/fw lancer : la fiche dans #inscription, l’annonce avec ping dans #a
   it('sans jeton du bot : refusé, avec l’explication', async () => {
     const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), botContext(db()));
     expect(reply.content).toMatch(/DISCORD_BOT_TOKEN/);
+  });
+
+  it('fiche en blocs refusée par Discord : l’ancienne fiche, la soirée a lieu', async () => {
+    const { ctx, discord } = setup();
+    const send = discord.api.send;
+    const picky = {
+      ...discord.api,
+      send: async (c: string, r: Reply) => (r.v2 ? null : send(c, r)),
+    };
+    const reply = await runCommand(fw('lancer', { date: '28/10', heure: '21h' }), {
+      ...ctx,
+      discord: picky,
+    });
+    expect(reply.content).toContain('**FW #41** lancée');
+    const signup = discord.sent.find((m) => m.channel === 'c-inscription')!.reply;
+    expect(signup.v2).toBeUndefined();
+    expect(signup.content).toContain('📝 **FW #41**');
+    expect((await currentEvening(db()))?.sheetV2).toBe(false);
   });
 
   it('#inscription inaccessible : pas d’annonce (pas de ping sans fiche)', async () => {
@@ -295,10 +324,11 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
     await signTag(ctx, e.id, '#PQ8');
     await settle();
 
-    const fiche = discord.latest(signupId)!.content;
-    expect(fiche).toContain('**Inscrits (2)**');
-    expect(fiche).toContain('<:th18:e18> Rags');
-    expect(fiche).toContain('<:th17:e17> Rags 2');
+    // Le pseudo du jeu ET la personne sur Discord (mentionnée, jamais notifiée).
+    const fiche = discord.sheet(signupId);
+    expect(fiche).toContain('### Inscrits · 2');
+    expect(fiche).toContain('> <:th18:e18> Rags · <@u-chef>');
+    expect(fiche).toContain('> <:th17:e17> Rags 2 · <@u-chef>');
   });
 
   it('comptes retenus : un seul → un clic ; plusieurs → liste à cocher ; désinscription', async () => {
@@ -344,19 +374,19 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
     const teams = (await signupsOf(db(), e.id)).map((s) => s.team);
     expect(teams.filter((t) => t === 'violet')).toHaveLength(2);
     expect(teams.filter((t) => t === 'vert')).toHaveLength(1);
-    const fiche = discord.latest(signupId)!.content;
-    expect(fiche).toContain('🟣 **FW-Team 1 (2)**');
-    expect(fiche).toContain('🟢 **FW-Team 2 (1)**');
+    const fiche = discord.sheet(signupId);
+    expect(fiche).toContain('### 🟣 FW-Team 1 · 2');
+    expect(fiche).toContain('### 🟢 FW-Team 2 · 1');
+    // Personne n'est encore vu dans le clan de sa team.
+    expect(fiche).toMatch(/> ⏳ <:th1\d:e1\d> /);
     // Le rappel : chaque joueur mentionné (notifié) sous son équipe, et les boutons des clans.
     const notice = discord.sent.at(-1)!.reply;
     expect(notice.content).toContain('Les équipes de la FW #41 sont prêtes');
     expect(notice.content).toMatch(/🟣 \*\*FW-Team 1\*\*\n<@u-/);
     expect([...(notice.mentionUsers ?? [])].sort()).toEqual(['u-autre', 'u-chef']);
     expect(JSON.stringify(notice.components)).toContain('"url":"https://clan.test/2"');
-    // Équipes faites : un bouton par équipe ouvre son clan dans le jeu.
-    const links = JSON.stringify(discord.latest(signupId)!.components);
-    expect(links).toContain('"label":"Rejoindre la FW-Team 1","url":"https://clan.test/1"');
-    expect(links).toContain('"label":"Rejoindre la FW-Team 2","url":"https://clan.test/2"');
+    // Le lien des clans est dans l'annonce des équipes, pas sur la fiche.
+    expect(JSON.stringify(discord.latest(signupId)!.components)).not.toContain('Rejoindre');
 
     // Arrivé en cours de route : dans l'équipe la moins remplie.
     const late = { id: 'u-retard', name: 'Retard', permissions: '0' };
@@ -391,14 +421,12 @@ describe('équipes libres : chacun choisit la sienne', () => {
     const { ctx, discord, settle, e, signupId } = await launched('libre');
     const fiche = discord.sent.find((m) => m.channel === 'c-inscription')!.reply;
     expect(JSON.stringify(fiche.components)).toMatch(/fw:join:\d+:violet.*fw:join:\d+:vert/);
-    expect(fiche.content).toContain('🟣 **FW-Team 1 (0)**');
+    expect(blockText(fiche)).toContain('### 🟣 FW-Team 1 · 0');
 
-    // Équipes au choix : le lien du clan est là dès l'inscription.
+    // Équipes au choix : le lien du clan n'arrive qu'avec l'annonce des équipes (H − 10).
     const tagged = await fwComponent(click(`fw:tag:${e.id}:violet`, MEMBER, { tag: '#PQ2' }), ctx);
     const reply = tagged.kind === 'deferred' ? await tagged.run() : null;
-    expect(JSON.stringify(reply?.components)).toContain(
-      '"label":"Rejoindre la FW-Team 1","url":"https://clan.test/1"',
-    );
+    expect(JSON.stringify(reply?.components)).not.toContain('Rejoindre');
     await signTag(ctx, e.id, '#PQ8', MEMBER, ':vert');
     const team = async (tag: string) =>
       (await signupsOf(db(), e.id)).find((s) => s.tag === tag)?.team;
@@ -413,11 +441,86 @@ describe('équipes libres : chacun choisit la sienne', () => {
     expect(await team('#PQ8')).toBeUndefined();
 
     await settle();
-    expect(discord.latest(signupId)!.content).toContain('🟢 **FW-Team 2 (1)**');
-    // Et sous la fiche, sans attendre le tirage.
-    expect(JSON.stringify(discord.latest(signupId)!.components)).toContain(
-      'Rejoindre la FW-Team 1',
-    );
+    expect(discord.sheet(signupId)).toContain('### 🟢 FW-Team 2 · 1');
+    expect(JSON.stringify(discord.latest(signupId)!.components)).not.toContain('Rejoindre');
+  });
+});
+
+describe('fiche : qui a rejoint le clan de sa team ?', () => {
+  /** Les membres des clans des deux teams (#A : FW-Team 1, #B : FW-Team 2), modifiables. */
+  function game() {
+    const members: Record<string, string[]> = { '#A': [], '#B': [] };
+    const coc = fakeCoc({}, undefined, undefined, members);
+    return { members, coc };
+  }
+  const due = (now: number) => eveningsCheckingClans(db(), now);
+
+  it('✅ dans le bon clan, ⚠️ dans celui de l’autre team, ⏳ pas encore ; la fiche suit', async () => {
+    const { ctx, discord, settle, e, signupId } = await launched('libre');
+    await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
+    await signTag(ctx, e.id, '#PQ8', MEMBER, ':violet');
+    await signTag(ctx, e.id, '#PQ9', OTHER_MEMBER, ':vert');
+    await settle();
+
+    const { members, coc } = game();
+    members['#A'] = ['#PQ2'];
+    members['#B'] = ['#PQ8']; // Rags 2 est allé dans le clan de l'autre team
+    expect(await checkClans(ctx, coc, due)).toBe(3);
+    const fiche = discord.sheet(signupId);
+    expect(fiche).toContain('> ✅ <:th18:e18> Rags · <@u-chef>');
+    expect(fiche).toContain('> ⚠️ <:th17:e17> Rags 2 · <@u-chef>');
+    expect(fiche).toContain('> ⏳ <:th18:e18> Fight · <@u-autre>');
+    expect(fiche).toContain('-# ✅ dans le clan de sa team · ⏳ pas encore');
+
+    // Rien n'a bougé : la fiche n'est pas modifiée (2 appels au jeu, c'est tout).
+    const edits = discord.edits.length;
+    coc.calls.length = 0;
+    expect(await checkClans(ctx, coc, due)).toBe(0);
+    expect(discord.edits.length).toBe(edits);
+    expect(coc.calls).toEqual(['members #A', 'members #B']);
+
+    // Fight rejoint sa team.
+    members['#B'] = ['#PQ8', '#PQ9'];
+    expect(await checkClans(ctx, coc, due)).toBe(1);
+    expect(discord.sheet(signupId)).toContain('> ✅ <:th18:e18> Fight · <@u-autre>');
+  });
+
+  it('jeu injoignable : l’état connu reste ; plus vérifié 1 h après le début', async () => {
+    const { ctx, settle, e } = await launched('libre');
+    await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
+    await settle();
+    const { members, coc } = game();
+    members['#A'] = ['#PQ2'];
+    await checkClans(ctx, coc, due);
+
+    const offline = {
+      clanMembers: async () => ({ ok: false as const, error: 'unavailable' as const }),
+    };
+    expect(await checkClans(ctx, offline, due)).toBe(0);
+    expect((await signupsOf(db(), e.id))[0].inClan).toBe('violet');
+
+    members['#A'] = [];
+    expect(await checkClans({ ...ctx, now: () => START + 61 * 60_000 }, coc, due)).toBe(0);
+    expect((await signupsOf(db(), e.id))[0].inClan).toBe('violet');
+  });
+
+  it('équipes tirées au sort : rien avant le tirage', async () => {
+    const { ctx, settle, e } = await launched('random');
+    await signTag(ctx, e.id, '#PQ2');
+    await settle();
+    expect(await due(NOW_FW)).toEqual([]);
+  });
+
+  it('soirée lancée avant la nouvelle fiche : l’ancienne fiche, pas de vérification', async () => {
+    const { ctx, discord, settle, e, signupId } = await launched('libre');
+    await db().prepare('UPDATE fw_evenings SET sheet_v2 = 0 WHERE id = ?').bind(e.id).run();
+    await signTag(ctx, e.id, '#PQ2', MEMBER, ':violet');
+    await settle();
+    const fiche = discord.latest(signupId)!;
+    expect(fiche.v2).toBeUndefined();
+    expect(fiche.content).toContain('🟣 **FW-Team 1 (1)**');
+    expect(JSON.stringify(fiche.components)).not.toContain('Rejoindre');
+    expect(await due(NOW_FW)).toEqual([]);
   });
 });
 
@@ -426,7 +529,7 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     const { ctx, discord, e, signupId } = await launched();
     const reply = await runCommand(fw('modifier', { heure: '21h30', rounds: '3 rounds' }), ctx);
     expect(reply.content).toContain('mercredi 28/10 à 21h30');
-    expect(discord.latest(signupId)!.content).toContain('mercredi 28/10 à 21h30');
+    expect(discord.sheet(signupId)).toContain('mercredi 28/10 à 21h30');
     expect((await currentEvening(db()))?.details.rounds).toBe('3 rounds');
     const announce = discord.latest(e.announce!.message)!;
     expect(announce.content).toContain('jusqu’à **21h15**');
@@ -464,9 +567,8 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     expect(JSON.stringify(top)).not.toContain('Remplissage');
 
     expect((await getEvening(db(), e.id))?.closed).toBe(true);
-    const fiche = discord.latest(signupId)!;
-    expect(fiche.content).toContain('Soirée terminée');
-    expect(fiche.components).toEqual([]);
+    expect(discord.sheet(signupId)).toContain('Soirée terminée');
+    expect(JSON.stringify(discord.latest(signupId)!.components)).not.toContain('custom_id');
     expect(await textOf(await fwComponent(click(`fw:join:${e.id}`), ctx))).toMatch(/est terminée/);
   });
 
@@ -547,7 +649,11 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     expect(full.wars.map((w) => w.winner)).toEqual([1, 1, 1]);
     expect(full.teams[0].map((p) => p.name)).toContain('Joueur 0');
     expect(full.teams[1]).toEqual([
-      { name: 'Vert 1', th: 17, wars: [[{ stars: 2, destruction: 88, target: 2, seconds: 140 }], null, null] },
+      {
+        name: 'Vert 1',
+        th: 17,
+        wars: [[{ stars: 2, destruction: 88, target: 2, seconds: 140 }], null, null],
+      },
     ]);
   });
 
@@ -573,7 +679,7 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
   it('annuler : la fiche le dit', async () => {
     const { ctx, discord, signupId } = await launched();
     expect((await runCommand(fw('annuler'), ctx)).content).toContain('FW #41');
-    expect(discord.latest(signupId)!.content).toContain('Soirée annulée');
+    expect(discord.sheet(signupId)).toContain('Soirée annulée');
   });
 });
 

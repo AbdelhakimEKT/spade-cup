@@ -13,7 +13,7 @@ import {
 } from '../../../src/app/core/fw/session';
 import { franceDateTime, normalizeDate, normalizeTime } from '../../../src/app/core/poster/poster';
 import { isValidTag, normalizeTag } from '../../../src/app/core/tournament/tags';
-import { COC_ERROR_TEXT } from '../coc';
+import { COC_ERROR_TEXT, type CocClient } from '../coc';
 import {
   accountsOf,
   cancelEvening,
@@ -34,16 +34,20 @@ import {
   removeStatement,
   run,
   saveAccount,
+  saveClansSeen,
   saveMessages,
   setTeams,
   signupStatement,
   signupsOf,
   updateEvening,
+  usePlainSheet,
   type Account,
+  type ClanSeen,
   type Evening,
   type Signup,
   type Who,
 } from '../fw-evenings';
+import { container, gallery, row, separator, text as textBlock } from './blocks';
 import type { BotContext, Reply } from './bot';
 import { ADMINISTRATOR, MANAGE_GUILD } from './commands';
 import type { DiscordApi } from './rest';
@@ -65,7 +69,9 @@ import { ButtonStyle, ComponentType, type Choice, type Interaction } from './typ
  *   /fw annuler.
  *
  * Dans #inscription, la fiche montre les inscrits (avec l'icône de leur HDV),
- * tenue à jour à chaque clic. Équipes « random » : tirées au hasard à H − 10
+ * tenue à jour à chaque clic. Fiche « en blocs » (soirées lancées depuis le
+ * 13/11) : bannière, pseudo du jeu et @Discord de chacun, et s'il a rejoint
+ * le clan de sa team (vérifié dans le jeu chaque minute, voir checkClans). Équipes « random » : tirées au hasard à H − 10
  * (par le bot, toutes les minutes). Équipes « libres » : deux boutons, un par
  * équipe. La 1re fois, le bot demande le tag du compte et le retient ; on peut
  * en ajouter d'autres et les inscrire tous.
@@ -86,6 +92,10 @@ export interface FwConfig {
   readonly clanLinks: Readonly<Record<Team, string>>;
   /** Clan de la FW-Team 1 (violet) : le bilan complet range chaque joueur dans son équipe. */
   readonly team1Tag: string;
+  /** Le clan de chaque équipe (qui a rejoint sa team ?). */
+  readonly teamTags: Readonly<Record<Team, string>>;
+  /** La bannière en haut de la fiche d'inscription (image du site). */
+  readonly bannerUrl: string;
 }
 
 /** « #2CYJPRCG8 » → le lien qui ouvre ce clan dans le jeu. */
@@ -104,6 +114,7 @@ export function fwConfig(env: {
   DISCORD_CHANNEL_FW_RESULTATS?: string;
   FW_FIRST_NUMBER?: string;
   FW_CLANS?: string;
+  SITE_URL?: string;
 }): FwConfig {
   // FW_CLANS : FW-Team 1 puis FW-Team 2.
   const [team1, team2] = (env.FW_CLANS ?? '').split(',').map((t) => t.trim());
@@ -116,6 +127,9 @@ export function fwConfig(env: {
     firstNumber: Number(env.FW_FIRST_NUMBER) || 1,
     clanLinks: { violet: clanLink(team1), vert: clanLink(team2) },
     team1Tag: team1 ?? '',
+    teamTags: { violet: team1 ?? '', vert: team2 ?? '' },
+    // ?v= : à changer quand l'image change (Discord garde l'ancienne en mémoire).
+    bannerUrl: env.SITE_URL ? `${env.SITE_URL}/brand/discord/fw-inscriptions.jpg?v=1` : '',
   };
 }
 
@@ -202,6 +216,130 @@ export function signupMessage(
   emojis: ReadonlyMap<string, string>,
   cfg: FwConfig,
 ): Reply {
+  return e.sheetV2 ? blocksSheet(e, signups, emojis, cfg) : plainSheet(e, signups, emojis);
+}
+
+/** Barre de couleur de la fiche : violet Friendly Wars, gris une fois la soirée finie. */
+const SHEET_ACCENT = 0x8b3dff;
+const SHEET_DONE = 0x3b3540;
+/** Place du texte des listes (Discord : 4 000 caractères pour tout le message). */
+const LIST_BUDGET = 3200;
+
+/**
+ * Où en est ce compte : ✅ dans le clan de sa team, ⚠️ dans celui de l'autre
+ * team, ⏳ dans aucun des deux (ou pas encore vérifié).
+ */
+export function presenceMark(s: Pick<Signup, 'team' | 'inClan'>): string {
+  if (!s.team) return '';
+  if (s.inClan === s.team) return '✅';
+  if (s.inClan === 'violet' || s.inClan === 'vert') return '⚠️';
+  return '⏳';
+}
+
+/** « > ✅ [HDV18] {FR}♠Syfy · @Syfy » : le pseudo du jeu ET la personne sur Discord. */
+function playerLine(s: Signup, emojis: ReadonlyMap<string, string>, presence: boolean): string {
+  const mark = presence ? `${presenceMark(s)} ` : '';
+  return `> ${mark}${thIcon(s.townHall, emojis)} ${escapeMarkdown(s.name)} · <@${s.discordId}>`;
+}
+
+/** Un titre et ses joueurs, coupé avant de dépasser `budget` caractères. */
+function playerBlock(
+  title: string,
+  players: readonly Signup[],
+  emojis: ReadonlyMap<string, string>,
+  presence: boolean,
+  budget: number,
+): string {
+  const lines: string[] = [];
+  let used = title.length;
+  let cut = 0;
+  for (const p of players) {
+    const line = playerLine(p, emojis, presence);
+    if (used + line.length + 1 > budget) {
+      cut++;
+      continue;
+    }
+    lines.push(line);
+    used += line.length + 1;
+  }
+  if (!players.length) lines.push('-# Personne pour l’instant.');
+  if (cut) lines.push(`> … et ${cut} autre${cut > 1 ? 's' : ''}`);
+  return [title, ...lines].join('\n');
+}
+
+/**
+ * La fiche « en blocs » : la bannière, la date, puis chaque équipe avec, pour
+ * chaque compte, son pseudo du jeu, la personne sur Discord (mentionnée sans
+ * être notifiée) et s'il a rejoint le clan de sa team. Les boutons sont dans le
+ * cadre. Le lien pour rejoindre le clan n'est PAS ici : il arrive avec
+ * l'annonce des équipes (teamsNotice).
+ */
+function blocksSheet(
+  e: Evening,
+  signups: readonly Signup[],
+  emojis: ReadonlyMap<string, string>,
+  cfg: FwConfig,
+): Reply {
+  const c = sessionClocks(e.startsAt);
+  const start = Math.floor(e.startsAt / 1000);
+  const status = e.cancelled
+    ? '❌ **Soirée annulée.**'
+    : e.closed
+      ? '✅ **Soirée terminée : merci à tous !**'
+      : `Inscriptions jusqu’à **${c.close}** · début <t:${start}:R>`;
+  const how = e.closed
+    ? null
+    : e.mode === 'libre'
+      ? `-# Clique sur ta team pour t’inscrire. Plusieurs comptes autorisés. ` +
+        `Le lien du clan de ta team arrive à **${c.teams}**, avec l’annonce des équipes.`
+      : `-# Tirage des équipes à **${c.teams}**. Plusieurs comptes ? « Ajouter un compte ».`;
+
+  const teams = e.mode === 'libre' || e.teamsAt !== null;
+  const byTeam = (t: Team) => signups.filter((s) => s.team === t);
+  const lists = teams
+    ? TEAMS.map((t) =>
+        playerBlock(
+          `### ${TEAM_DOT[t]} ${TEAM_LABEL[t]} · ${byTeam(t).length}`,
+          byTeam(t),
+          emojis,
+          true,
+          LIST_BUDGET / 2,
+        ),
+      )
+    : [playerBlock(`### Inscrits · ${signups.length}`, signups, emojis, false, LIST_BUDGET)];
+  // Inscrits sans équipe après le tirage (cas rare) : listés à part.
+  const loose = signups.filter((s) => s.team === null);
+  if (teams && loose.length) lists.push(playerBlock('### Sans équipe', loose, emojis, false, 400));
+  const legend =
+    teams && signups.some((s) => s.team)
+      ? '-# ✅ dans le clan de sa team · ⏳ pas encore · ⚠️ dans le clan de l’autre team'
+      : null;
+
+  return {
+    content: '',
+    v2: true,
+    components: [
+      container(e.closed ? SHEET_DONE : SHEET_ACCENT, [
+        e.test && textBlock(TEST_BANNER),
+        cfg.bannerUrl && gallery(cfg.bannerUrl),
+        textBlock(`## 📝 FW #${e.number} · ${when(e)}\n${status}`),
+        how && textBlock(how),
+        separator(),
+        ...lists.map((l) => textBlock(l)),
+        legend && textBlock(legend),
+        !e.closed && separator(),
+        !e.closed && row(signupButtons(e)),
+      ]),
+    ],
+  };
+}
+
+/** L'ancienne fiche (texte simple), gardée pour les soirées lancées avant la nouvelle. */
+function plainSheet(
+  e: Evening,
+  signups: readonly Signup[],
+  emojis: ReadonlyMap<string, string>,
+): Reply {
   const c = sessionClocks(e.startsAt);
   const d = e.details;
   const status = e.cancelled
@@ -229,10 +367,14 @@ export function signupMessage(
   if (teams && loose.length)
     sections.push({ title: '**Sans équipe**', lines: roster(loose, emojis) });
 
-  return { content: fit(header, sections), components: e.closed ? [] : signupButtons(e, cfg) };
+  return {
+    content: fit(header, sections),
+    components: e.closed ? [] : [{ type: ComponentType.Row, components: signupButtons(e) }],
+  };
 }
 
-function signupButtons(e: Evening, cfg: FwConfig): unknown[] {
+/** Les boutons de la fiche. Le lien du clan, lui, arrive avec l'annonce des équipes. */
+function signupButtons(e: Evening): unknown[] {
   const buttons =
     e.mode === 'random'
       ? [
@@ -243,19 +385,7 @@ function signupButtons(e: Evening, cfg: FwConfig): unknown[] {
           button(`fw:join:${e.id}:violet`, TEAM_LABEL.violet, ButtonStyle.Primary, '🟣'),
           button(`fw:join:${e.id}:vert`, TEAM_LABEL.vert, ButtonStyle.Success, '🟢'),
         ];
-  const rows: unknown[] = [
-    {
-      type: ComponentType.Row,
-      components: [...buttons, button(`fw:leave:${e.id}`, 'Me désinscrire', ButtonStyle.Secondary)],
-    },
-  ];
-  // Équipes faites : un bouton par équipe ouvre son clan dans le jeu, pour le rejoindre.
-  // Équipes connues (au choix : dès l'inscription ; tirées au sort : après le tirage).
-  const links = linkButtons(TEAMS, cfg);
-  if ((e.mode === 'libre' || e.teamsAt !== null) && links.length) {
-    rows.push({ type: ComponentType.Row, components: links });
-  }
-  return rows;
+  return [...buttons, button(`fw:leave:${e.id}`, 'Me désinscrire', ButtonStyle.Secondary)];
 }
 
 /** Les boutons qui ouvrent le clan de ces équipes dans le jeu, pour le rejoindre. */
@@ -507,7 +637,13 @@ async function launch(interaction: Interaction, ctx: BotContext, options: Option
 
   const emojis = await discord.emojis();
   const png = await posterOf(ctx, e);
-  const postSignup = () => discord.send(signupChannel, signupMessage(e, [], emojis, ctx.fw));
+  const postSignup = async () => {
+    const posted = await discord.send(signupChannel, signupMessage(e, [], emojis, ctx.fw));
+    if (posted || !e.sheetV2) return posted;
+    // Fiche « en blocs » refusée par Discord : l'ancienne fiche plutôt que pas de soirée.
+    await usePlainSheet(ctx.db, e.id);
+    return discord.send(signupChannel, signupMessage({ ...e, sheetV2: false }, [], emojis, ctx.fw));
+  };
   const postAnnounce = () => discord.send(announceChannel, announceMessage(e, ctx.fw, png));
   // Pour de vrai : la fiche d'inscription d'abord, et l'annonce (avec le ping)
   // seulement si la fiche est bien là. En essai (un seul salon) : l'annonce
@@ -846,8 +982,8 @@ async function join(
 }
 
 /**
- * La liste à cocher de ses comptes, le bouton pour en ajouter un, et, dès que
- * l'équipe de ses comptes est connue, le bouton pour rejoindre son clan.
+ * La liste à cocher de ses comptes, le bouton pour en ajouter un, et, une fois
+ * les équipes annoncées (H − 10), le bouton pour rejoindre le clan de sa team.
  */
 function picker(
   e: Evening,
@@ -893,10 +1029,12 @@ function picker(
         type: ComponentType.Row,
         components: [
           button(`fw:add:${e.id}${suffix}`, 'Ajouter un compte', ButtonStyle.Primary, '➕'),
-          ...linkButtons(
-            TEAMS.filter((t) => signed.some((s) => s.team === t)),
-            cfg,
-          ),
+          ...(e.teamsAt !== null
+            ? linkButtons(
+                TEAMS.filter((t) => signed.some((s) => s.team === t)),
+                cfg,
+              )
+            : []),
         ],
       },
     ],
@@ -1033,6 +1171,51 @@ export async function runFwSchedule(
   const evenings = await due(deps.now());
   for (const e of evenings) await makeTeams(deps, e, false);
   return evenings.length;
+}
+
+// ------------------------------------------------------------ qui a rejoint sa team ?
+
+/**
+ * Qui a rejoint le clan de sa team ? Appelé chaque minute (index.ts) pour les
+ * soirées dont la fiche le montre (voir eveningsCheckingClans) : 2 appels au jeu
+ * (les membres des deux clans), puis la fiche est modifiée SEULEMENT si un
+ * compte a bougé. Jeu injoignable : on garde le dernier état connu.
+ * Renvoie le nombre de comptes qui ont changé.
+ */
+export async function checkClans(
+  deps: FwDeps,
+  coc: Pick<CocClient, 'clanMembers'>,
+  evenings: (now: number) => Promise<Evening[]>,
+): Promise<number> {
+  const tags = deps.fw.teamTags;
+  if (!tags.violet || !tags.vert) return 0;
+  let members: ReadonlyMap<string, ClanSeen> | null = null;
+  let changed = 0;
+  for (const e of await evenings(deps.now())) {
+    const signups = await signupsOf(deps.db, e.id);
+    if (!signups.length) continue;
+    if (!members) {
+      const [violet, vert] = await Promise.all([
+        coc.clanMembers(tags.violet),
+        coc.clanMembers(tags.vert),
+      ]);
+      if (!violet.ok || !vert.ok) return changed;
+      members = new Map<string, ClanSeen>([
+        ...violet.value.map((t) => [normalizeTag(t), 'violet'] as const),
+        ...vert.value.map((t) => [normalizeTag(t), 'vert'] as const),
+      ]);
+    }
+    const seen = new Map<string, ClanSeen>();
+    for (const s of signups) {
+      const clan = members.get(normalizeTag(s.tag)) ?? 'none';
+      if (clan !== s.inClan) seen.set(s.tag, clan);
+    }
+    if (!seen.size) continue;
+    await saveClansSeen(deps.db, e.id, seen);
+    await refreshSignup(deps, e.id);
+    changed += seen.size;
+  }
+  return changed;
 }
 
 export type { DiscordApi };

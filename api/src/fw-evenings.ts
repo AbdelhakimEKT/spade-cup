@@ -58,6 +58,11 @@ export interface Evening {
   readonly cancelled: boolean;
   /** Soirée d'essai : tout dans un seul salon, sans ping, sans numéro. */
   readonly test: boolean;
+  /**
+   * Fiche « en blocs » (bannière, pseudo du jeu et @Discord, présence dans le
+   * clan). Les soirées lancées avant gardent leur ancienne fiche.
+   */
+  readonly sheetV2: boolean;
 }
 
 export interface Account {
@@ -70,7 +75,12 @@ export interface Signup extends Account {
   readonly discordId: string;
   readonly discordName: string;
   readonly team: Team | null;
+  /** Le clan où le bot a vu ce compte dans le jeu, ou `null` (pas encore vérifié). */
+  readonly inClan: ClanSeen | null;
 }
+
+/** Clan de la FW-Team 1, de la FW-Team 2, ou aucun des deux. */
+export type ClanSeen = Team | 'none';
 
 interface EveningRow {
   id: number;
@@ -93,6 +103,7 @@ interface EveningRow {
   recap_posted_at: string | null;
   cancelled: number;
   test: number;
+  sheet_v2: number;
 }
 
 const message = (channel: string | null, id: string | null) =>
@@ -120,6 +131,7 @@ const toEvening = (r: EveningRow): Evening => ({
   recapPostedAt: r.recap_posted_at ? sqliteTime(r.recap_posted_at) : null,
   cancelled: r.cancelled === 1,
   test: r.test === 1,
+  sheetV2: r.sheet_v2 === 1,
 });
 
 // ------------------------------------------------------------ soirées
@@ -147,8 +159,8 @@ export async function createEvening(db: D1Database, e: EveningInput): Promise<nu
   const row = await db
     .prepare(
       `INSERT INTO fw_evenings (number, starts_at, date_label, time_label, mode, format,
-         preparation, war_length, attacks, rounds, accepted, created_by, test)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         preparation, war_length, attacks, rounds, accepted, created_by, test, sheet_v2)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
     )
     .bind(
       e.number,
@@ -317,8 +329,8 @@ export async function saveAccount(db: D1Database, discordId: string, p: CocPlaye
 export async function signupsOf(db: D1Database, eveningId: number): Promise<Signup[]> {
   const { results } = await db
     .prepare(
-      `SELECT player_tag, player_name, town_hall, discord_id, discord_name, team FROM fw_signups
-       WHERE evening_id = ? ORDER BY signed_at, player_tag`,
+      `SELECT player_tag, player_name, town_hall, discord_id, discord_name, team, in_clan
+       FROM fw_signups WHERE evening_id = ? ORDER BY signed_at, player_tag`,
     )
     .bind(eveningId)
     .all<{
@@ -328,6 +340,7 @@ export async function signupsOf(db: D1Database, eveningId: number): Promise<Sign
       discord_id: string;
       discord_name: string;
       team: Team | null;
+      in_clan: ClanSeen | null;
     }>();
   return results.map((r) => ({
     tag: r.player_tag,
@@ -336,6 +349,7 @@ export async function signupsOf(db: D1Database, eveningId: number): Promise<Sign
     discordId: r.discord_id,
     discordName: r.discord_name,
     team: r.team,
+    inClan: r.in_clan,
   }));
 }
 
@@ -409,6 +423,52 @@ export async function setTeams(
   );
 }
 
+// ------------------------------------------------------------ présence dans le clan de sa team
+
+/** Jusqu'à quand on regarde qui a rejoint : 1 h après le début (ensuite, l'état reste figé). */
+export const CLAN_CHECK_AFTER_START_MS = 60 * 60 * 1000;
+
+/**
+ * Les soirées dont la fiche montre qui a rejoint le clan de sa team : nouvelle
+ * fiche, pas finie, équipes connues (au choix : dès l'inscription ; tirées au
+ * sort : après le tirage), et pas commencée depuis plus d'une heure.
+ */
+export async function eveningsCheckingClans(db: D1Database, now: number): Promise<Evening[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM fw_evenings
+       WHERE sheet_v2 = 1 AND recap_posted_at IS NULL AND cancelled = 0
+         AND signup_message IS NOT NULL
+         AND (mode = 'libre' OR teams_at IS NOT NULL)
+         AND starts_at > ?
+       ORDER BY starts_at LIMIT 2`,
+    )
+    .bind(toSqliteTime(now - CLAN_CHECK_AFTER_START_MS))
+    .all<EveningRow>();
+  return results.map(toEvening);
+}
+
+/** Fiche en blocs refusée par Discord : la soirée repasse à l'ancienne fiche. */
+export async function usePlainSheet(db: D1Database, id: number): Promise<void> {
+  await db.prepare('UPDATE fw_evenings SET sheet_v2 = 0 WHERE id = ?').bind(id).run();
+}
+
+/** Retient le clan où chaque compte a été vu (seulement ceux qui ont changé). */
+export async function saveClansSeen(
+  db: D1Database,
+  eveningId: number,
+  seen: ReadonlyMap<string, ClanSeen>,
+): Promise<void> {
+  await run(
+    db,
+    [...seen].map(([tag, clan]) =>
+      db
+        .prepare('UPDATE fw_signups SET in_clan = ? WHERE evening_id = ? AND player_tag = ?')
+        .bind(clan, eveningId, tag),
+    ),
+  );
+}
+
 // ------------------------------------------------------------ statistiques d'une période
 
 /** Les lignes des joueurs dans les FW lancées pendant [start, end[ (la plus récente d'abord). */
@@ -463,7 +523,9 @@ export function eveningLines(db: D1Database, evening: Evening, now: number) {
 /** Une soirée par son numéro (« FW #42 »), annulées exclues. */
 export async function eveningByNumber(db: D1Database, n: number): Promise<Evening | null> {
   const row = await db
-    .prepare('SELECT * FROM fw_evenings WHERE number = ? AND cancelled = 0 ORDER BY id DESC LIMIT 1')
+    .prepare(
+      'SELECT * FROM fw_evenings WHERE number = ? AND cancelled = 0 ORDER BY id DESC LIMIT 1',
+    )
     .bind(n)
     .first<EveningRow>();
   return row ? toEvening(row) : null;

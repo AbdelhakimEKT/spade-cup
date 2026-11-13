@@ -64,6 +64,12 @@ export const EPHEMERAL = 64;
 
 /** Pas de grande carte d'aperçu sous les liens : le lien reste cliquable. */
 export const SUPPRESS_EMBEDS = 4;
+/**
+ * Message « en blocs » (Components V2) : cadre coloré, image, titres, séparateurs
+ * et boutons dans le cadre. Un tel message n'a pas de `content` : tout le texte
+ * est dans les composants. Le drapeau ne peut plus être retiré d'un message.
+ */
+export const IS_COMPONENTS_V2 = 1 << 15;
 
 export interface DiscordUser {
   readonly id: string;
