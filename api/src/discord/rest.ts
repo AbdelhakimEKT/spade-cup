@@ -31,7 +31,7 @@ export function createDiscordApi(
   const auth = { Authorization: `Bot ${token}` };
 
   async function call(method: string, path: string, reply: Reply): Promise<Response> {
-    const { body, headers } = editBody(reply);
+    const { body, headers } = editBody(reply, { edit: method === 'PATCH' });
     return fetcher(`${API}${path}`, { method, body, headers: { ...headers, ...auth } });
   }
 

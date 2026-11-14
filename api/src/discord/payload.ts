@@ -11,12 +11,17 @@ import { EPHEMERAL, IS_COMPONENTS_V2, SUPPRESS_EMBEDS } from './types';
  * « @everyone » ne notifiera jamais tout le serveur. Et jamais de grande
  * carte d'aperçu sous les liens du site : elle encombrerait le salon.
  */
-export function message(reply: Reply) {
+export function message(reply: Reply, options: { edit?: boolean } = {}) {
   const ephemeral = reply.ephemeral ? EPHEMERAL : 0;
   return {
     // Message « en blocs » : pas de texte à part, tout est dans les composants.
+    // En modification, on vide aussi le texte et les cartes d'avant : c'est ce
+    // que Discord exige pour passer un message ordinaire en blocs.
     ...(reply.v2
-      ? { flags: IS_COMPONENTS_V2 | ephemeral }
+      ? {
+          flags: IS_COMPONENTS_V2 | ephemeral,
+          ...(options.edit ? { content: null, embeds: [] } : {}),
+        }
       : { content: reply.content.slice(0, 2000), flags: SUPPRESS_EMBEDS | ephemeral }), // limite de Discord
     // Seuls les rôles et membres cités dans `mentionRoles` / `mentionUsers` sont
     // notifiés (annonce et équipes d'une FW).
@@ -36,10 +41,13 @@ export function message(reply: Reply) {
  * Pour un formulaire, `fetch` pose lui-même l'en-tête Content-Type (avec la
  * « frontière » qui sépare les parties) : il ne faut surtout pas l'écrire.
  */
-export function editBody(reply: Reply): { body: BodyInit; headers?: Record<string, string> } {
+export function editBody(
+  reply: Reply,
+  options: { edit?: boolean } = {},
+): { body: BodyInit; headers?: Record<string, string> } {
   if (!reply.files?.length) {
     return {
-      body: JSON.stringify(message(reply)),
+      body: JSON.stringify(message(reply, options)),
       headers: { 'Content-Type': 'application/json' },
     };
   }
@@ -47,7 +55,7 @@ export function editBody(reply: Reply): { body: BodyInit; headers?: Record<strin
   form.append(
     'payload_json',
     JSON.stringify({
-      ...message(reply),
+      ...message(reply, options),
       attachments: reply.files.map((f, id) => ({ id, filename: f.name })),
     }),
   );

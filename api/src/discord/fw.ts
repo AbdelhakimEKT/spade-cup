@@ -39,8 +39,8 @@ import {
   setTeams,
   signupStatement,
   signupsOf,
+  setSheetV2,
   updateEvening,
-  usePlainSheet,
   type Account,
   type ClanSeen,
   type Evening,
@@ -438,6 +438,37 @@ export function announceMessage(e: Evening, cfg: FwConfig, png: Uint8Array | nul
   };
 }
 
+/**
+ * Passe la fiche d'une soirée lancée avant la nouvelle fiche au nouveau design
+ * (/fw modifier). D'abord sur le même message (Discord le permet, sans retour
+ * possible) ; s'il refuse, la nouvelle fiche est postée dans le même salon et
+ * l'ancienne dit qu'elle est remplacée (rien n'est supprimé).
+ */
+export async function upgradeSheet(
+  deps: FwDeps,
+  e: Evening,
+): Promise<'converted' | 'reposted' | 'failed'> {
+  if (e.sheetV2 || !e.signup || !deps.discord) return 'failed';
+  const [signups, emojis] = await Promise.all([signupsOf(deps.db, e.id), deps.discord.emojis()]);
+  const sheet = signupMessage({ ...e, sheetV2: true }, signups, emojis, deps.fw);
+  if (await deps.discord.edit(e.signup.channel, e.signup.message, sheet)) {
+    await setSheetV2(deps.db, e.id, true);
+    return 'converted';
+  }
+  const posted = await deps.discord.send(e.signup.channel, sheet);
+  if (!posted) return 'failed';
+  await deps.discord.edit(e.signup.channel, e.signup.message, {
+    content: `📝 **FW #${e.number}** : cette fiche est remplacée par la nouvelle, juste en dessous.`,
+    components: [],
+  });
+  await saveMessages(deps.db, e.id, {
+    signup: { channel: e.signup.channel, message: posted },
+    announce: e.announce,
+  });
+  await setSheetV2(deps.db, e.id, true);
+  return 'reposted';
+}
+
 /** Met à jour la fiche d'inscription (après chaque inscription, tirage, bilan…). */
 export async function refreshSignup(deps: FwDeps, eveningId: number): Promise<void> {
   const e = await getEvening(deps.db, eveningId);
@@ -641,7 +672,7 @@ async function launch(interaction: Interaction, ctx: BotContext, options: Option
     const posted = await discord.send(signupChannel, signupMessage(e, [], emojis, ctx.fw));
     if (posted || !e.sheetV2) return posted;
     // Fiche « en blocs » refusée par Discord : l'ancienne fiche plutôt que pas de soirée.
-    await usePlainSheet(ctx.db, e.id);
+    await setSheetV2(ctx.db, e.id, false);
     return discord.send(signupChannel, signupMessage({ ...e, sheetV2: false }, [], emojis, ctx.fw));
   };
   const postAnnounce = () => discord.send(announceChannel, announceMessage(e, ctx.fw, png));
@@ -732,8 +763,12 @@ async function modify(ctx: BotContext, options: Options): Promise<Reply> {
     );
   }
 
+  // Soirée lancée avec l'ancienne fiche : elle passe au nouveau design.
+  const upgraded = !updated.sheetV2 ? await upgradeSheet(ctx, updated) : null;
   await refreshSignup(ctx, e.id);
-  if (updated.announce) {
+  // Rien de changé (juste /fw modifier pour passer au nouveau design) : on ne
+  // retouche pas l'annonce, elle serait marquée « (modifié) » pour rien.
+  if (updated.announce && options.size > 0) {
     const png = await posterOf(ctx, updated);
     // Modifier l'annonce ne notifie pas le rôle une seconde fois.
     await ctx.discord!.edit(
@@ -742,7 +777,22 @@ async function modify(ctx: BotContext, options: Options): Promise<Reply> {
       announceMessage(updated, ctx.fw, png),
     );
   }
-  return done(`✅ Fiche de la **FW #${updated.number}** mise à jour (${when(updated)}).`);
+  const n = updated.number;
+  if (upgraded === 'converted')
+    return done(`✅ Fiche de la **FW #${n}** passée au nouveau design.`);
+  if (upgraded === 'reposted') {
+    return done(
+      `✅ Nouvelle fiche de la **FW #${n}** postée dans <#${updated.signup.channel}> ` +
+        '(l’ancienne indique qu’elle est remplacée).',
+    );
+  }
+  if (upgraded === 'failed') {
+    return done(
+      `⚠️ La fiche de la **FW #${n}** n’a pas pu passer au nouveau design : Discord a refusé. ` +
+        'Elle reste comme avant et fonctionne normalement.',
+    );
+  }
+  return done(`✅ Fiche de la **FW #${n}** mise à jour (${when(updated)}).`);
 }
 
 async function teamsCommand(ctx: BotContext, options: Options): Promise<Reply> {

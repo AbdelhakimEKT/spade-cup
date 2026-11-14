@@ -122,6 +122,15 @@ describe('verifyDiscordSignature', () => {
 });
 
 describe('editBody : la réponse envoyée à Discord', () => {
+  it('message en blocs : pas de texte ; en modification, le texte d’avant est vidé', () => {
+    const blocks = { content: '', v2: true, components: [{ type: 17, components: [] }] };
+    const created = JSON.parse(editBody(blocks).body as string);
+    expect(created).toMatchObject({ flags: 1 << 15 });
+    expect('content' in created).toBe(false);
+    const edited = JSON.parse(editBody(blocks, { edit: true }).body as string);
+    expect(edited).toMatchObject({ flags: 1 << 15, content: null, embeds: [] });
+  });
+
   it('sans fichier : du JSON', async () => {
     const { body, headers } = editBody({ content: 'Salut' });
     expect(headers).toEqual({ 'Content-Type': 'application/json' });

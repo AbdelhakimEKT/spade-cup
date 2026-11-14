@@ -448,9 +448,16 @@ export async function eveningsCheckingClans(db: D1Database, now: number): Promis
   return results.map(toEvening);
 }
 
-/** Fiche en blocs refusée par Discord : la soirée repasse à l'ancienne fiche. */
-export async function usePlainSheet(db: D1Database, id: number): Promise<void> {
-  await db.prepare('UPDATE fw_evenings SET sheet_v2 = 0 WHERE id = ?').bind(id).run();
+/**
+ * La fiche de cette soirée : en blocs (true) ou l'ancienne (false). Ancienne
+ * si Discord refuse la nouvelle au lancement ; nouvelle quand /fw modifier
+ * passe une soirée lancée avant au nouveau design.
+ */
+export async function setSheetV2(db: D1Database, id: number, on: boolean): Promise<void> {
+  await db
+    .prepare('UPDATE fw_evenings SET sheet_v2 = ? WHERE id = ?')
+    .bind(on ? 1 : 0, id)
+    .run();
 }
 
 /** Retient le clan où chaque compte a été vu (seulement ceux qui ont changé). */

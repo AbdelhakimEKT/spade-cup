@@ -504,11 +504,33 @@ describe('fiche : qui a rejoint le clan de sa team ?', () => {
     expect((await signupsOf(db(), e.id))[0].inClan).toBe('violet');
   });
 
-  it('équipes tirées au sort : rien avant le tirage', async () => {
-    const { ctx, settle, e } = await launched('random');
+  it('équipes tirées au sort : pseudo et @Discord dès l’inscription, ✅ ⏳ ⚠️ dès le tirage', async () => {
+    const { ctx, discord, settle, e, signupId } = await launched('random');
     await signTag(ctx, e.id, '#PQ2');
+    await signTag(ctx, e.id, '#PQ9', OTHER_MEMBER);
     await settle();
+    // Avant le tirage : la liste des inscrits (personne n'a encore d'équipe, donc pas d'état).
     expect(await due(NOW_FW)).toEqual([]);
+    const before = discord.sheet(signupId);
+    expect(before).toContain('### Inscrits · 2');
+    expect(before).toContain('> <:th18:e18> Rags · <@u-chef>');
+    expect(before).not.toMatch(/[✅⏳⚠️]/u);
+
+    // H − 10 : le tirage ; la vérification dans le jeu commence.
+    const draw = { ...ctx, now: () => START - 10 * 60_000 };
+    await runFwSchedule(draw, (now) => eveningsNeedingTeams(db(), now));
+    expect((await due(START - 10 * 60_000)).map((x) => x.id)).toEqual([e.id]);
+    const teams = new Map((await signupsOf(db(), e.id)).map((s) => [s.tag, s.team]));
+    const { members, coc } = game();
+    // Rags rejoint le clan de SA team ; Fight va dans le clan de l'autre team.
+    const clanOf = (t: string | null | undefined) => (t === 'violet' ? '#A' : '#B');
+    const other = (t: string | null | undefined) => (t === 'violet' ? '#B' : '#A');
+    members[clanOf(teams.get('#PQ2'))].push('#PQ2');
+    members[other(teams.get('#PQ9'))].push('#PQ9');
+    expect(await checkClans(draw, coc, due)).toBe(2);
+    const after = discord.sheet(signupId);
+    expect(after).toContain('> ✅ <:th18:e18> Rags · <@u-chef>');
+    expect(after).toContain('> ⚠️ <:th18:e18> Fight · <@u-autre>');
   });
 
   it('soirée lancée avant la nouvelle fiche : l’ancienne fiche, pas de vérification', async () => {
@@ -534,6 +556,41 @@ describe('/fw modifier, /fw bilan, /fw annuler', () => {
     const announce = discord.latest(e.announce!.message)!;
     expect(announce.content).toContain('jusqu’à **21h15**');
     expect(announce.files?.[0].name).toBe('fw-41.png');
+  });
+
+  it('modifier une soirée lancée avec l’ancienne fiche : elle passe au nouveau design', async () => {
+    const { ctx, discord, e, signupId } = await launched('random');
+    await db().prepare('UPDATE fw_evenings SET sheet_v2 = 0 WHERE id = ?').bind(e.id).run();
+    await signTag(ctx, e.id, '#PQ2');
+    const announceEdits = () => discord.edits.filter((x) => x.id === e.announce!.message).length;
+    const before = announceEdits();
+
+    // Sans rien changer : juste le nouveau design, sur le même message.
+    const reply = await runCommand(fw('modifier'), ctx);
+    expect(reply.content).toBe('✅ Fiche de la **FW #41** passée au nouveau design.');
+    expect(discord.latest(signupId)!.v2).toBe(true);
+    expect(discord.sheet(signupId)).toContain('> <:th18:e18> Rags · <@u-chef>');
+    expect((await getEvening(db(), e.id))?.sheetV2).toBe(true);
+    // L'annonce n'est pas retouchée pour rien.
+    expect(announceEdits()).toBe(before);
+  });
+
+  it('Discord refuse de transformer l’ancienne fiche : la nouvelle juste en dessous', async () => {
+    const { ctx, discord, e, signupId } = await launched('random');
+    await db().prepare('UPDATE fw_evenings SET sheet_v2 = 0 WHERE id = ?').bind(e.id).run();
+    const edit = discord.api.edit;
+    const picky = {
+      ...discord.api,
+      edit: async (c: string, id: string, r: Reply) =>
+        id === signupId && r.v2 ? false : edit(c, id, r),
+    };
+    const reply = await runCommand(fw('modifier'), { ...ctx, discord: picky });
+    expect(reply.content).toContain('Nouvelle fiche de la **FW #41** postée dans <#c-inscription>');
+    expect(discord.latest(signupId)!.content).toContain('cette fiche est remplacée');
+    expect(discord.latest(signupId)!.components).toEqual([]);
+    const now = (await getEvening(db(), e.id))!;
+    expect(now.signup?.message).not.toBe(signupId);
+    expect(discord.latest(now.signup!.message)!.v2).toBe(true);
   });
 
   it('bilan : top 5 de la soirée dans #résultats ; la fiche se ferme', async () => {
