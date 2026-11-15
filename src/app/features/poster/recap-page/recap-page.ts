@@ -2,6 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { Component, computed, input, signal } from '@angular/core';
 import { parseRecapTop } from '../../../core/fw/evening';
 import { SITE_CONFIG } from '../../../core/site-config';
+import { thImageSrc } from '../../../core/th-image';
 
 /** Paramètre d'adresse : absent (ou répété) → texte vide. */
 function text(value: unknown): string {
@@ -33,7 +34,7 @@ export class RecapPage {
   protected readonly medals = ['🥇', '🥈', '🥉'];
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
   protected thImage(th: number | null): string | null {
-    return th && th >= 9 && th <= 18 ? `th/th${th}.webp` : null;
+    return thImageSrc(th);
   }
 
   /** Images des HDV chargées (ou en échec) : le bot attend qu'elles le soient. */

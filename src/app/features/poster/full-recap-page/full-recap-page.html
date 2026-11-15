@@ -48,11 +48,7 @@
 
     <ol class="wars" aria-label="Les FW de la soirée">
       @for (w of r.wars; track $index) {
-        <li
-          class="war"
-          [class.war--violet]="w.winner === 1"
-          [class.war--green]="w.winner === 2"
-        >
+        <li class="war" [class.war--violet]="w.winner === 1" [class.war--green]="w.winner === 2">
           <span class="war__label">FW {{ $index + 1 }}</span>
           <span class="war__score">
             <b class="v" [class.win]="w.winner === 1">{{ w.stars[0] }}</b>
@@ -72,8 +68,8 @@
         <header class="team__head">
           <h2>{{ team.label }}</h2>
           <span>
-            {{ team.rows.length }} joueur{{ team.rows.length > 1 ? 's' : '' }} · {{ team.stars }} ★ ·
-            {{ team.triples }} triple{{ team.triples > 1 ? 's' : '' }}
+            {{ team.rows.length }} joueur{{ team.rows.length > 1 ? 's' : '' }} · {{ team.stars }} ★
+            · {{ team.triples }} triple{{ team.triples > 1 ? 's' : '' }}
           </span>
         </header>
         <table>

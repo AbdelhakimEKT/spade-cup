@@ -9,6 +9,7 @@ import {
   type PlayerTotals,
 } from '../../../core/fw/full-recap';
 import { SITE_CONFIG } from '../../../core/site-config';
+import { thImageSrc } from '../../../core/th-image';
 
 /** Paramètre d'adresse : absent (ou répété) → texte vide. */
 function text(value: unknown): string {
@@ -53,7 +54,8 @@ export class FullRecapPage {
   protected readonly width = computed(() => fullRecapWidth(this.recap()?.wars.length ?? 0));
   /** Colonnes du tableau : joueur, une par FW, puis les totaux. */
   protected readonly columns = computed(
-    () => `minmax(0, 1fr) repeat(${this.recap()?.wars.length ?? 0}, 120px) 78px 84px 74px 90px 86px`,
+    () =>
+      `minmax(0, 1fr) repeat(${this.recap()?.wars.length ?? 0}, 120px) 78px 84px 74px 90px 86px`,
   );
 
   protected readonly teams = computed<TeamView[]>(() => {
@@ -75,7 +77,7 @@ export class FullRecapPage {
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
 
   protected thImage(th: number | null): string | null {
-    return th && th >= 9 && th <= 18 ? `th/th${th}.webp` : null;
+    return thImageSrc(th);
   }
 
   /** « ★★ » gagnées et « ★ » manquée, pour une attaque à 2 étoiles. */

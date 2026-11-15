@@ -1,5 +1,10 @@
 import { Component, computed, input, signal } from '@angular/core';
-import { DEFAULT_DETAILS, parisClock, CLOSE_BEFORE_MS, TEAMS_BEFORE_MS } from '../../../core/fw/session';
+import {
+  DEFAULT_DETAILS,
+  parisClock,
+  CLOSE_BEFORE_MS,
+  TEAMS_BEFORE_MS,
+} from '../../../core/fw/session';
 import {
   franceDateTime,
   franceOffset,
@@ -8,8 +13,9 @@ import {
   weekdayOf,
 } from '../../../core/poster/poster';
 import { SITE_CONFIG } from '../../../core/site-config';
+import { thImageSrc } from '../../../core/th-image';
 
-/** Une image d'HDV (public/th : HDV 9 à 18). */
+/** Une image d'HDV, avec son vrai niveau (un HDV 19 montre l'image du 18 en attendant). */
 interface ThImage {
   readonly level: number;
   readonly src: string;
@@ -17,7 +23,8 @@ interface ThImage {
 
 function thImage(level: string | undefined): ThImage | null {
   const n = Number(level);
-  return n >= 9 && n <= 18 ? { level: n, src: `th/th${n}.webp` } : null;
+  const src = thImageSrc(n);
+  return src ? { level: n, src } : null;
 }
 
 /** Paramètre d'adresse : absent (ou répété) → texte vide. */
@@ -62,7 +69,8 @@ export class EveningPosterPage {
   /** Fin des inscriptions et équipes, d'après l'heure de début. */
   protected readonly clocks = computed(() => {
     const start = franceDateTime(this.j(), this.h());
-    const at = (before: number) => (start === null ? '—' : parisClock(start - before).toUpperCase());
+    const at = (before: number) =>
+      start === null ? '—' : parisClock(start - before).toUpperCase();
     return { close: at(CLOSE_BEFORE_MS), teams: at(TEAMS_BEFORE_MS) };
   });
   protected readonly random = computed(() => this.m() !== 'libre');

@@ -5,6 +5,7 @@ import { SITE_CONFIG } from '../../../core/site-config';
 import { formatDuration } from '../../../core/tournament/format';
 import { tagToUrl } from '../../../core/tournament/tags';
 import { QrCode } from '../../../shared/ui/qr-code/qr-code';
+import { thImageSrc } from '../../../core/th-image';
 
 /**
  * La carte d'un joueur, à partager (1080 × 1350, comme les affiches) : son
@@ -26,11 +27,8 @@ export class PlayerCardView {
   );
   protected readonly shownUrl = computed(() => this.profileUrl().replace(/^https:\/\//, ''));
   protected readonly discord = SITE_CONFIG.discordInvite.replace(/^https:\/\//, '');
-  /** Image de son HDV (public/th : HDV 9 à 18). */
-  protected readonly thImage = computed(() => {
-    const th = this.card().townHall;
-    return th && th >= 9 && th <= 18 ? `th/th${th}.webp` : null;
-  });
+  /** Image de son HDV (voir core/th-image : un HDV 19 prend celle du 18 en attendant). */
+  protected readonly thImage = computed(() => thImageSrc(this.card().townHall));
   /** Nom long : écrit plus petit pour tenir sur la carte. */
   protected readonly nameSize = computed(() =>
     Math.round(Math.min(96, Math.max(54, 1000 / Math.max(1, [...this.card().name].length)))),

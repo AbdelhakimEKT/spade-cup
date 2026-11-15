@@ -29,9 +29,10 @@ describe('EveningPosterPage (/affiche/soiree, fiche photographiée par le bot)',
     ]);
     expect(clean(el.querySelector('.tl__mode'))).toBe('Équipes tirées au sort');
     expect(el.querySelector('.tl__th-main')?.getAttribute('src')).toBe('th/th18.webp');
-    expect([...el.querySelectorAll('.tl__th-more img')].map((i) => i.getAttribute('src'))).toEqual(
-      ['th/th17.webp', 'th/th16.webp'],
-    );
+    expect([...el.querySelectorAll('.tl__th-more img')].map((i) => i.getAttribute('src'))).toEqual([
+      'th/th17.webp',
+      'th/th16.webp',
+    ]);
     expect([...el.querySelectorAll('.tl__rules li')].map(clean)).toContain('4 rounds');
     expect(clean(el.querySelector('.tl__late'))).toContain('en cours de route');
   });

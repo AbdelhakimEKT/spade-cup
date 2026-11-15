@@ -31,7 +31,9 @@
     </p>
   </header>
 
-  <h1 class="tl__title">FW <span class="grad">#{{ number() }}</span></h1>
+  <h1 class="tl__title">
+    FW <span class="grad">#{{ number() }}</span>
+  </h1>
 
   <p class="tl__band">
     <span>
@@ -63,11 +65,26 @@
   <section class="tl__panel">
     <div class="tl__ths">
       @if (mainTh(); as th) {
-        <img class="tl__th-main" [src]="th.src" width="220" height="220" alt="" (load)="imageDone()" (error)="imageDone()" />
+        <img
+          class="tl__th-main"
+          [src]="th.src"
+          width="220"
+          height="220"
+          alt=""
+          (load)="imageDone()"
+          (error)="imageDone()"
+        />
       }
       <div class="tl__th-more">
         @for (th of acceptedTh(); track th.level) {
-          <img [src]="th.src" width="96" height="96" alt="" (load)="imageDone()" (error)="imageDone()" />
+          <img
+            [src]="th.src"
+            width="96"
+            height="96"
+            alt=""
+            (load)="imageDone()"
+            (error)="imageDone()"
+          />
         }
       </div>
     </div>
