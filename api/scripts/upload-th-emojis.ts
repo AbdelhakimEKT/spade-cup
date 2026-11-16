@@ -1,5 +1,5 @@
 /**
- * Envoie les icônes des HDV (scripts/th-emojis/th9.png … th18.png) comme
+ * Envoie les icônes des HDV (scripts/th-emojis/th9.png … th19.png) comme
  * émojis de l'application Discord : le bot les affiche à côté de chaque
  * inscrit d'une FW (« <:th18:…> Rags »). À lancer une seule fois ; un émoji
  * déjà présent n'est pas renvoyé.

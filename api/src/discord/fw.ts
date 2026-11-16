@@ -94,8 +94,16 @@ export interface FwConfig {
   readonly team1Tag: string;
   /** Le clan de chaque équipe (qui a rejoint sa team ?). */
   readonly teamTags: Readonly<Record<Team, string>>;
-  /** La bannière en haut de la fiche d'inscription (image du site). */
+  /** La bannière en haut de la fiche d'inscription (image du site), HDV 18. */
   readonly bannerUrl: string;
+  /** Les bannières d'un autre HDV : prise quand le format de la soirée le dit (« HDV 19 … »). */
+  readonly bannerByTh?: Readonly<Record<number, string>>;
+}
+
+/** La bannière de la fiche : celle de l'HDV écrit dans le format, sinon celle par défaut. */
+export function sheetBanner(cfg: Pick<FwConfig, 'bannerUrl' | 'bannerByTh'>, format: string): string {
+  const th = Number(/HDV\s*(\d+)/i.exec(format)?.[1]);
+  return cfg.bannerByTh?.[th] ?? cfg.bannerUrl;
 }
 
 /** « #2CYJPRCG8 » → le lien qui ouvre ce clan dans le jeu. */
@@ -130,6 +138,7 @@ export function fwConfig(env: {
     teamTags: { violet: team1 ?? '', vert: team2 ?? '' },
     // ?v= : à changer quand l'image change (Discord garde l'ancienne en mémoire).
     bannerUrl: env.SITE_URL ? `${env.SITE_URL}/brand/discord/fw-inscriptions.jpg?v=1` : '',
+    bannerByTh: env.SITE_URL ? { 19: `${env.SITE_URL}/brand/discord/fw-inscriptions-19.jpg?v=1` } : {},
   };
 }
 
@@ -315,13 +324,14 @@ function blocksSheet(
       ? '-# ✅ dans le clan de sa team · ⏳ pas encore · ⚠️ dans le clan de l’autre team'
       : null;
 
+  const banner = sheetBanner(cfg, e.details.format);
   return {
     content: '',
     v2: true,
     components: [
       container(e.closed ? SHEET_DONE : SHEET_ACCENT, [
         e.test && textBlock(TEST_BANNER),
-        cfg.bannerUrl && gallery(cfg.bannerUrl),
+        banner && gallery(banner),
         textBlock(`## 📝 FW #${e.number} · ${when(e)}\n${status}`),
         how && textBlock(how),
         separator(),

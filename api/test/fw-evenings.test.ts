@@ -4,7 +4,7 @@ import { weekRange } from '../../src/app/core/fw/evening';
 import { parseFullRecap } from '../../src/app/core/fw/full-recap';
 import type { BotContext, Reply } from '../src/discord/bot';
 import { runCommand } from '../src/discord/bot';
-import { checkClans, fwComponent, runFwSchedule, type ComponentResponse } from '../src/discord/fw';
+import { checkClans, fwComponent, runFwSchedule, sheetBanner, type ComponentResponse } from '../src/discord/fw';
 import { textOf as blockText } from '../src/discord/blocks';
 import type { DiscordApi } from '../src/discord/rest';
 import type { Shot } from '../src/screens';
@@ -872,4 +872,18 @@ describe('classement de la semaine (site)', () => {
 
 it('l’heure de test est bien un mardi soir', () => {
   expect(new Date(NOW_FW).getUTCDay()).toBe(2);
+});
+
+describe('bannière de la fiche selon l’HDV du format', () => {
+  const cfg = {
+    bannerUrl: 'https://site.test/brand/discord/fw-inscriptions.jpg?v=1',
+    bannerByTh: { 19: 'https://site.test/brand/discord/fw-inscriptions-19.jpg?v=1' },
+  };
+  it('« HDV 19 … » : la bannière HDV 19 ; HDV 18 ou format libre : celle par défaut', () => {
+    expect(sheetBanner(cfg, 'HDV 19 mode e-sport')).toBe(cfg.bannerByTh[19]);
+    expect(sheetBanner(cfg, 'hdv19')).toBe(cfg.bannerByTh[19]);
+    expect(sheetBanner(cfg, 'HDV 18 mode e-sport')).toBe(cfg.bannerUrl);
+    expect(sheetBanner(cfg, 'Mode e-sport')).toBe(cfg.bannerUrl);
+    expect(sheetBanner({ bannerUrl: '' }, 'HDV 19')).toBe('');
+  });
 });

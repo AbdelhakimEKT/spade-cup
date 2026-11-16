@@ -27,6 +27,7 @@ export const FW_CONFIG = {
   team1Tag: '#A',
   teamTags: { violet: '#A', vert: '#B' },
   bannerUrl: 'https://site.test/brand/discord/fw-inscriptions.jpg?v=1',
+  bannerByTh: { 19: 'https://site.test/brand/discord/fw-inscriptions-19.jpg?v=1' },
 };
 
 /** « Maintenant » pour les soirées FW : mardi 27/10/2026, 18 h (heure de Paris). */
