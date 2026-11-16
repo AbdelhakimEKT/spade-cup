@@ -10,6 +10,7 @@ import type { DiscordApi } from '../src/discord/rest';
 import type { Shot } from '../src/screens';
 import type { Interaction } from '../src/discord/types';
 import {
+  accountsOf,
   currentEvening,
   eveningsCheckingClans,
   eveningsNeedingTeams,
@@ -351,6 +352,28 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
     await fwComponent(click(`fw:pick:${e.id}`, MEMBER, { values: ['#PQ2', '#PQ8'] }), ctx);
     expect((await signupsOf(db(), e.id)).map((s) => s.tag).sort()).toEqual(['#PQ2', '#PQ8']);
     await settle();
+  });
+
+  it('compte retenu passé HDV 19 : l’HDV est relu dans le jeu à l’inscription', async () => {
+    const { ctx, settle, e } = await launched();
+    await signTag(ctx, e.id, '#PQ2');
+    await fwComponent(click(`fw:leave:${e.id}`), ctx);
+    await settle();
+    // Le compte monte HDV 19 dans le jeu ; le bot l'avait retenu en HDV 18.
+    const after = {
+      ...ctx,
+      coc: fakeCoc({}, undefined, [{ tag: '#PQ2', name: 'Rags', townHall: 19 }]),
+    };
+    await fwComponent(click(`fw:join:${e.id}`), after);
+    await settle();
+    expect((await signupsOf(db(), e.id)).map((s) => [s.tag, s.townHall])).toEqual([['#PQ2', 19]]);
+    expect((await accountsOf(db(), MEMBER.id))[0].townHall).toBe(19);
+    // Jeu injoignable : on garde ce qu'on a, l'inscription passe quand même.
+    await fwComponent(click(`fw:leave:${e.id}`), ctx);
+    const down = { ...ctx, coc: fakeCoc({}, undefined, []) };
+    await fwComponent(click(`fw:join:${e.id}`), down);
+    await settle();
+    expect((await signupsOf(db(), e.id)).map((s) => s.townHall)).toEqual([19]);
   });
 
   it('tag invalide ou inconnu : message clair, rien d’enregistré', async () => {

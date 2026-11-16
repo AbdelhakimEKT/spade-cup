@@ -326,6 +326,23 @@ export async function saveAccount(db: D1Database, discordId: string, p: CocPlaye
     .run();
 }
 
+/**
+ * Le compte a changé dans le jeu (passé HDV 19, renommé) : les comptes retenus
+ * et son inscription à cette soirée prennent le nom et l'HDV du jeu.
+ */
+export async function refreshPlayer(db: D1Database, eveningId: number, p: CocPlayer): Promise<void> {
+  await run(db, [
+    db
+      .prepare('UPDATE discord_accounts SET player_name = ?, town_hall = ? WHERE player_tag = ?')
+      .bind(p.name, p.townHall, p.tag),
+    db
+      .prepare(
+        'UPDATE fw_signups SET player_name = ?, town_hall = ? WHERE evening_id = ? AND player_tag = ?',
+      )
+      .bind(p.name, p.townHall, eveningId, p.tag),
+  ]);
+}
+
 export async function signupsOf(db: D1Database, eveningId: number): Promise<Signup[]> {
   const { results } = await db
     .prepare(

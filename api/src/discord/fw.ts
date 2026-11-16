@@ -31,6 +31,7 @@ import {
   markTeams,
   nextNumber,
   removeSignups,
+  refreshPlayer,
   removeStatement,
   run,
   saveAccount,
@@ -998,6 +999,28 @@ function refreshLater(ctx: BotContext, e: Evening): void {
   ctx.background(refreshSignup(ctx, e.id));
 }
 
+/**
+ * Comptes déjà connus qu'on vient d'inscrire : leur HDV est relu dans le jeu,
+ * sinon un compte garderait l'HDV de son premier ajout (HDV 18 alors qu'il est
+ * passé 19). En arrière-plan, puis la fiche suit : le clic répond tout de suite.
+ * Jeu injoignable : on garde ce qu'on a.
+ */
+function refreshAfterSignup(ctx: BotContext, e: Evening, added: readonly Account[]): void {
+  if (!added.length) return refreshLater(ctx, e);
+  ctx.background(
+    (async () => {
+      const found = await Promise.all(added.map((a) => ctx.coc.player(a.tag)));
+      for (const [i, f] of found.entries()) {
+        const a = added[i];
+        if (f.ok && (f.value.townHall !== a.townHall || f.value.name !== a.name)) {
+          await refreshPlayer(ctx.db, e.id, { ...f.value, tag: a.tag });
+        }
+      }
+      await refreshSignup(ctx, e.id);
+    })(),
+  );
+}
+
 const mine = async (ctx: BotContext, e: Evening, who: Who) =>
   (await signupsOf(ctx.db, e.id)).filter((s) => s.discordId === who.id);
 
@@ -1020,7 +1043,7 @@ async function join(
     await run(ctx.db, [
       signupStatement(ctx.db, e.id, who, accounts[0], await teamFor(ctx, e, team)),
     ]);
-    refreshLater(ctx, e);
+    refreshAfterSignup(ctx, e, [accounts[0]]);
     const now = await mine(ctx, e, who);
     return {
       kind: 'reply',
@@ -1122,18 +1145,20 @@ async function pick(
   const chosen = new Set(values);
   const signed = await mine(ctx, e, who);
   const statements: D1PreparedStatement[] = [];
+  const added: Account[] = [];
   for (const a of accounts) {
     const s = signed.find((x) => x.tag === a.tag);
     const here = s && (e.mode === 'random' || s.team === team);
     if (chosen.has(a.tag) && !here) {
       // Nouveau ici (ou venu de l'autre équipe, en libre).
       statements.push(signupStatement(ctx.db, e.id, who, a, await teamFor(ctx, e, team)));
+      added.push(a);
     } else if (!chosen.has(a.tag) && here) {
       statements.push(removeStatement(ctx.db, e.id, a.tag));
     }
   }
   await run(ctx.db, statements);
-  refreshLater(ctx, e);
+  refreshAfterSignup(ctx, e, added);
 
   const now = await mine(ctx, e, who);
   const inHere = now.filter((s) => e.mode === 'random' || s.team === team);
