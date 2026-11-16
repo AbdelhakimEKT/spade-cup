@@ -100,9 +100,18 @@ export interface FwConfig {
   readonly bannerByTh?: Readonly<Record<number, string>>;
 }
 
-/** La bannière de la fiche : celle de l'HDV écrit dans le format, sinon celle par défaut. */
-export function sheetBanner(cfg: Pick<FwConfig, 'bannerUrl' | 'bannerByTh'>, format: string): string {
-  const th = Number(/HDV\s*(\d+)/i.exec(format)?.[1]);
+/**
+ * La bannière de la fiche : celle de l'HDV du format (« HDV 19 mode e-sport »),
+ * sinon du plus haut HDV accepté (« Mode e-sport », « FULL HDV18 et HDV19 » → 19),
+ * comme le grand HDV de l'affiche. Pas de bannière pour cet HDV : celle par défaut.
+ */
+export function sheetBanner(
+  cfg: Pick<FwConfig, 'bannerUrl' | 'bannerByTh'>,
+  details: { readonly format: string; readonly accepted?: string },
+): string {
+  const fromFormat = Number(/HDV\s*(\d+)/i.exec(details.format)?.[1]);
+  const accepted = [...(details.accepted ?? '').matchAll(/\d+/g)].map((m) => Number(m[0]));
+  const th = fromFormat || (accepted.length ? Math.max(...accepted) : 0);
   return cfg.bannerByTh?.[th] ?? cfg.bannerUrl;
 }
 
@@ -324,7 +333,7 @@ function blocksSheet(
       ? '-# ✅ dans le clan de sa team · ⏳ pas encore · ⚠️ dans le clan de l’autre team'
       : null;
 
-  const banner = sheetBanner(cfg, e.details.format);
+  const banner = sheetBanner(cfg, e.details);
   return {
     content: '',
     v2: true,

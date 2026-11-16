@@ -85,13 +85,25 @@ export class EveningPosterPage {
       [this.t(), DEFAULT_DETAILS.accepted],
     ].map(([typed, fallback]) => typed.trim() || fallback),
   );
-  /** L'HDV du format (« HDV 18 mode e-sport » → 18), pour son image. */
-  protected readonly mainTh = computed(() => thImage(/HDV\s*(\d+)/i.exec(this.format())?.[1]));
-  /** Les HDV acceptés en plus (« HDV 17 et HDV 16 acceptés » → 17, 16). */
+  /** Les HDV acceptés (« HDV 17 et HDV 16 acceptés » → 17, 16 ; « FULL HDV18 et HDV19 » → 18, 19). */
+  private readonly acceptedLevels = computed(() =>
+    [...(this.t().trim() || DEFAULT_DETAILS.accepted).matchAll(/\d+/g)].map((m) => m[0]),
+  );
+  /**
+   * Le grand HDV : celui du format (« HDV 18 mode e-sport » → 18), sinon le
+   * plus haut des HDV acceptés (« Mode e-sport », « FULL HDV18 et HDV19 » → 19).
+   */
+  protected readonly mainTh = computed(() => {
+    const fromFormat = thImage(/HDV\s*(\d+)/i.exec(this.format())?.[1]);
+    if (fromFormat) return fromFormat;
+    const levels = this.acceptedLevels().map(Number).filter(Number.isFinite);
+    return levels.length ? thImage(String(Math.max(...levels))) : null;
+  });
+  /** Les autres HDV acceptés, en petit (sans répéter le grand). */
   protected readonly acceptedTh = computed(() =>
-    [...(this.t().trim() || DEFAULT_DETAILS.accepted).matchAll(/\d+/g)]
-      .map((m) => thImage(m[0]))
-      .filter((th): th is ThImage => th !== null),
+    this.acceptedLevels()
+      .map((level) => thImage(level))
+      .filter((th): th is ThImage => th !== null && th.level !== this.mainTh()?.level),
   );
   /** Images d'HDV chargées (ou en échec) : le bot attend qu'elles le soient toutes. */
   private readonly loaded = signal(0);

@@ -37,6 +37,15 @@ describe('EveningPosterPage (/affiche/soiree, fiche photographiée par le bot)',
     expect(clean(el.querySelector('.tl__late'))).toContain('en cours de route');
   });
 
+  it('format sans HDV (« Mode e-sport », FULL HDV18 et HDV19) : le 19 en grand, le 18 en petit', async () => {
+    const el = await render({ ...base, f: 'Mode e-sport', t: 'FULL HDV18 et HDV19' });
+    expect(el.querySelector('.tl__th-main')?.getAttribute('src')).toBe('th/th19.webp');
+    expect([...el.querySelectorAll('.tl__th-more img')].map((i) => i.getAttribute('src'))).toEqual([
+      'th/th18.webp',
+    ]);
+    expect(el.querySelector('.poster.tl[data-ready]')).not.toBeNull();
+  });
+
   it('le bot attend les images des HDV avant de photographier', async () => {
     const el = await render(base, false);
     expect(el.querySelector('.poster')?.hasAttribute('data-ready')).toBe(false);

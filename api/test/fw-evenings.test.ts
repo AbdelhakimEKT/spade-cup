@@ -879,11 +879,14 @@ describe('bannière de la fiche selon l’HDV du format', () => {
     bannerUrl: 'https://site.test/brand/discord/fw-inscriptions.jpg?v=1',
     bannerByTh: { 19: 'https://site.test/brand/discord/fw-inscriptions-19.jpg?v=1' },
   };
-  it('« HDV 19 … » : la bannière HDV 19 ; HDV 18 ou format libre : celle par défaut', () => {
-    expect(sheetBanner(cfg, 'HDV 19 mode e-sport')).toBe(cfg.bannerByTh[19]);
-    expect(sheetBanner(cfg, 'hdv19')).toBe(cfg.bannerByTh[19]);
-    expect(sheetBanner(cfg, 'HDV 18 mode e-sport')).toBe(cfg.bannerUrl);
-    expect(sheetBanner(cfg, 'Mode e-sport')).toBe(cfg.bannerUrl);
-    expect(sheetBanner({ bannerUrl: '' }, 'HDV 19')).toBe('');
+  const d = (format: string, accepted = 'HDV 17 et HDV 16 acceptés') => ({ format, accepted });
+  it('l’HDV du format, sinon le plus haut accepté ; HDV 18 : celle par défaut', () => {
+    expect(sheetBanner(cfg, d('HDV 19 mode e-sport'))).toBe(cfg.bannerByTh[19]);
+    expect(sheetBanner(cfg, d('hdv19'))).toBe(cfg.bannerByTh[19]);
+    expect(sheetBanner(cfg, d('HDV 18 mode e-sport'))).toBe(cfg.bannerUrl);
+    // La FW #46 : « Mode e-sport », « FULL HDV18 et HDV19 ».
+    expect(sheetBanner(cfg, d('Mode e-sport', 'FULL HDV18 et HDV19'))).toBe(cfg.bannerByTh[19]);
+    expect(sheetBanner(cfg, d('Mode e-sport'))).toBe(cfg.bannerUrl);
+    expect(sheetBanner({ bannerUrl: '' }, d('HDV 19'))).toBe('');
   });
 });
