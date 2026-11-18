@@ -431,6 +431,22 @@ describe('inscriptions (équipes random), plusieurs comptes', () => {
     await settle();
   });
 
+  it('retirer un compte : il n’est plus inscrit, la fiche suit', async () => {
+    const { ctx, e, signupId, discord, settle } = await launched();
+    await signTag(ctx, e.id, '#PQ2');
+    await settle();
+    const name = (await signupsOf(db(), e.id)).find((s) => s.tag === '#PQ2')!.name;
+    expect(discord.sheet(signupId)).toContain(name);
+    const reply = await runCommand(fw('retirer', { compte: '#PQ2' }), ctx);
+    expect(reply.content).toBe(`🗑️ **${name}** est retiré de la FW #41.`);
+    expect((await signupsOf(db(), e.id)).map((s) => s.tag)).not.toContain('#PQ2');
+    await settle();
+    expect(discord.sheet(signupId)).not.toContain(name);
+    // Un compte qui n'est pas inscrit : refusé
+    const again = await runCommand(fw('retirer', { compte: '#PQ2' }), ctx);
+    expect(again.content).toMatch(/pas inscrit à la FW en cours/);
+  });
+
   it('déplacer avant le tirage : refusé', async () => {
     const { ctx, e } = await launched();
     await signTag(ctx, e.id, '#PQ2');

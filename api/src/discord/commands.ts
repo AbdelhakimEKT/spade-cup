@@ -198,6 +198,20 @@ export const COMMANDS = [
         ],
       },
       {
+        name: 'retirer',
+        description: 'Retirer un compte de la FW en cours (il n’est plus inscrit)',
+        type: OptionType.Subcommand,
+        options: [
+          {
+            name: 'compte',
+            description: 'Le compte (choisis dans la liste)',
+            type: OptionType.String,
+            required: true,
+            autocomplete: true,
+          },
+        ],
+      },
+      {
         name: 'bilan',
         description: 'Fin de soirée : publier le top 5 des joueurs dans #résultats',
         type: OptionType.Subcommand,

@@ -64,6 +64,7 @@ import { ButtonStyle, ComponentType, type Choice, type Interaction } from './typ
  *   /fw modifier [infos…]   corrige la fiche (l'image et le message suivent) ;
  *   /fw equipes [refaire]   fait (ou refait) les équipes tout de suite ;
  *   /fw deplacer compte équipe   rééquilibrage ;
+ *   /fw retirer compte      désinscrit un compte (un admin ou un modo) ;
  *   /fw bilan               top 5 de la soirée dans #résultats, la soirée est finie ;
  *   /fw bilan-complet [numero]   chaque joueur des deux équipes, en image, posté
  *                        seulement dans le salon où la commande est tapée ;
@@ -611,6 +612,8 @@ export async function fwCommand(
         return await teamsCommand(ctx, options);
       case 'deplacer':
         return await move(ctx, options);
+      case 'retirer':
+        return await kick(ctx, options);
       case 'bilan':
         return await recap(ctx);
       case 'bilan-complet':
@@ -625,7 +628,7 @@ export async function fwCommand(
   }
 }
 
-/** Suggestions pour `/fw deplacer compte:` : les comptes inscrits à la soirée en cours. */
+/** Suggestions pour `/fw deplacer compte:` et `/fw retirer compte:` : les comptes inscrits à la soirée en cours. */
 export async function fwAutocomplete(ctx: BotContext, typed: string): Promise<Choice[]> {
   const e = await currentEvening(ctx.db);
   if (!e) return [];
@@ -839,6 +842,22 @@ async function move(ctx: BotContext, options: Options): Promise<Reply> {
   await setTeams(ctx.db, e.id, new Map([[signup.tag, team]]));
   await refreshSignup(ctx, e.id);
   return done(`✅ **${escapeMarkdown(signup.name)}** passe dans la ${TEAM_LABEL[team]}.`);
+}
+
+/**
+ * Un admin ou un modo retire un compte de la soirée en cours : il n'est plus
+ * inscrit et disparaît de la fiche (avant comme après les équipes). Rien ne
+ * l'empêche de se réinscrire avec le bouton.
+ */
+async function kick(ctx: BotContext, options: Options): Promise<Reply> {
+  const e = await current(ctx);
+  const tag = text(options, 'compte');
+  const signup =
+    (await signupsOf(ctx.db, e.id)).find((s) => s.tag === tag) ??
+    fail('Ce compte n’est pas inscrit à la FW en cours (choisis-le dans la liste).');
+  await run(ctx.db, [removeStatement(ctx.db, e.id, signup.tag)]);
+  await refreshSignup(ctx, e.id);
+  return done(`🗑️ **${escapeMarkdown(signup.name)}** est retiré de la FW #${e.number}.`);
 }
 
 /**
